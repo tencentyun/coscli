@@ -8,17 +8,17 @@ import (
 )
 
 func GenBucketURL(bucketIDName string, region string) string {
-	b := fmt.Sprintf("https://%s.cos.%s.myqcloud.com", bucketIDName, region)
+	b := fmt.Sprintf("https://%s.cos.%s.cos.yun.unionpay.com", bucketIDName, region)
 	return b
 }
 
 func GenServiceURL(region string) string {
-	s := fmt.Sprintf("https://cos.%s.myqcloud.com", region)
+	s := fmt.Sprintf("https://cos.%s.cos.yun.unionpay.com", region)
 	return s
 }
 
 func GenCiURL(bucketIDName string, region string) string {
-	c := fmt.Sprintf("https://%s.ci.%s.myqcloud.com", bucketIDName, region)
+	c := fmt.Sprintf("https://%s.ci.%s.cos.yun.unionpay.com", bucketIDName, region)
 	return c
 }
 
