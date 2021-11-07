@@ -6,11 +6,11 @@
 
 ## 下载链接
 
-[Linux](https://github.com/tencentyun/coscli/releases/download/v0.9-beta/coscli-linux)
+[Linux](https://github.com/tencentyun/coscli/releases/download/v0.91-beta/coscli-linux)
 
-[Mac](https://github.com/tencentyun/coscli/releases/download/v0.9-beta/coscli-mac)
+[Mac](https://github.com/tencentyun/coscli/releases/download/v0.91-beta/coscli-mac)
 
-[Windows](https://github.com/tencentyun/coscli/releases/download/v0.9-beta/coscli-windows.exe)
+[Windows](https://github.com/tencentyun/coscli/releases/download/v0.91-beta/coscli-windows.exe)
 
 ## 使用方法
 
