@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
+	"regexp"
 	"strings"
 )
 
 func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath string, storageClass string) {
 	opt := &cos.MultiUploadOptions{
-		OptIni:             &cos.InitiateMultipartUploadOptions{
-			ACLHeaderOptions:       &cos.ACLHeaderOptions{
+		OptIni: &cos.InitiateMultipartUploadOptions{
+			ACLHeaderOptions: &cos.ACLHeaderOptions{
 				XCosACL:              "",
 				XCosGrantRead:        "",
 				XCosGrantWrite:       "",
@@ -48,14 +49,25 @@ func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath st
 	}
 
 	// eg:~/example/123.txt => cos://bucket/path/123.txt
+	// 0. ~/example/123.txt => cos://bucket
+	if cosPath == "" {
+		pathList := strings.Split(localPath, "/")
+		fileName := pathList[len(pathList)-1]
+		cosPath = fileName
+	}
 	// 1. ~/example/123.txt => cos://bucket/path/
-	if cosPath[len(cosPath) - 1] == '/' {
+	if cosPath[len(cosPath)-1] == '/' || cosPath[len(cosPath)-1] == '\\' {
 		fileNames := strings.Split(localPath, "/")
-		fileName := fileNames[len(fileNames) - 1]
+		fileName := fileNames[len(fileNames)-1]
 		cosPath = cosPath + fileName
 	}
 	// 2. 123.txt => cos://bucket/path/
-	if localPath[0] != '/' {
+	isWindowsAbsolute, err := regexp.MatchString(WindowsAbsolutePattern, localPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if localPath[0] != '/' && !isWindowsAbsolute{
 		dirPath, err := os.Getwd()
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
@@ -64,7 +76,7 @@ func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath st
 		localPath = dirPath + "/" + localPath
 	}
 	fmt.Printf("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)
-	_, _, err := c.Object.Upload(context.Background(), cosPath, localPath, opt)
+	_, _, err = c.Object.Upload(context.Background(), cosPath, localPath, opt)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
