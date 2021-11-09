@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
+	"path/filepath"
 )
 
 func SyncSingleUpload(c *cos.Client, localPath string, bucketName string, cosPath string, storageClass string) {
@@ -28,7 +29,7 @@ func SyncSingleUpload(c *cos.Client, localPath string, bucketName string, cosPat
 	} else {
 		if resp.StatusCode != 404 {
 			// 补全 localPath
-			if localPath[0] != '/' {
+			if !filepath.IsAbs(localPath) {
 				dirPath, err := os.Getwd()
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
