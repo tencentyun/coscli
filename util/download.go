@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
-	"regexp"
+	"path/filepath"
 	"strings"
 )
 
@@ -36,12 +36,7 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 	// cos://bucket/path/123.txt => ~/example/123.txt
 	// input: cos://bucket/path/123.txt => example/
 	// show:  cos://bucket/path/123.txt => /Users/asdf/example/123.txt
-	isWindowsAbsolute, err := regexp.MatchString(WindowsAbsolutePattern, localPath)
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if localPath[0] != '/' && !isWindowsAbsolute{
+	if !filepath.IsAbs(localPath) {
 		dirPath, err := os.Getwd()
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
@@ -64,7 +59,7 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 	}
 	fmt.Printf("Download cos://%s/%s => %s\n", bucketName, cosPath, localPath)
 
-	err = os.MkdirAll(path, os.ModePerm)
+	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

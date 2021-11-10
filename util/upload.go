@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
-	"regexp"
+	"path/filepath"
 	"strings"
 )
 
@@ -62,12 +62,7 @@ func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath st
 		cosPath = cosPath + fileName
 	}
 	// 2. 123.txt => cos://bucket/path/
-	isWindowsAbsolute, err := regexp.MatchString(WindowsAbsolutePattern, localPath)
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if localPath[0] != '/' && !isWindowsAbsolute{
+	if !filepath.IsAbs(localPath) {
 		dirPath, err := os.Getwd()
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
@@ -76,7 +71,7 @@ func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath st
 		localPath = dirPath + "/" + localPath
 	}
 	fmt.Printf("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)
-	_, _, err = c.Object.Upload(context.Background(), cosPath, localPath, opt)
+	_, _, err := c.Object.Upload(context.Background(), cosPath, localPath, opt)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
