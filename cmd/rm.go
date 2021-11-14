@@ -38,7 +38,7 @@ Example:
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
 		if recursive {
-			removeObjects(args, include, exclude, force)
+			removeObjects1(args, include, exclude, force)
 		} else {
 			removeObject(args, force)
 		}
@@ -105,6 +105,75 @@ func removeObjects(args []string, include string, exclude string, force bool) {
 				fmt.Println(i+1, ". Fail to delete", e.Key)
 				fmt.Println("    Error Code: ", e.Code, " Message: ", e.Message)
 			}
+		}
+	}
+}
+
+func removeObjects1(args []string, include string, exclude string, force bool) {
+	for _, arg := range args {
+		bucketName, cosDir := util.ParsePath(arg)
+		c := util.NewClient(&config, bucketName)
+
+		if cosDir != "" && (cosDir[len(cosDir)-1] != '/' || cosDir[len(cosDir)-1] != '\\') {
+			cosDir += "/"
+		}
+
+		isTruncated := true
+		nextMarker := ""
+		deleteOrNot := false
+		errorOrNot := false
+		for isTruncated {
+			objects, t, m:= util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+			isTruncated = t
+			nextMarker = m
+
+			var oKeys []cos.Object
+			for _, o := range objects {
+				if !force {
+					fmt.Printf("Do you want to delete %s? (y/n)", o.Key)
+					var choice string
+					_, _ = fmt.Scanf("%s\n", &choice)
+					if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
+						oKeys = append(oKeys, cos.Object{Key: o.Key})
+					}
+				} else {
+					oKeys = append(oKeys, cos.Object{Key: o.Key})
+				}
+			}
+			if len(oKeys) > 0 {
+				deleteOrNot = true
+			}
+
+			opt := &cos.ObjectDeleteMultiOptions{
+				XMLName: xml.Name{},
+				Quiet:   false,
+				Objects: oKeys,
+			}
+
+			res, _, err := c.Object.DeleteMulti(context.Background(), opt)
+			if err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+
+			for _, o := range res.DeletedObjects {
+				fmt.Println("Delete ", o.Key)
+			}
+			if len(res.Errors) > 0 {
+				errorOrNot = true
+				fmt.Println()
+				for _, e := range res.Errors {
+					fmt.Println("Fail to delete", e.Key)
+					fmt.Println("    Error Code: ", e.Code, " Message: ", e.Message)
+				}
+			}
+		}
+
+		if deleteOrNot == false {
+			fmt.Println("No objects were deleted!")
+		}
+		if errorOrNot == false {
+			fmt.Printf("\nAll deleted successfully!\n")
 		}
 	}
 }
