@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath string, storageClass string) {
+func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath string, storageClass string, rateLimiting float32, partSize int64, threadNum int) {
 	opt := &cos.MultiUploadOptions{
 		OptIni: &cos.InitiateMultipartUploadOptions{
 			ACLHeaderOptions: &cos.ACLHeaderOptions{
@@ -38,12 +38,12 @@ func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath st
 				XCosSSECustomerKey:       "",
 				XCosSSECustomerKeyMD5:    "",
 				XOptionHeader:            nil,
-				XCosTrafficLimit:         0,
+				XCosTrafficLimit:         (int)(rateLimiting * 1024 * 1024 * 8),
 				Listener:                 &CosListener{},
 			},
 		},
-		PartSize:           32,
-		ThreadPoolSize:     5,
+		PartSize:           partSize,
+		ThreadPoolSize:     threadNum,
 		CheckPoint:         true,
 		EnableVerification: false,
 	}
@@ -83,8 +83,8 @@ func SingleUpload(c *cos.Client, localPath string, bucketName string, cosPath st
 	}
 }
 
-func MultiUpload(c *cos.Client, localDir string, bucketName string, cosDir string, include string, exclude string, storageClass string) {
-	if localDir != "" && localDir[len(localDir)-1] != '/' {
+func MultiUpload(c *cos.Client, localDir string, bucketName string, cosDir string, include string, exclude string, storageClass string, rateLimiting float32, partSize int64, threadNum int) {
+	if localDir != "" && (localDir[len(localDir)-1] != '/' || localDir[len(localDir)-1] != '\\') {
 		localDir += "/"
 	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
@@ -97,6 +97,6 @@ func MultiUpload(c *cos.Client, localDir string, bucketName string, cosDir strin
 		localPath := localDir + f
 		cosPath := cosDir + f
 
-		SingleUpload(c, localPath, bucketName, cosPath, storageClass)
+		SingleUpload(c, localPath, bucketName, cosPath, storageClass, rateLimiting, partSize, threadNum)
 	}
 }

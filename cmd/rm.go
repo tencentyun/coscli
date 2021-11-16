@@ -114,7 +114,7 @@ func removeObjects1(args []string, include string, exclude string, force bool) {
 		bucketName, cosDir := util.ParsePath(arg)
 		c := util.NewClient(&config, bucketName)
 
-		if cosDir != "" && (cosDir[len(cosDir)-1] != '/' || cosDir[len(cosDir)-1] != '\\') {
+		if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 			cosDir += "/"
 		}
 

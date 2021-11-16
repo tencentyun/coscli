@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath string) {
+func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath string, rateLimiting float32, partSize int64, threadNum int) {
 	opt := &cos.MultiDownloadOptions{
 		Opt: &cos.ObjectGetOptions{
 			ResponseContentType:        "",
@@ -24,11 +24,11 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 			XCosSSECustomerKey:         "",
 			XCosSSECustomerKeyMD5:      "",
 			XOptionHeader:              nil,
-			XCosTrafficLimit:           0,
+			XCosTrafficLimit:           (int)(rateLimiting * 1024 * 1024 * 8),
 			Listener:                   &CosListener{},
 		},
-		PartSize:       32,
-		ThreadPoolSize: 5,
+		PartSize:       partSize,
+		ThreadPoolSize: threadNum,
 		CheckPoint:     true,
 		CheckPointFile: "",
 	}
@@ -52,7 +52,7 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 
 	// 创建文件夹
 	var path string
-	if localPath[len(localPath) - 1] == '/' {
+	if localPath[len(localPath) - 1] == '/' || localPath[len(localPath) - 1] == '\\' {
 		pathList := strings.Split(cosPath, "/")
 		fileName := pathList[len(pathList)-1]
 		path = localPath
@@ -77,8 +77,8 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 	}
 }
 
-func MultiDownload(c *cos.Client, bucketName string, cosDir string, localDir string, include string, exclude string) {
-	if localDir != "" && localDir[len(localDir)-1] != '/' {
+func MultiDownload(c *cos.Client, bucketName string, cosDir string, localDir string, include string, exclude string, rateLimiting float32, partSize int64, threadNum int) {
+	if localDir != "" && (localDir[len(localDir)-1] != '/' || localDir[len(localDir)-1] != '\\') {
 		localDir += "/"
 	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
@@ -90,6 +90,6 @@ func MultiDownload(c *cos.Client, bucketName string, cosDir string, localDir str
 	for _, o := range objects {
 		objName := o.Key[len(cosDir):]
 		localPath := localDir + objName
-		SingleDownload(c, bucketName, o.Key, localPath)
+		SingleDownload(c, bucketName, o.Key, localPath, rateLimiting, partSize, threadNum)
 	}
 }

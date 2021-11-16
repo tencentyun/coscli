@@ -39,15 +39,18 @@ Example:
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
 		storageClass, _ := cmd.Flags().GetString("storage-class")
+		rateLimiting, _ := cmd.Flags().GetFloat32("rate-limiting")
+		partSize, _ := cmd.Flags().GetInt64("part-size")
+		threadNum, _ := cmd.Flags().GetInt("thread-num")
 		// args[0]: 源地址
 		// args[1]: 目标地址
 		if !util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
 			// 上传
-			upload(args, recursive, include, exclude, storageClass)
+			upload(args, recursive, include, exclude, storageClass, rateLimiting, partSize, threadNum)
 		}
 		if util.IsCosPath(args[0]) && !util.IsCosPath(args[1]) {
 			// 下载
-			download(args, recursive, include, exclude)
+			download(args, recursive, include, exclude, rateLimiting, partSize, threadNum)
 		}
 		if util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
 			// 拷贝
@@ -63,29 +66,32 @@ func init() {
 	cpCmd.Flags().String("include", "", "Include files that meet the specified criteria")
 	cpCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 	cpCmd.Flags().String("storage-class", "", "Specifying a storage class")
+	cpCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
+	cpCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
+	cpCmd.Flags().Int("thread-num", 5, "Specifies the number of concurrent upload or download threads")
 }
 
-func upload(args []string, recursive bool, include string, exclude string, storageClass string) {
+func upload(args []string, recursive bool, include string, exclude string, storageClass string, rateLimiting float32, partSize int64, threadNum int) {
 	_, localPath := util.ParsePath(args[0])
 	bucketName, cosPath := util.ParsePath(args[1])
 	c := util.NewClient(&config, bucketName)
 
 	if recursive {
-		util.MultiUpload(c, localPath, bucketName, cosPath, include, exclude, storageClass)
+		util.MultiUpload(c, localPath, bucketName, cosPath, include, exclude, storageClass, rateLimiting, partSize, threadNum)
 	} else {
-		util.SingleUpload(c, localPath, bucketName, cosPath, storageClass)
+		util.SingleUpload(c, localPath, bucketName, cosPath, storageClass, rateLimiting, partSize, threadNum)
 	}
 }
 
-func download(args []string, recursive bool, include string, exclude string) {
+func download(args []string, recursive bool, include string, exclude string, rateLimiting float32, partSize int64, threadNum int) {
 	bucketName, cosPath := util.ParsePath(args[0])
 	_, localPath := util.ParsePath(args[1])
 	c := util.NewClient(&config, bucketName)
 
 	if recursive {
-		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude)
+		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, rateLimiting, partSize, threadNum)
 	} else {
-		util.SingleDownload(c, bucketName, cosPath, localPath)
+		util.SingleDownload(c, bucketName, cosPath, localPath, rateLimiting, partSize, threadNum)
 	}
 }
 

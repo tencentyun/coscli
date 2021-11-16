@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func SyncSingleUpload(c *cos.Client, localPath string, bucketName string, cosPath string, storageClass string) {
+func SyncSingleUpload(c *cos.Client, localPath string, bucketName string, cosPath string, storageClass string, rateLimiting float32, partSize int64, threadNum int) {
 	headOpt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",
 		XCosSSECustomerAglo:   "",
@@ -20,22 +20,27 @@ func SyncSingleUpload(c *cos.Client, localPath string, bucketName string, cosPat
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
 			// 文件不在cos上，上传
-			SingleUpload(c, localPath, bucketName, cosPath, storageClass)
+			SingleUpload(c, localPath, bucketName, cosPath, storageClass, rateLimiting, partSize, threadNum)
 		} else {
 			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	} else {
 		if resp.StatusCode != 404 {
-			// 补全 localPath
-			if localPath[0] != '/' {
-				dirPath, err := os.Getwd()
-				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
-				}
-				localPath = dirPath + "/" + localPath
-			}
+			//isWindowsAbsolute, err := regexp.MatchString(WindowsAbsolutePattern, localPath)
+			//if err != nil {
+			//	_, _ = fmt.Fprintln(os.Stderr, err)
+			//	os.Exit(1)
+			//}
+			//// 补全 localPath
+			//if localPath[0] != '/' && !isWindowsAbsolute {
+			//	dirPath, err := os.Getwd()
+			//	if err != nil {
+			//		_, _ = fmt.Fprintln(os.Stderr, err)
+			//		os.Exit(1)
+			//	}
+			//	localPath = dirPath + "/" + localPath
+			//}
 			cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
 			localCrc, _ := CalculateHash(localPath, "crc64")
 			if cosCrc == localCrc {
@@ -44,12 +49,12 @@ func SyncSingleUpload(c *cos.Client, localPath string, bucketName string, cosPat
 			}
 		}
 
-		SingleUpload(c, localPath, bucketName, cosPath, storageClass)
+		SingleUpload(c, localPath, bucketName, cosPath, storageClass, rateLimiting, partSize, threadNum)
 	}
 }
 
-func SyncMultiUpload(c *cos.Client, localDir string, bucketName string, cosDir string, include string, exclude string, storageClass string) {
-	if localDir != "" && localDir[len(localDir)-1] != '/' {
+func SyncMultiUpload(c *cos.Client, localDir string, bucketName string, cosDir string, include string, exclude string, storageClass string, rateLimiting float32, partSize int64, threadNum int) {
+	if localDir != "" && (localDir[len(localDir)-1] != '/' || localDir[len(localDir)-1] !='\\') {
 		localDir += "/"
 	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
@@ -62,16 +67,16 @@ func SyncMultiUpload(c *cos.Client, localDir string, bucketName string, cosDir s
 		localPath := localDir + f
 		cosPath := cosDir + f
 
-		SyncSingleUpload(c, localPath, bucketName, cosPath, storageClass)
+		SyncSingleUpload(c, localPath, bucketName, cosPath, storageClass, rateLimiting, partSize, threadNum)
 	}
 }
 
-func SyncSingleDownload(c *cos.Client, bucketName string, cosPath string, localPath string) {
+func SyncSingleDownload(c *cos.Client, bucketName string, cosPath string, localPath string, rateLimiting float32, partSize int64, threadNum int) {
 	_, err := os.Stat(localPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// 文件不在本地，下载
-			SingleDownload(c, bucketName, cosPath, localPath)
+			SingleDownload(c, bucketName, cosPath, localPath, rateLimiting, partSize, threadNum)
 		} else {
 			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -84,11 +89,11 @@ func SyncSingleDownload(c *cos.Client, bucketName string, cosPath string, localP
 			return
 		}
 
-		SingleDownload(c, bucketName, cosPath, localPath)
+		SingleDownload(c, bucketName, cosPath, localPath, rateLimiting, partSize, threadNum)
 	}
 }
 
-func SyncMultiDownload(c *cos.Client, bucketName string, cosDir string, localDir string, include string, exclude string) {
+func SyncMultiDownload(c *cos.Client, bucketName string, cosDir string, localDir string, include string, exclude string, rateLimiting float32, partSize int64, threadNum int) {
 	if localDir != "" && localDir[len(localDir)-1] != '/' {
 		localDir += "/"
 	}
@@ -101,6 +106,6 @@ func SyncMultiDownload(c *cos.Client, bucketName string, cosDir string, localDir
 	for _, o := range objects {
 		objName := o.Key[len(cosDir):]
 		localPath := localDir + objName
-		SyncSingleDownload(c, bucketName, o.Key, localPath)
+		SyncSingleDownload(c, bucketName, o.Key, localPath, rateLimiting, partSize, threadNum)
 	}
 }
