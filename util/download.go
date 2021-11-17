@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
-	"regexp"
+	"path/filepath"
 	"strings"
 )
 
-func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath string, rateLimiting float32, partSize int64, threadNum int) {
+type DownloadOptions struct {
+	RateLimiting float32
+	PartSize     int64
+	ThreadNum    int
+}
+
+func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions) {
 	opt := &cos.MultiDownloadOptions{
 		Opt: &cos.ObjectGetOptions{
 			ResponseContentType:        "",
@@ -24,24 +30,25 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 			XCosSSECustomerKey:         "",
 			XCosSSECustomerKeyMD5:      "",
 			XOptionHeader:              nil,
-			XCosTrafficLimit:           (int)(rateLimiting * 1024 * 1024 * 8),
+			XCosTrafficLimit:           (int)(op.RateLimiting * 1024 * 1024 * 8),
 			Listener:                   &CosListener{},
 		},
-		PartSize:       partSize,
-		ThreadPoolSize: threadNum,
+		PartSize:       op.PartSize,
+		ThreadPoolSize: op.ThreadNum,
 		CheckPoint:     true,
 		CheckPointFile: "",
+	}
+
+	// cos://bucket/dirPath/ => ~/example/
+	// Should skip
+	if len(cosPath) > 1 && cosPath[len(cosPath)-1] == '/' {
+		return
 	}
 
 	// cos://bucket/path/123.txt => ~/example/123.txt
 	// input: cos://bucket/path/123.txt => example/
 	// show:  cos://bucket/path/123.txt => /Users/asdf/example/123.txt
-	isWindowsAbsolute, err := regexp.MatchString(WindowsAbsolutePattern, localPath)
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if localPath[0] != '/' && !isWindowsAbsolute{
+	if !filepath.IsAbs(localPath) {
 		dirPath, err := os.Getwd()
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
@@ -52,7 +59,12 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 
 	// 创建文件夹
 	var path string
-	if localPath[len(localPath) - 1] == '/' || localPath[len(localPath) - 1] == '\\' {
+	s, err := os.Stat(localPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if s.IsDir() {
 		pathList := strings.Split(cosPath, "/")
 		fileName := pathList[len(pathList)-1]
 		path = localPath
@@ -60,7 +72,7 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 	} else {
 		pathList := strings.Split(localPath, "/")
 		fileName := pathList[len(pathList)-1]
-		path = localPath[:len(localPath) - len(fileName)]
+		path = localPath[:len(localPath)-len(fileName)]
 	}
 	fmt.Printf("Download cos://%s/%s => %s\n", bucketName, cosPath, localPath)
 
@@ -77,8 +89,8 @@ func SingleDownload(c *cos.Client, bucketName string, cosPath string, localPath 
 	}
 }
 
-func MultiDownload(c *cos.Client, bucketName string, cosDir string, localDir string, include string, exclude string, rateLimiting float32, partSize int64, threadNum int) {
-	if localDir != "" && (localDir[len(localDir)-1] != '/' || localDir[len(localDir)-1] != '\\') {
+func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, op *DownloadOptions) {
+	if localDir != "" && (localDir[len(localDir)-1] != '/' && localDir[len(localDir)-1] != '\\') {
 		localDir += "/"
 	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
@@ -90,6 +102,6 @@ func MultiDownload(c *cos.Client, bucketName string, cosDir string, localDir str
 	for _, o := range objects {
 		objName := o.Key[len(cosDir):]
 		localPath := localDir + objName
-		SingleDownload(c, bucketName, o.Key, localPath, rateLimiting, partSize, threadNum)
+		SingleDownload(c, bucketName, o.Key, localPath, op)
 	}
 }

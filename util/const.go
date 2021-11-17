@@ -10,6 +10,4 @@ const (
 	MAZStandard           = "MAZ_STANDARD"
 	MAZStandardIA         = "MAZ_STANDARD_IA"
 	MAZIntelligentTiering = "MAZ_INTELLIGENT_TIERING"
-
-	WindowsAbsolutePattern = `^[A-Z]+:`
 )

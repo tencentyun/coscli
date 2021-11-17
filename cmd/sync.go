@@ -47,11 +47,22 @@ Example:
 		// args[1]: 目标地址
 		if !util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
 			// 上传
-			syncUpload(args, recursive, include, exclude, storageClass, rateLimiting, partSize, threadNum)
+			op := &util.UploadOptions{
+				StorageClass: storageClass,
+				RateLimiting: rateLimiting,
+				PartSize:     partSize,
+				ThreadNum:    threadNum,
+			}
+			syncUpload(args, recursive, include, exclude, op)
 		}
 		if util.IsCosPath(args[0]) && !util.IsCosPath(args[1]) {
 			// 下载
-			syncDownload(args, recursive, include, exclude, rateLimiting, partSize, threadNum)
+			op := &util.DownloadOptions{
+				RateLimiting: rateLimiting,
+				PartSize:     partSize,
+				ThreadNum:    threadNum,
+			}
+			syncDownload(args, recursive, include, exclude, op)
 		}
 		if util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
 			// 拷贝
@@ -72,27 +83,27 @@ func init() {
 	syncCmd.Flags().Int("thread-num", 5, "Specifies the number of concurrent upload or download threads")
 }
 
-func syncUpload(args []string, recursive bool, include string, exclude string, storageClass string, rateLimiting float32, partSize int64, threadNum int) {
+func syncUpload(args []string, recursive bool, include string, exclude string, op *util.UploadOptions) {
 	_, localPath := util.ParsePath(args[0])
 	bucketName, cosPath := util.ParsePath(args[1])
 	c := util.NewClient(&config, bucketName)
 
 	if recursive {
-		util.SyncMultiUpload(c, localPath, bucketName, cosPath, include, exclude, storageClass, rateLimiting, partSize, threadNum)
+		util.SyncMultiUpload(c, localPath, bucketName, cosPath, include, exclude, op)
 	} else {
-		util.SyncSingleUpload(c, localPath, bucketName, cosPath, storageClass, rateLimiting, partSize, threadNum)
+		util.SyncSingleUpload(c, localPath, bucketName, cosPath, op)
 	}
 }
 
-func syncDownload(args []string, recursive bool, include string, exclude string, rateLimiting float32, partSize int64, threadNum int) {
+func syncDownload(args []string, recursive bool, include string, exclude string, op *util.DownloadOptions) {
 	bucketName, cosPath := util.ParsePath(args[0])
 	_, localPath := util.ParsePath(args[1])
 	c := util.NewClient(&config, bucketName)
 
 	if recursive {
-		util.SyncMultiDownload(c, bucketName, cosPath, localPath, include, exclude, rateLimiting, partSize, threadNum)
+		util.SyncMultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
 	} else {
-		util.SyncSingleDownload(c, bucketName, cosPath, localPath, rateLimiting, partSize, threadNum)
+		util.SyncSingleDownload(c, bucketName, cosPath, localPath, op)
 	}
 }
 
