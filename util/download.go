@@ -59,12 +59,8 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 
 	// 创建文件夹
 	var path string
-	s, err := os.Stat(localPath)
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if s.IsDir() {
+	s, _ := os.Stat(localPath)
+	if s != nil && s.IsDir() {
 		pathList := strings.Split(cosPath, "/")
 		fileName := pathList[len(pathList)-1]
 		path = localPath
@@ -76,7 +72,7 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 	}
 	fmt.Printf("Download cos://%s/%s => %s\n", bucketName, cosPath, localPath)
 
-	err = os.MkdirAll(path, os.ModePerm)
+	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
