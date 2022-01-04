@@ -12,14 +12,14 @@ import (
 var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List buckets or objects",
-	Long:  `List buckets or objects
+	Long: `List buckets or objects
 
 Format:
   ./coscli ls cos://<bucket-name>[/prefix/] [flags]
 
 Example:
   ./coscli ls cos://examplebucket/test/ -r`,
-	Args:  cobra.MaximumNArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		limit, _ := cmd.Flags().GetInt("limit")
 		recursive, _ := cmd.Flags().GetBool("recursive")
@@ -64,6 +64,11 @@ func listBuckets(limit int, include string, exclude string) {
 }
 
 func listObjects(cosPath string, limit int, recursive bool, include string, exclude string) {
+	if !util.IsCosPath(cosPath) {
+		_, _ = fmt.Fprintln(os.Stderr, "cos path should be 'cos://<bucket-name>[/prefix/]'")
+		os.Exit(1)
+	}
+
 	bucketName, path := util.ParsePath(cosPath)
 	c := util.NewClient(&config, bucketName)
 
@@ -85,6 +90,6 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 	}
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
-	table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", len(dirs) + len(objects))})
+	table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", len(dirs)+len(objects))})
 	table.Render()
 }
