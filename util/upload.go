@@ -72,6 +72,13 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 		fileNames := strings.Split(localPath, "/")
 		fileName := fileNames[len(fileNames)-1]
 		cosPath = cosPath + fileName
+	} else {
+		// ~/example/123.txt => cos://bucket/path/
+		// Add 123.txt to cos path
+		if strings.HasSuffix(cosPath, "/") {
+			_, fileName := filepath.Split(localPath)
+			cosPath = filepath.Join(cosPath, fileName)
+		}
 	}
 	// 2. 123.txt => cos://bucket/path/
 	if !filepath.IsAbs(localPath) {
