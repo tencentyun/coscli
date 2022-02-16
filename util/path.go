@@ -25,12 +25,7 @@ func ParsePath(url string) (bucketName string, path string) {
 			return res[0], res[1]
 		}
 	} else {
-		if url[0] == '~' {
-			home, _ := homedir.Dir()
-			path = home + url[1:]
-		} else {
-			path = url
-		}
+		path, _ = homedir.Expand(url)
 		return "", path
 	}
 }
