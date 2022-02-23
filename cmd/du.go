@@ -2,20 +2,21 @@ package cmd
 
 import (
 	"coscli/util"
+
 	"github.com/spf13/cobra"
 )
 
 var duCmd = &cobra.Command{
 	Use:   "du",
 	Short: "Displays the size of a bucket or objects",
-	Long:  `Displays the size of a bucket or objects
+	Long: `Displays the size of a bucket or objects
 
 Format:
   ./coscli du cos://<bucket_alias>[/prefix/] [flags]
 
 Example:
   ./coscli du cos://examplebucket/test/`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		bucketName, cosPath := util.ParsePath(args[0])
 		include, _ := cmd.Flags().GetString("include")
@@ -35,7 +36,7 @@ func init() {
 }
 
 func duBucket(bucketName string, include string, exclude string) {
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	objects := util.GetObjectsListRecursive(c, "", 0, include, exclude)
 
@@ -43,7 +44,7 @@ func duBucket(bucketName string, include string, exclude string) {
 }
 
 func duObjects(bucketName string, cosPath string, include string, exclude string) {
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	objects := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
 

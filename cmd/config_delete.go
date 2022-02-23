@@ -3,15 +3,16 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
 var configDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Used to delete an existing bucket",
-	Long:  `Used to delete an existing bucket
+	Long: `Used to delete an existing bucket
 
 Format:
   ./coscli config delete -a <alias> [-c <config-file-path>]
@@ -45,5 +46,5 @@ func deleteBucketConfig(cmd *cobra.Command) {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("Delete succeccfully! name: %s, region: %s, alias: %s", b.Name, b.Region, b.Alias)
+	fmt.Printf("Delete succeccfully! name: %s, endpoint: %s, alias: %s", b.Name, b.Endpoint, b.Alias)
 }

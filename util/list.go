@@ -3,10 +3,11 @@ package util
 import (
 	"context"
 	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"io/ioutil"
 	"os"
 	"regexp"
+
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func MatchBucketPattern(buckets []cos.Bucket, pattern string, include bool) []cos.Bucket {
@@ -110,6 +111,7 @@ func GetObjectsList(c *cos.Client, prefix string, limit int, include string, exc
 
 		res, _, err := c.Bucket.Get(context.Background(), opt)
 		if err != nil {
+			fmt.Println(err.Error())
 			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -9,7 +10,7 @@ import (
 var configShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Prints information from a specified configuration file",
-	Long:  `Prints information from a specified configuration file
+	Long: `Prints information from a specified configuration file
 
 Format:
   ./coscli config show [-c <config-file-path>]
@@ -39,7 +40,7 @@ func showConfig() {
 	for i, b := range config.Buckets {
 		fmt.Printf("- Bucket %d :\n", i+1)
 		fmt.Printf("  Name:  \t%s\n", b.Name)
-		fmt.Printf("  Region:\t%s\n", b.Region)
+		fmt.Printf("  Endpoint:\t%s\n", b.Endpoint)
 		fmt.Printf("  Alias: \t%s\n", b.Alias)
 	}
 }

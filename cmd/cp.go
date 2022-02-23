@@ -4,14 +4,15 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 var cpCmd = &cobra.Command{
 	Use:   "cp",
 	Short: "Upload, download or copy objects",
-	Long:  `Upload, download or copy objects
+	Long: `Upload, download or copy objects
 
 Format:
   ./coscli cp <source_path> <destination_path> [flags]
@@ -86,7 +87,7 @@ func init() {
 func upload(args []string, recursive bool, include string, exclude string, op *util.UploadOptions) {
 	_, localPath := util.ParsePath(args[0])
 	bucketName, cosPath := util.ParsePath(args[1])
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	if recursive {
 		util.MultiUpload(c, localPath, bucketName, cosPath, include, exclude, op)
@@ -98,7 +99,7 @@ func upload(args []string, recursive bool, include string, exclude string, op *u
 func download(args []string, recursive bool, include string, exclude string, op *util.DownloadOptions) {
 	bucketName, cosPath := util.ParsePath(args[0])
 	_, localPath := util.ParsePath(args[1])
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	if recursive {
 		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
@@ -110,10 +111,10 @@ func download(args []string, recursive bool, include string, exclude string, op 
 func cosCopy(args []string, recursive bool, include string, exclude string) {
 	bucketName1, cosPath1 := util.ParsePath(args[0])
 	bucketName2, cosPath2 := util.ParsePath(args[1])
-	c2 := util.NewClient(&config, bucketName2)
+	c2 := util.NewClient(&config, &param, bucketName2)
 
 	if recursive {
-		c1 := util.NewClient(&config, bucketName1)
+		c1 := util.NewClient(&config, &param, bucketName1)
 
 		if cosPath1 != "" && cosPath1[len(cosPath1)-1] != '/' {
 			cosPath1 += "/"
@@ -131,7 +132,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string) {
 			dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
 			fmt.Println("Copy", srcPath, "=>", dstPath)
 
-			url := util.GenURL(&config, bucketName1)
+			url := util.GenURL(&config, &param, bucketName1)
 			srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
 
 			_, _, err := c2.Object.Copy(context.Background(), dstKey, srcURL, nil)
@@ -145,9 +146,9 @@ func cosCopy(args []string, recursive bool, include string, exclude string) {
 			fmt.Println("When copying a single file, you need to specify a full path")
 			os.Exit(1)
 		}
-		
+
 		fmt.Println("Copy", args[0], "=>", args[1])
-		url := util.GenURL(&config, bucketName1)
+		url := util.GenURL(&config, &param, bucketName1)
 		srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
 
 		_, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)

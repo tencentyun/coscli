@@ -9,13 +9,20 @@ type BaseCfg struct {
 	SecretID     string `yaml:"secretid"`
 	SecretKey    string `yaml:"secretkey"`
 	SessionToken string `yaml:"sessiontoken"`
-	//AppID     string `yaml:"appid"`
+	Protocol     string `yaml:"protcol"`
 }
 
 type Bucket struct {
-	Name   string `yaml:"name"`
-	Alias  string `yaml:"alias"`
-	Region string `yaml:"region"`
+	Name     string `yaml:"name"`
+	Alias    string `yaml:"alias"`
+	Region   string `yaml:"region"`
+	Endpoint string `yaml:"endpoint"`
+}
+type Param struct {
+	SecretID     string
+	SecretKey    string
+	SessionToken string
+	Endpoint     string
 }
 
 type UploadInfo struct {

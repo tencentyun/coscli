@@ -3,8 +3,9 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
-	"github.com/spf13/viper"
 	"os"
+
+	"github.com/spf13/viper"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ import (
 var configInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Used to interactively generate the configuration file",
-	Long:  `Used to interactively generate the configuration file
+	Long: `Used to interactively generate the configuration file
 
 Format:
   ./coscli config init [-c <config-file-path>]
@@ -62,12 +63,14 @@ func initConfigFile(cfgFlag bool) {
 	if len(config.Base.SessionToken) < 3 {
 		config.Base.SessionToken = ""
 	}
+	config.Base.Protocol = "https"
 
 	fmt.Println("Input Your Bucket's Name:")
 	fmt.Println("Format: <bucketname>-<appid>，Example: example-1234567890")
 	_, _ = fmt.Scanf("%s\n", &bucket.Name)
-	fmt.Println("Input Bucket's Region:")
-	_, _ = fmt.Scanf("%s\n", &bucket.Region)
+	fmt.Println("Input Bucket's Endpoint:")
+	fmt.Println("Format: cos.<region>.myqcloud.com，Example: cos.ap-beijing.myqcloud.com")
+	_, _ = fmt.Scanf("%s\n", &bucket.Endpoint)
 	fmt.Println("Input Bucket's Alias: (Input nothing will use the original name)")
 	_, _ = fmt.Scanf("%s\n", &bucket.Alias)
 	if bucket.Alias == "" {
@@ -77,7 +80,7 @@ func initConfigFile(cfgFlag bool) {
 	config.Buckets = append(config.Buckets, bucket)
 	fmt.Println("You have configured the bucket:")
 	for _, b := range config.Buckets {
-		fmt.Printf("- Name: %s\tRegion: %s\tAlias: %s\n", b.Name, b.Region, b.Alias)
+		fmt.Printf("- Name: %s\tEndpoint: %s\tAlias: %s\n", b.Name, b.Endpoint, b.Alias)
 	}
 	fmt.Printf("\nIf you want to configure more buckets, you can use the \"config add\" command later.\n")
 

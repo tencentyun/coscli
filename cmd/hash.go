@@ -3,21 +3,22 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 var hashCmd = &cobra.Command{
 	Use:   "hash",
 	Short: "Calculate local file's hash-code or show cos file's hash-code",
-	Long:  `Calculate local file's hash-code or show cos file's hash-code
+	Long: `Calculate local file's hash-code or show cos file's hash-code
 
 Format:
   ./coscli hash <file-path> [--type <hash-type>]
 
 Example:
   ./coscli hash cos://example --type md5`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		bucketName, path := util.ParsePath(args[0])
 		hashType, _ := cmd.Flags().GetString("type")
@@ -37,7 +38,7 @@ func init() {
 }
 
 func showHash(bucketName string, path string, hashType string) {
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 	switch hashType {
 	case "crc64":
 		h, _ := util.ShowHash(c, path, "crc64")

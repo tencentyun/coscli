@@ -3,22 +3,23 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
+	"os"
+
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 var lspartsCmd = &cobra.Command{
 	Use:   "lsparts",
 	Short: "List multipart uploads",
-	Long:  `List multipart uploads
+	Long: `List multipart uploads
 
 Format:
   ./coscli lsparts cos://<bucket-name>[/<prefix>] [flags]
 
 Example:
   ./coscli lsparts cos://examplebucket/test/`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		limit, _ := cmd.Flags().GetInt("limit")
 		include, _ := cmd.Flags().GetString("include")
@@ -42,7 +43,7 @@ func init() {
 
 func listParts(arg string, limit int, include string, exclude string) {
 	bucketName, cosPath := util.ParsePath(arg)
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	uploads := util.GetUploadsListRecursive(c, cosPath, limit, include, exclude)
 

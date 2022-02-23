@@ -4,15 +4,16 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"os"
 )
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Synchronize objects",
-	Long:  `Synchronize objects
+	Long: `Synchronize objects
 
 Format:
   ./coscli sync <source_path> <destination_path> [flags]
@@ -86,7 +87,7 @@ func init() {
 func syncUpload(args []string, recursive bool, include string, exclude string, op *util.UploadOptions) {
 	_, localPath := util.ParsePath(args[0])
 	bucketName, cosPath := util.ParsePath(args[1])
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	if recursive {
 		util.SyncMultiUpload(c, localPath, bucketName, cosPath, include, exclude, op)
@@ -98,7 +99,7 @@ func syncUpload(args []string, recursive bool, include string, exclude string, o
 func syncDownload(args []string, recursive bool, include string, exclude string, op *util.DownloadOptions) {
 	bucketName, cosPath := util.ParsePath(args[0])
 	_, localPath := util.ParsePath(args[1])
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	if recursive {
 		util.SyncMultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
@@ -110,8 +111,8 @@ func syncDownload(args []string, recursive bool, include string, exclude string,
 func syncCopy(args []string, recursive bool, include string, exclude string) {
 	bucketName1, cosPath1 := util.ParsePath(args[0])
 	bucketName2, cosPath2 := util.ParsePath(args[1])
-	c2 := util.NewClient(&config, bucketName2)
-	c1 := util.NewClient(&config, bucketName1)
+	c2 := util.NewClient(&config, &param, bucketName2)
+	c1 := util.NewClient(&config, &param, bucketName1)
 
 	if recursive {
 		if cosPath1 != "" && cosPath1[len(cosPath1)-1] != '/' {
@@ -143,7 +144,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 				if resp != nil && resp.StatusCode == 404 {
 					fmt.Println("Copy", srcPath, "=>", dstPath)
 
-					url := util.GenURL(&config, bucketName1)
+					url := util.GenURL(&config, &param, bucketName1)
 					srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
 
 					_, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, nil)
@@ -164,7 +165,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 				} else {
 					fmt.Println("Copy", srcPath, "=>", dstPath)
 
-					url := util.GenURL(&config, bucketName1)
+					url := util.GenURL(&config, &param, bucketName1)
 					srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
 
 					_, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, nil)
@@ -194,7 +195,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				fmt.Println("Copy", args[0], "=>", args[1])
-				url := util.GenURL(&config, bucketName1)
+				url := util.GenURL(&config, &param, bucketName1)
 				srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
 
 				_, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)
@@ -215,7 +216,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 			} else {
 				fmt.Println("Copy", args[0], "=>", args[1])
 
-				url := util.GenURL(&config, bucketName1)
+				url := util.GenURL(&config, &param, bucketName1)
 				srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
 
 				_, _, err = c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)

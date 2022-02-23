@@ -3,18 +3,19 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
 var configAddCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Used to add a new bucket configuration",
-	Long:  `Used to add a new bucket configuration
+	Long: `Used to add a new bucket configuration
 
 Format:
-  ./coscli config add -b <bucket-name> -r <region> -a <alias> [-c <config-file-path>]
+  ./coscli config add -b <bucket-name> -e <endpoint> -a <alias> [-c <config-file-path>]
 
 Example:
   ./coscli config add -b example-1234567890 -r ap-shanghai -a example`,
@@ -27,25 +28,25 @@ func init() {
 	configCmd.AddCommand(configAddCmd)
 
 	configAddCmd.Flags().StringP("bucket", "b", "", "Bucket name")
-	configAddCmd.Flags().StringP("region", "r", "", "Bucket region")
+	configAddCmd.Flags().StringP("endpoint", "e", "", "Bucket endpoint")
 	configAddCmd.Flags().StringP("alias", "a", "", "Bucket alias")
 
 	_ = configAddCmd.MarkFlagRequired("bucket")
-	_ = configAddCmd.MarkFlagRequired("region")
+	_ = configAddCmd.MarkFlagRequired("endpoint")
 }
 
 func addBucketConfig(cmd *cobra.Command) {
 	name, _ := cmd.Flags().GetString("bucket")
-	region, _ := cmd.Flags().GetString("region")
+	endpoint, _ := cmd.Flags().GetString("endpoint")
 	alias, _ := cmd.Flags().GetString("alias")
 	if alias == "" {
 		alias = name
 	}
 
 	bucket := util.Bucket{
-		Name:   name,
-		Region: region,
-		Alias:  alias,
+		Name:     name,
+		Endpoint: endpoint,
+		Alias:    alias,
 	}
 
 	for _, b := range config.Buckets {
@@ -68,5 +69,5 @@ func addBucketConfig(cmd *cobra.Command) {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("Add successfully! name: %s, region: %s, alias: %s\n", name, region, alias)
+	fmt.Printf("Add successfully! name: %s, endpoint: %s, alias: %s\n", name, endpoint, alias)
 }

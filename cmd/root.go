@@ -11,7 +11,12 @@ import (
 )
 
 var cfgFile string
+var paramSecretId string
+var paramSecretKey string
+var paramEndpoint string
+
 var config util.Config
+var param util.Param
 var cmdCnt int //控制某些函数在一个命令中被调用的次数
 
 var rootCmd = &cobra.Command{
@@ -32,6 +37,10 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config-path", "c", "", "config file path(default is $HOME/.cos.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&param.SecretID, "secret-id", "i", "", "config secretId")
+	rootCmd.PersistentFlags().StringVarP(&param.SecretKey, "secret-key", "k", "", "config secretKey")
+	rootCmd.PersistentFlags().StringVarP(&param.Endpoint, "endpoint", "e", "", "config endpoint")
+
 }
 
 func initConfig() {

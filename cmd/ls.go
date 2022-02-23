@@ -3,23 +3,24 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
+	"os"
+
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"os"
 )
 
 var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List buckets or objects",
-	Long:  `List buckets or objects
+	Long: `List buckets or objects
 
 Format:
   ./coscli ls cos://<bucket-name>[/prefix/] [flags]
 
 Example:
   ./coscli ls cos://examplebucket/test/ -r`,
-	Args:  cobra.MaximumNArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		limit, _ := cmd.Flags().GetInt("limit")
 		recursive, _ := cmd.Flags().GetBool("recursive")
@@ -49,7 +50,7 @@ func init() {
 }
 
 func listBuckets(limit int, include string, exclude string) {
-	c := util.NewClient(&config, "")
+	c := util.NewClient(&config, &param, "")
 
 	buckets := util.GetBucketsList(c, limit, include, exclude)
 
@@ -65,7 +66,7 @@ func listBuckets(limit int, include string, exclude string) {
 
 func listObjects(cosPath string, limit int, recursive bool, include string, exclude string) {
 	bucketName, path := util.ParsePath(cosPath)
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	var dirs []string
 	var objects []cos.Object
@@ -85,6 +86,6 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 	}
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
-	table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", len(dirs) + len(objects))})
+	table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", len(dirs)+len(objects))})
 	table.Render()
 }

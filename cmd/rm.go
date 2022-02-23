@@ -5,15 +5,16 @@ import (
 	"coscli/util"
 	"encoding/xml"
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"os"
 )
 
 var rmCmd = &cobra.Command{
-	Use: "rm",
+	Use:   "rm",
 	Short: "Remove objects",
-	Long:  `Remove objects
+	Long: `Remove objects
 
 Format:
   ./coscli rm cos://<bucket-name>[/prefix/] [cos://<bucket-name>[/prefix/]...] [flags]
@@ -26,7 +27,7 @@ Example:
 		}
 		for _, arg := range args {
 			bucketName, _ := util.ParsePath(arg)
-			if bucketName == ""{
+			if bucketName == "" {
 				return fmt.Errorf("Invalid arguments! ")
 			}
 		}
@@ -57,7 +58,7 @@ func init() {
 func removeObjects(args []string, include string, exclude string, force bool) {
 	for _, arg := range args {
 		bucketName, cosDir := util.ParsePath(arg)
-		c := util.NewClient(&config, bucketName)
+		c := util.NewClient(&config, &param, bucketName)
 
 		if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 			cosDir += "/"
@@ -112,7 +113,7 @@ func removeObjects(args []string, include string, exclude string, force bool) {
 func removeObjects1(args []string, include string, exclude string, force bool) {
 	for _, arg := range args {
 		bucketName, cosDir := util.ParsePath(arg)
-		c := util.NewClient(&config, bucketName)
+		c := util.NewClient(&config, &param, bucketName)
 
 		if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 			cosDir += "/"
@@ -123,7 +124,7 @@ func removeObjects1(args []string, include string, exclude string, force bool) {
 		deleteOrNot := false
 		errorOrNot := false
 		for isTruncated {
-			objects, t, m:= util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+			objects, t, m := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
 			isTruncated = t
 			nextMarker = m
 
@@ -181,7 +182,7 @@ func removeObjects1(args []string, include string, exclude string, force bool) {
 func removeObject(args []string, force bool) {
 	for _, arg := range args {
 		bucketName, cosPath := util.ParsePath(arg)
-		c := util.NewClient(&config, bucketName)
+		c := util.NewClient(&config, &param, bucketName)
 
 		opt := &cos.ObjectDeleteOptions{
 			XCosSSECustomerAglo:   "",

@@ -5,22 +5,23 @@ import (
 	"coscli/util"
 	"encoding/xml"
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"os"
 )
 
 var restoreCmd = &cobra.Command{
 	Use:   "restore",
 	Short: "Restore objects",
-	Long:  `Restore objects
+	Long: `Restore objects
 
 Format:
   ./coscli restore cos://<bucket-name>[/<prefix>] [flags]
 
 Example:
   ./coscli restore cos://examplebucket/test/ -r -d 3 -m Expedited`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		include, _ := cmd.Flags().GetString("include")
@@ -48,7 +49,7 @@ func init() {
 
 func restoreObject(arg string, days int, mode string) {
 	bucketName, cosPath := util.ParsePath(arg)
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	opt := &cos.ObjectRestoreOptions{
 		XMLName:       xml.Name{},
@@ -67,7 +68,7 @@ func restoreObject(arg string, days int, mode string) {
 
 func restoreObjects(arg string, days int, mode string, include string, exclude string) {
 	bucketName, cosPath := util.ParsePath(arg)
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	objects := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
 

@@ -4,21 +4,22 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"os"
 )
 
 var mbCmd = &cobra.Command{
 	Use:   "mb",
 	Short: "Create bucket",
-	Long:  `Create bucket
+	Long: `Create bucket
 
 Format:
-  ./coscli mb cos://<bucket-name>-<app-id> -r region
+  ./coscli mb cos://<bucket-name>-<app-id>
 
 Example:
-  ./coscli mb cos://examplebucket-1234567890 -r ap-shanghai`,
+  ./coscli mb cos://examplebucket-1234567890`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
@@ -36,16 +37,12 @@ Example:
 
 func init() {
 	rootCmd.AddCommand(mbCmd)
-
-	mbCmd.Flags().StringP("region", "r", "", "Region")
-
-	_ = mbCmd.MarkFlagRequired("region")
 }
 
 func createBucket(cmd *cobra.Command, args []string) {
-	flagRegion, _ := cmd.Flags().GetString("region")
 	bucketIDName, _ := util.ParsePath(args[0])
-	c := util.CreateClient(&config, bucketIDName, flagRegion)
+
+	c := util.CreateClient(&config, &param, bucketIDName)
 
 	opt := &cos.BucketPutOptions{
 		XCosACL:                   "",
@@ -62,5 +59,5 @@ func createBucket(cmd *cobra.Command, args []string) {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("Create a new bucket! name: %s region: %s\n", bucketIDName, flagRegion)
+	fmt.Printf("Create a new bucket! name: %s\n", bucketIDName)
 }
