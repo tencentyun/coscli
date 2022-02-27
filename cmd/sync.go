@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -31,7 +32,7 @@ Example:
 		}
 		storageClass, _ := cmd.Flags().GetString("storage-class")
 		if storageClass != "" && util.IsCosPath(args[0]) {
-			_, _ = fmt.Fprintln(os.Stderr, "--storage-class can only use in upload")
+			logger.Fatalln("--storage-class can only use in upload")
 			os.Exit(1)
 		}
 		return nil
@@ -142,18 +143,18 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 			// 不存在，则拷贝
 			if err != nil {
 				if resp != nil && resp.StatusCode == 404 {
-					fmt.Println("Copy", srcPath, "=>", dstPath)
+					logger.Infoln("Copy", srcPath, "=>", dstPath)
 
 					url := util.GenURL(&config, &param, bucketName1)
 					srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
 
 					_, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, nil)
 					if err != nil {
-						_, _ = fmt.Fprintln(os.Stderr, err)
+						logger.Fatalln(err)
 						os.Exit(1)
 					}
 				} else {
-					_, _ = fmt.Fprintln(os.Stderr, err)
+					logger.Fatalln(err)
 					os.Exit(1)
 				}
 			} else {
@@ -161,16 +162,16 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 				crc1, _ := util.ShowHash(c1, srcKey, "crc64")
 				crc2, _ := util.ShowHash(c2, dstKey, "crc64")
 				if crc1 == crc2 {
-					fmt.Println("Skip", srcPath)
+					logger.Infoln("Skip", srcPath)
 				} else {
-					fmt.Println("Copy", srcPath, "=>", dstPath)
+					logger.Infoln("Copy", srcPath, "=>", dstPath)
 
 					url := util.GenURL(&config, &param, bucketName1)
 					srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
 
 					_, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, nil)
 					if err != nil {
-						_, _ = fmt.Fprintln(os.Stderr, err)
+						logger.Fatalln(err)
 						os.Exit(1)
 					}
 				}
@@ -178,7 +179,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 		}
 	} else { // 非递归，单个拷贝
 		if cosPath2 == "" || cosPath2[len(cosPath2)-1] == '/' {
-			fmt.Println("When copying a single file, you need to specify a full path")
+			logger.Infoln("When copying a single file, you need to specify a full path")
 			os.Exit(1)
 		}
 
@@ -194,17 +195,17 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 		// 不存在，则拷贝
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
-				fmt.Println("Copy", args[0], "=>", args[1])
+				logger.Infoln("Copy", args[0], "=>", args[1])
 				url := util.GenURL(&config, &param, bucketName1)
 				srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
 
 				_, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
+					logger.Fatalln(err)
 					os.Exit(1)
 				}
 			} else {
-				_, _ = fmt.Fprintln(os.Stderr, err)
+				logger.Fatalln(err)
 				os.Exit(1)
 			}
 		} else {
@@ -212,16 +213,16 @@ func syncCopy(args []string, recursive bool, include string, exclude string) {
 			crc1, _ := util.ShowHash(c1, cosPath1, "crc64")
 			crc2, _ := util.ShowHash(c2, cosPath2, "crc64")
 			if crc1 == crc2 {
-				fmt.Println("Skip", args[0])
+				logger.Infoln("Skip", args[0])
 			} else {
-				fmt.Println("Copy", args[0], "=>", args[1])
+				logger.Infoln("Copy", args[0], "=>", args[1])
 
 				url := util.GenURL(&config, &param, bucketName1)
 				srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
 
 				_, _, err = c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
+					logger.Fatalln(err)
 					os.Exit(1)
 				}
 			}

@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
@@ -44,7 +45,7 @@ func CreateURL(idName string, protocol string, endpoint string) *cos.BaseURL {
 func GenURL(config *Config, param *Param, bucketName string) *cos.BaseURL {
 	bucket, _, err := FindBucket(config, bucketName)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 
@@ -53,6 +54,8 @@ func GenURL(config *Config, param *Param, bucketName string) *cos.BaseURL {
 	if param.Endpoint != "" {
 		endpoint = param.Endpoint
 	}
-
+	if endpoint == "" && bucket.Region != "" {
+		endpoint = fmt.Sprintf("cos.%s.myqcloud.com", bucket.Region)
+	}
 	return CreateURL(idName, config.Base.Protocol, endpoint)
 }

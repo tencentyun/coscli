@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -16,10 +17,10 @@ var mbCmd = &cobra.Command{
 	Long: `Create bucket
 
 Format:
-  ./coscli mb cos://<bucket-name>-<app-id>
+  ./coscli mb cos://<bucket-name>-<appid> -e <endpoint>
 
 Example:
-  ./coscli mb cos://examplebucket-1234567890`,
+  ./coscli mb cos://examplebucket-1234567890 -e cos.ap-beijing.myqcloud.com`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
@@ -56,8 +57,8 @@ func createBucket(cmd *cobra.Command, args []string) {
 
 	_, err := c.Bucket.Put(context.Background(), opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
-	fmt.Printf("Create a new bucket! name: %s\n", bucketIDName)
+	logger.Infof("Create a new bucket! name: %s\n", bucketIDName)
 }

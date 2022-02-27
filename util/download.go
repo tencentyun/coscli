@@ -2,11 +2,13 @@ package util
 
 import (
 	"context"
-	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
 	"path/filepath"
 	"strings"
+
+	logger "github.com/sirupsen/logrus"
+
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 type DownloadOptions struct {
@@ -51,7 +53,7 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 	if !filepath.IsAbs(localPath) {
 		dirPath, err := os.Getwd()
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 		localPath = dirPath + "/" + localPath
@@ -70,17 +72,17 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 		fileName := pathList[len(pathList)-1]
 		path = localPath[:len(localPath)-len(fileName)]
 	}
-	fmt.Printf("Download cos://%s/%s => %s\n", bucketName, cosPath, localPath)
+	logger.Infof("Download cos://%s/%s => %s\n", bucketName, cosPath, localPath)
 
 	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 
 	_, err = c.Object.Download(context.Background(), cosPath, localPath, opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 }

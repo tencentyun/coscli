@@ -2,11 +2,12 @@ package util
 
 import (
 	"context"
-	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
 	"path/filepath"
 	"strings"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 type UploadOptions struct {
@@ -65,7 +66,7 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 	// 1. ~/example/123.txt => cos://bucket/path/
 	s, err := os.Stat(localPath)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 	if s.IsDir() {
@@ -77,15 +78,15 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 	if !filepath.IsAbs(localPath) {
 		dirPath, err := os.Getwd()
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 		localPath = dirPath + "/" + localPath
 	}
-	fmt.Printf("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)
+	logger.Infof("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)
 	_, _, err = c.Object.Upload(context.Background(), cosPath, localPath, opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 }

@@ -9,7 +9,7 @@ type BaseCfg struct {
 	SecretID     string `yaml:"secretid"`
 	SecretKey    string `yaml:"secretkey"`
 	SessionToken string `yaml:"sessiontoken"`
-	Protocol     string `yaml:"protcol"`
+	Protocol     string `yaml:"protocol"`
 }
 
 type Bucket struct {

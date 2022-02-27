@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"coscli/util"
-	"fmt"
 	"os"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -51,13 +51,13 @@ func addBucketConfig(cmd *cobra.Command) {
 
 	for _, b := range config.Buckets {
 		if name == b.Name {
-			_, _ = fmt.Fprintln(os.Stderr, "The bucket already exists, fail to add!")
+			logger.Fatalln("The bucket already exists, fail to add!")
 			os.Exit(1)
 		} else if alias == b.Name {
-			_, _ = fmt.Fprintln(os.Stderr, "The alias cannot be the same as other bucket's name")
+			logger.Fatalln("The alias cannot be the same as other bucket's name")
 			os.Exit(1)
 		} else if alias == b.Alias {
-			_, _ = fmt.Fprintln(os.Stderr, "The alias already exists, fail to add!")
+			logger.Fatalln("The alias already exists, fail to add!")
 			os.Exit(1)
 		}
 	}
@@ -66,8 +66,8 @@ func addBucketConfig(cmd *cobra.Command) {
 	viper.Set("cos.buckets", config.Buckets)
 
 	if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
-	fmt.Printf("Add successfully! name: %s, endpoint: %s, alias: %s\n", name, endpoint, alias)
+	logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n", name, endpoint, alias)
 }

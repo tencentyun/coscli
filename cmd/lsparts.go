@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/olekukonko/tablewriter"
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,7 @@ Example:
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
 		if limit < 0 || limit > 1000 {
-			_, _ = fmt.Fprintln(os.Stderr, "Flag --limit should in range 0~1000")
+			logger.Fatalln("Flag --limit should in range 0~1000")
 			os.Exit(1)
 		}
 

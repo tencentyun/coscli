@@ -2,9 +2,10 @@ package util
 
 import (
 	"context"
-	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func GetObjectsListIterator(c *cos.Client, prefix, marker string, include, exclude string) (objects []cos.Object, isTruncated bool, nextMarker string) {
@@ -16,10 +17,9 @@ func GetObjectsListIterator(c *cos.Client, prefix, marker string, include, exclu
 		MaxKeys:      0,
 	}
 
-
 	res, _, err := c.Bucket.Get(context.Background(), opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 

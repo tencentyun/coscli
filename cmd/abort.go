@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 	"coscli/util"
-	"fmt"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -44,12 +44,12 @@ func abortParts(arg string, include string, exclude string) {
 	for _, u := range uploads {
 		_, err := c.Object.AbortMultipartUpload(context.Background(), u.Key, u.UploadID)
 		if err != nil {
-			fmt.Println("Abort fail!    UploadID:", u.UploadID, "Key:", u.Key)
+			logger.Infoln("Abort fail!    UploadID:", u.UploadID, "Key:", u.Key)
 			failCnt++
 		} else {
-			fmt.Println("Abort success! UploadID:", u.UploadID, "Key:", u.Key)
+			logger.Infoln("Abort success! UploadID:", u.UploadID, "Key:", u.Key)
 			successCnt++
 		}
 	}
-	fmt.Println("Total:", len(uploads), ",", successCnt, "Success,", failCnt, "Fail")
+	logger.Infoln("Total:", len(uploads), ",", successCnt, "Success,", failCnt, "Fail")
 }

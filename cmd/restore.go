@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -58,10 +59,10 @@ func restoreObject(arg string, days int, mode string) {
 		XOptionHeader: nil,
 	}
 
-	fmt.Printf("Restore cos://%s/%s\n", bucketName, cosPath)
+	logger.Infof("Restore cos://%s/%s\n", bucketName, cosPath)
 	_, err := c.Object.PostRestore(context.Background(), cosPath, opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 }

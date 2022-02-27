@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	_ "coscli/logger"
 	"coscli/util"
 	"fmt"
+	"log"
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -11,9 +13,6 @@ import (
 )
 
 var cfgFile string
-var paramSecretId string
-var paramSecretKey string
-var paramEndpoint string
 
 var config util.Config
 var param util.Param
@@ -56,7 +55,7 @@ func initConfig() {
 	} else {
 		_, err = os.Stat(home + "/.cos.yaml")
 		if os.IsNotExist(err) {
-			fmt.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
+			log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
 			initConfigFile(false)
 			cmdCnt++
 		}
@@ -66,14 +65,13 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv()
-
 	if err := viper.ReadInConfig(); err == nil {
 		if err := viper.UnmarshalKey("cos", &config); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			fmt.Println(err)
 			os.Exit(1)
 		}
 	} else {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }

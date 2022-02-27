@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -15,10 +16,10 @@ var rbCmd = &cobra.Command{
 	Long: `Remove bucket
 
 Format:
-  ./coscli rb cos://<bucket-name>-<app-id>
+  ./coscli rb cos://<bucket-name>-<app-id> -e <endpoint>
 
 Example:
-  ./coscli rb cos://example-1234567890`,
+  ./coscli rb cos://example-1234567890 -e cos.ap-beijing.myqcloud.com`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
@@ -45,8 +46,8 @@ func removeBucket(bucketIDName string) {
 
 	_, err := c.Bucket.Delete(context.Background())
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
-	fmt.Printf("Delete a empty bucket! name: %s\n", bucketIDName)
+	logger.Infof("Delete a empty bucket! name: %s\n", bucketIDName)
 }

@@ -2,9 +2,10 @@ package util
 
 import (
 	"context"
-	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *UploadOptions) {
@@ -22,7 +23,7 @@ func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *
 			// 文件不在cos上，上传
 			SingleUpload(c, localPath, bucketName, cosPath, op)
 		} else {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 	} else {
@@ -30,7 +31,7 @@ func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *
 			cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
 			localCrc, _ := CalculateHash(localPath, "crc64")
 			if cosCrc == localCrc {
-				fmt.Println("Skip", localPath)
+				logger.Infoln("Skip", localPath)
 				return
 			}
 		}
@@ -40,7 +41,7 @@ func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *
 }
 
 func SyncMultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclude string, op *UploadOptions) {
-	if localDir != "" && (localDir[len(localDir)-1] != '/' && localDir[len(localDir)-1] !='\\') {
+	if localDir != "" && (localDir[len(localDir)-1] != '/' && localDir[len(localDir)-1] != '\\') {
 		localDir += "/"
 	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
@@ -64,14 +65,14 @@ func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op
 			// 文件不在本地，下载
 			SingleDownload(c, bucketName, cosPath, localPath, op)
 		} else {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 	} else {
 		localCrc, _ := CalculateHash(localPath, "crc64")
 		cosCrc, _ := ShowHash(c, cosPath, "crc64")
 		if cosCrc == localCrc {
-			fmt.Printf("Skip cos://%s/%s\n", bucketName, localPath)
+			logger.Infof("Skip cos://%s/%s\n", bucketName, localPath)
 			return
 		}
 

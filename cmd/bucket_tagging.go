@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 	"coscli/util"
-	"fmt"
 	"os"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -29,15 +29,14 @@ Example:
 
 		if method == "put" {
 			if len(args) < 2 {
-				_, _ = fmt.Fprintln(os.Stderr, "not enough arguments in call to put bucket tagging")
-				os.Exit(1)
+				logger.Fatalln("not enough arguments in call to put bucket tagging")
 			}
 			putBucketTagging(args[0], args[1:])
 		}
 
 		if method == "get" {
 			if len(args) < 1 {
-				_, _ = fmt.Fprintln(os.Stderr, "not enough arguments in call to get bucket tagging")
+				logger.Fatalln("not enough arguments in call to get bucket tagging")
 				os.Exit(1)
 			}
 			getBucketTagging(args[0])
@@ -45,7 +44,7 @@ Example:
 
 		if method == "delete" {
 			if len(args) < 1 {
-				_, _ = fmt.Fprintln(os.Stderr, "not enough arguments in call to get bucket tagging")
+				logger.Fatalln("not enough arguments in call to get bucket tagging")
 				os.Exit(1)
 			}
 			deleteBucketTagging(args[0])
@@ -67,15 +66,15 @@ func putBucketTagging(cosPath string, tags []string) {
 		if len(tmp) >= 2 {
 			tg.TagSet = append(tg.TagSet, cos.BucketTaggingTag{Key: tmp[0], Value: tmp[1]})
 		} else {
-			_, _ = fmt.Fprintln(os.Stderr, "invalid tag")
+			logger.Fatalln("invalid tag")
 			os.Exit(1)
 		}
 	}
 
 	_, err := c.Bucket.PutTagging(context.Background(), tg)
 	if err != nil {
-		fmt.Println(err.Error())
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Infoln(err.Error())
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 }
@@ -86,8 +85,8 @@ func getBucketTagging(cosPath string) {
 
 	v, _, err := c.Bucket.GetTagging(context.Background())
 	if err != nil {
-		fmt.Println(err.Error())
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Infoln(err.Error())
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 	table := tablewriter.NewWriter(os.Stdout)
@@ -106,8 +105,8 @@ func deleteBucketTagging(cosPath string) {
 
 	_, err := c.Bucket.DeleteTagging(context.Background())
 	if err != nil {
-		fmt.Println(err.Error())
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Infoln(err.Error())
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 }

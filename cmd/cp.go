@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +31,7 @@ Example:
 		}
 		storageClass, _ := cmd.Flags().GetString("storage-class")
 		if storageClass != "" && util.IsCosPath(args[0]) {
-			_, _ = fmt.Fprintln(os.Stderr, "--storage-class can only use in upload")
+			logger.Fatalln("--storage-class can only use in upload")
 			os.Exit(1)
 		}
 		return nil
@@ -130,30 +131,30 @@ func cosCopy(args []string, recursive bool, include string, exclude string) {
 			dstKey := cosPath2 + srcKey[len(cosPath1):]
 			srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
 			dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
-			fmt.Println("Copy", srcPath, "=>", dstPath)
+			logger.Infoln("Copy", srcPath, "=>", dstPath)
 
 			url := util.GenURL(&config, &param, bucketName1)
 			srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
 
 			_, _, err := c2.Object.Copy(context.Background(), dstKey, srcURL, nil)
 			if err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
+				logger.Fatalln(err)
 				os.Exit(1)
 			}
 		}
 	} else {
 		if cosPath2 == "" || cosPath2[len(cosPath2)-1] == '/' {
-			fmt.Println("When copying a single file, you need to specify a full path")
+			logger.Infoln("When copying a single file, you need to specify a full path")
 			os.Exit(1)
 		}
 
-		fmt.Println("Copy", args[0], "=>", args[1])
+		logger.Infoln("Copy", args[0], "=>", args[1])
 		url := util.GenURL(&config, &param, bucketName1)
 		srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
 
 		_, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 	}

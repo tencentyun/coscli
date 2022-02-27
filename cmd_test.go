@@ -1,31 +1,33 @@
-
 package main
 
 import (
 	"coscli/util"
 	"fmt"
-	"github.com/mitchellh/go-homedir"
-	"github.com/spf13/viper"
 	"math/rand"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
 
+	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/viper"
+
+	logger "github.com/sirupsen/logrus"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var testDir = "test-tmp-dir"
 var config util.Config
+var param util.Param
 var appID string
 
 var testBucket1 = "coscli-test1"
-var testAlias1  = "coscli-test1"
-var testRegion1 = "ap-shanghai"
+var testAlias1 = "coscli-test1"
+var testEndpoint1 = "cos.ap-shanghai.myqcloud.com"
 
 var testBucket2 = "coscli-test2"
-var testAlias2  = "coscli-test2"
-var testRegion2 = "ap-guangzhou"
+var testAlias2 = "coscli-test2"
+var testEndpoint2 = "cos.ap-guangzhou.myqcloud.com"
 
 func init() {
 	// 读取配置文件
@@ -50,19 +52,19 @@ func getConfig() {
 	}
 }
 
-func setUp(testBucket, testAlias, testRegion string) {
+func setUp(testBucket, testAlias, testEndpoint string) {
 	// 创建测试桶
-	fmt.Println(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testRegion))
+	logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
 	cmd := exec.Command("bash", "-c",
-		fmt.Sprintf("./coscli mb cos://%s-%s -r %s", testBucket, appID, testRegion))
+		fmt.Sprintf("./coscli mb cos://%s-%s -e %s", testBucket, appID, testEndpoint))
 	if err := cmd.Run(); err != nil {
 		panic("SetUp error: 创建测试桶失败")
 	}
 
 	// 更新配置文件
-	fmt.Println(fmt.Sprintf("更新配置文件：%s", testAlias))
+	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
 	cmd = exec.Command("bash", "-c",
-		fmt.Sprintf("./coscli config add -b %s-%s -r %s -a %s", testBucket, appID, testRegion, testAlias))
+		fmt.Sprintf("./coscli config add -b %s-%s -e %s -a %s", testBucket, appID, testEndpoint, testAlias))
 	if err := cmd.Run(); err != nil {
 		panic("SetUp error: 更新配置文件失败")
 	}
@@ -71,9 +73,9 @@ func setUp(testBucket, testAlias, testRegion string) {
 	getConfig()
 }
 
-func tearDown(testBucket, testAlias, testRegion string) {
+func tearDown(testBucket, testAlias, testEndpoint string) {
 	// 清空测试桶
-	fmt.Println(fmt.Sprintf("清空测试桶：%s", testAlias))
+	logger.Infoln(fmt.Sprintf("清空测试桶：%s", testAlias))
 	cmd := exec.Command("bash", "-c",
 		fmt.Sprintf("./coscli rm cos://%s -r -f", testAlias))
 	if err := cmd.Run(); err != nil {
@@ -86,15 +88,15 @@ func tearDown(testBucket, testAlias, testRegion string) {
 	}
 
 	// 删除测试桶
-	fmt.Println(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testRegion))
+	logger.Infoln(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testEndpoint))
 	cmd = exec.Command("bash", "-c",
-		fmt.Sprintf("./coscli rb cos://%s-%s -r %s", testBucket, appID, testRegion))
+		fmt.Sprintf("./coscli rb cos://%s-%s -e %s", testBucket, appID, testEndpoint))
 	if err := cmd.Run(); err != nil {
 		panic("TearDown error: 删除测试桶失败")
 	}
 
 	// 更新配置文件
-	fmt.Println(fmt.Sprintf("更新配置文件：%s", testAlias))
+	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
 	cmd = exec.Command("bash", "-c",
 		fmt.Sprintf("./coscli config delete -a %s", testAlias))
 	if err := cmd.Run(); err != nil {
@@ -106,7 +108,7 @@ func genFile(fileName string, size int) {
 	data := make([]byte, 0)
 
 	rand.Seed(time.Now().Unix())
-	for i:=0; i<size; i++ {
+	for i := 0; i < size; i++ {
 		u := uint8(rand.Intn(256))
 		data = append(data, u)
 	}
@@ -131,18 +133,18 @@ func genDir(dirName string, num int) {
 		panic("genDir error: 创建文件夹失败")
 	}
 
-	fmt.Println(fmt.Sprintf("生成小文件：%s/small-file", dirName))
-	for i:=0; i<num; i++ {
-		genFile(fmt.Sprintf("%s/small-file/%d", dirName, i), 30 * 1024)
+	logger.Infoln(fmt.Sprintf("生成小文件：%s/small-file", dirName))
+	for i := 0; i < num; i++ {
+		genFile(fmt.Sprintf("%s/small-file/%d", dirName, i), 30*1024)
 	}
-	fmt.Println(fmt.Sprintf("生成大文件：%s/big-file", dirName))
-	for i:=0; i<3; i++ {
-		genFile(fmt.Sprintf("%s/big-file/%d", dirName, i), 40 * 1024 * 1024)
+	logger.Infoln(fmt.Sprintf("生成大文件：%s/big-file", dirName))
+	for i := 0; i < 3; i++ {
+		genFile(fmt.Sprintf("%s/big-file/%d", dirName, i), 40*1024*1024)
 	}
 }
 
 func delDir(dirName string) {
-	fmt.Println(fmt.Sprintf("删除测试临时文件夹：%s", dirName))
+	logger.Infoln(fmt.Sprintf("删除测试临时文件夹：%s", dirName))
 	if err := os.RemoveAll(dirName); err != nil {
 		panic("delDir error: 删除文件夹失败")
 	}
@@ -150,16 +152,17 @@ func delDir(dirName string) {
 
 func getCRC(cosPath string) string {
 	bucketName, key := util.ParsePath(cosPath)
-	c := util.NewClient(&config, bucketName)
+	param.Endpoint = "cos.ap-guangzhou.myqcloud.com"
+	c := util.NewClient(&config, &param, bucketName)
 	h, _ := util.ShowHash(c, key, "crc64")
 	return h
 }
 
 func TestCpCmd(t *testing.T) {
-	setUp(testBucket1, testAlias1, testRegion1)
-	defer tearDown(testBucket1, testAlias1, testRegion1)
-	setUp(testBucket2, testAlias2, testRegion2)
-	defer tearDown(testBucket2, testAlias2, testRegion2)
+	setUp(testBucket1, testAlias1, testEndpoint1)
+	defer tearDown(testBucket1, testAlias1, testEndpoint1)
+	setUp(testBucket2, testAlias2, testEndpoint2)
+	defer tearDown(testBucket2, testAlias2, testEndpoint2)
 	genDir(testDir, 10)
 	defer delDir(testDir)
 
@@ -314,7 +317,7 @@ func TestCpCmd(t *testing.T) {
 				fileList1 := util.GetLocalFilesListRecursive(fmt.Sprintf("%s/small-file", testDir), "", "")
 				fileList2 := util.GetLocalFilesListRecursive(fmt.Sprintf("%s/download/small-file", testDir), "", "")
 				So(len(fileList1), ShouldEqual, len(fileList2))
-				for i:=0; i<len(fileList1); i++ {
+				for i := 0; i < len(fileList1); i++ {
 					hash1, _ := util.CalculateHash(fmt.Sprintf("%s/small-file/%s", testDir, fileList1[i]), "crc64")
 					hash2, _ := util.CalculateHash(fmt.Sprintf("%s/download/small-file/%s", testDir, fileList2[i]), "crc64")
 					So(hash1, ShouldEqual, hash2)
@@ -324,7 +327,7 @@ func TestCpCmd(t *testing.T) {
 				fileList1 := util.GetLocalFilesListRecursive(fmt.Sprintf("%s/big-file", testDir), "", "")
 				fileList2 := util.GetLocalFilesListRecursive(fmt.Sprintf("%s/download/big-file", testDir), "", "")
 				So(len(fileList1), ShouldEqual, len(fileList2))
-				for i:=0; i<len(fileList1); i++ {
+				for i := 0; i < len(fileList1); i++ {
 					hash1, _ := util.CalculateHash(fmt.Sprintf("%s/big-file/%s", testDir, fileList1[i]), "crc64")
 					hash2, _ := util.CalculateHash(fmt.Sprintf("%s/download/big-file/%s", testDir, fileList2[i]), "crc64")
 					So(hash1, ShouldEqual, hash2)

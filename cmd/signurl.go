@@ -3,12 +3,12 @@ package cmd
 import (
 	"context"
 	"coscli/util"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -52,10 +52,10 @@ func GetSignedURL(path string, t int) {
 	presignedURL, err := c.Object.GetPresignedURL(context.Background(), http.MethodGet, cosPath,
 		config.Base.SecretID, config.Base.SecretKey, time.Second*time.Duration(t), opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Signed URL:")
-	fmt.Println(presignedURL)
+	logger.Infoln("Signed URL:")
+	logger.Infoln(presignedURL)
 }

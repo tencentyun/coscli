@@ -87,7 +87,7 @@ func initConfigFile(cfgFlag bool) {
 	viper.Set("cos", config)
 
 	if err := viper.WriteConfigAs(configFile); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 	fmt.Printf("\nThe configuration file is initialized successfully! \nYou can use \"./coscli config show [-c <Config File Path>]\" show the contents of the specified configuration file\n")

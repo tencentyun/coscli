@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/olekukonko/tablewriter"
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -27,7 +28,7 @@ Example:
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
 		if limit < 0 || limit > 1000 {
-			_, _ = fmt.Fprintln(os.Stderr, "Flag --limit should in range 0~1000")
+			logger.Fatalln("Flag --limit should in range 0~1000")
 			os.Exit(1)
 		}
 
@@ -67,7 +68,6 @@ func listBuckets(limit int, include string, exclude string) {
 func listObjects(cosPath string, limit int, recursive bool, include string, exclude string) {
 	bucketName, path := util.ParsePath(cosPath)
 	c := util.NewClient(&config, &param, bucketName)
-
 	var dirs []string
 	var objects []cos.Object
 	if recursive {
