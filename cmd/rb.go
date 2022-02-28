@@ -32,13 +32,17 @@ Example:
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		bucketIDName, _ := util.ParsePath(args[0])
-
+		flagRegion, _ := cmd.Flags().GetString("region")
+		if param.Endpoint == "" && flagRegion != "" {
+			param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
+		}
 		removeBucket(bucketIDName)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(rbCmd)
+	rbCmd.Flags().StringP("region", "r", "", "Region")
 }
 
 func removeBucket(bucketIDName string) {

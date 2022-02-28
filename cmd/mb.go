@@ -38,9 +38,15 @@ Example:
 
 func init() {
 	rootCmd.AddCommand(mbCmd)
+
+	mbCmd.Flags().StringP("region", "r", "", "Region")
 }
 
 func createBucket(cmd *cobra.Command, args []string) {
+	flagRegion, _ := cmd.Flags().GetString("region")
+	if param.Endpoint == "" && flagRegion != "" {
+		param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
+	}
 	bucketIDName, _ := util.ParsePath(args[0])
 
 	c := util.CreateClient(&config, &param, bucketIDName)

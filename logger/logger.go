@@ -20,7 +20,7 @@ func init() {
 	}
 	logpath := dir + string(os.PathSeparator) + logName
 	fsWriter, err := rotatelogs.New(
-		logpath+"_%Y-%m-%d.log",
+		logpath,
 		rotatelogs.WithMaxAge(time.Duration(168)*time.Hour),
 		rotatelogs.WithRotationTime(time.Duration(24)*time.Hour),
 	)
@@ -29,7 +29,6 @@ func init() {
 	}
 
 	multiWriter := io.MultiWriter(fsWriter, os.Stdout)
-	// log.SetReportCaller(true)
 	log.SetOutput(multiWriter)
 	log.SetLevel(log.InfoLevel)
 	log.SetFormatter(&logrus.TextFormatter{
