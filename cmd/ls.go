@@ -35,8 +35,10 @@ Example:
 		// 无参数，则列出当前账号下的所有存储桶
 		if len(args) == 0 {
 			listBuckets(limit, include, exclude)
-		} else {
+		} else if util.IsCosPath(args[0]) {
 			listObjects(args[0], limit, recursive, include, exclude)
+		} else {
+			logger.Fatalln("cospath needs to contain cos://")
 		}
 	},
 }

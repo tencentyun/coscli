@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
@@ -31,10 +32,13 @@ func init() {
 	multiWriter := io.MultiWriter(fsWriter, os.Stdout)
 	log.SetOutput(multiWriter)
 	log.SetLevel(log.InfoLevel)
+	forceColors := true
+	if runtime.GOOS == "windows" {
+		forceColors = false
+	}
 	log.SetFormatter(&logrus.TextFormatter{
-		ForceColors:     true,
+		ForceColors:     forceColors,
 		TimestampFormat: "2006-01-02 15:04:05", //时间格式
 		FullTimestamp:   true,
 	})
-
 }

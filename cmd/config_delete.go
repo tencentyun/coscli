@@ -39,6 +39,10 @@ func deleteBucketConfig(cmd *cobra.Command) {
 		logger.Fatalln(err)
 		os.Exit(1)
 	}
+
+	if i < 0 {
+		logger.Fatalln("Bucket not exist in config file!")
+	}
 	config.Buckets = append(config.Buckets[:i], config.Buckets[i+1:]...)
 
 	viper.Set("cos.buckets", config.Buckets)

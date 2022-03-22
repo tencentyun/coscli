@@ -29,15 +29,17 @@ func init() {
 
 	configAddCmd.Flags().StringP("bucket", "b", "", "Bucket name")
 	configAddCmd.Flags().StringP("endpoint", "e", "", "Bucket endpoint")
+	configAddCmd.Flags().StringP("region", "r", "", "Bucket region")
 	configAddCmd.Flags().StringP("alias", "a", "", "Bucket alias")
 
 	_ = configAddCmd.MarkFlagRequired("bucket")
-	_ = configAddCmd.MarkFlagRequired("endpoint")
+	// _ = configAddCmd.MarkFlagRequired("endpoint")
 }
 
 func addBucketConfig(cmd *cobra.Command) {
 	name, _ := cmd.Flags().GetString("bucket")
 	endpoint, _ := cmd.Flags().GetString("endpoint")
+	region, _ := cmd.Flags().GetString("region")
 	alias, _ := cmd.Flags().GetString("alias")
 	if alias == "" {
 		alias = name
@@ -46,6 +48,7 @@ func addBucketConfig(cmd *cobra.Command) {
 	bucket := util.Bucket{
 		Name:     name,
 		Endpoint: endpoint,
+		Region:   region,
 		Alias:    alias,
 	}
 

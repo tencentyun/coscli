@@ -38,6 +38,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config-path", "c", "", "config file path(default is $HOME/.cos.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&param.SecretID, "secret-id", "i", "", "config secretId")
 	rootCmd.PersistentFlags().StringVarP(&param.SecretKey, "secret-key", "k", "", "config secretKey")
+	rootCmd.PersistentFlags().StringVarP(&param.SessionToken, "session-token", "t", "", "config sessionToken")
 	rootCmd.PersistentFlags().StringVarP(&param.Endpoint, "endpoint", "e", "", "config endpoint")
 
 }

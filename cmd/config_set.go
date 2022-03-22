@@ -27,9 +27,9 @@ Example:
 func init() {
 	configCmd.AddCommand(configSetCmd)
 
-	configSetCmd.Flags().StringP("secret_id", "i", "", "Set secret id")
-	configSetCmd.Flags().StringP("secret_key", "k", "", "Set secret key")
-	configSetCmd.Flags().StringP("session_token", "t", "", "Set session token")
+	configSetCmd.Flags().StringP("secret_id", "", "", "Set secret id")
+	configSetCmd.Flags().StringP("secret_key", "", "", "Set secret key")
+	configSetCmd.Flags().StringP("session_token", "", "", "Set session token")
 }
 
 func setConfigItem(cmd *cobra.Command) {

@@ -56,8 +56,7 @@ Example:
 				ThreadNum:    threadNum,
 			}
 			syncUpload(args, recursive, include, exclude, op)
-		}
-		if util.IsCosPath(args[0]) && !util.IsCosPath(args[1]) {
+		} else if util.IsCosPath(args[0]) && !util.IsCosPath(args[1]) {
 			// 下载
 			op := &util.DownloadOptions{
 				RateLimiting: rateLimiting,
@@ -65,10 +64,11 @@ Example:
 				ThreadNum:    threadNum,
 			}
 			syncDownload(args, recursive, include, exclude, op)
-		}
-		if util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
+		} else if util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
 			// 拷贝
 			syncCopy(args, recursive, include, exclude)
+		} else {
+			logger.Fatalln("cospath needs to contain cos://")
 		}
 	},
 }
