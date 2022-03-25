@@ -2,11 +2,12 @@ package util
 
 import (
 	"context"
-	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"io/ioutil"
 	"os"
 	"regexp"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func MatchBucketPattern(buckets []cos.Bucket, pattern string, include bool) []cos.Bucket {
@@ -69,7 +70,7 @@ func MatchPattern(strs []string, pattern string, include bool) []string {
 func GetBucketsList(c *cos.Client, limit int, include string, exclude string) (buckets []cos.Bucket) {
 	res, _, err := c.Service.Get(context.Background())
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 
@@ -110,7 +111,8 @@ func GetObjectsList(c *cos.Client, prefix string, limit int, include string, exc
 
 		res, _, err := c.Bucket.Get(context.Background(), opt)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Infoln(err.Error())
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 
@@ -153,7 +155,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 
 		res, _, err := c.Bucket.Get(context.Background(), opt)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 
@@ -180,7 +182,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 func GetLocalFilesList(localPath string, include string, exclude string) (dirs []string, files []string) {
 	fileInfos, err := ioutil.ReadDir(localPath)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 
@@ -216,7 +218,7 @@ func GetLocalFilesListRecursive(localPath string, include string, exclude string
 
 		fileInfos, err := ioutil.ReadDir(dirName)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 
@@ -262,7 +264,7 @@ func GetUploadsList(c *cos.Client, prefix string, limit int, include string, exc
 
 		res, _, err := c.Bucket.ListMultipartUploads(context.Background(), opt)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 
@@ -313,7 +315,7 @@ func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include st
 
 		res, _, err := c.Bucket.ListMultipartUploads(context.Background(), opt)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 

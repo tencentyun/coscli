@@ -4,20 +4,22 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 var rbCmd = &cobra.Command{
 	Use:   "rb",
 	Short: "Remove bucket",
-	Long:  `Remove bucket
+	Long: `Remove bucket
 
 Format:
-  ./coscli rb cos://<bucket-name>-<app-id> -r region
+  ./coscli rb cos://<bucket-name>-<app-id> -e <endpoint>
 
 Example:
-  ./coscli rb cos://example-1234567890 -r ap-shanghai`,
+  ./coscli rb cos://example-1234567890 -e cos.ap-beijing.myqcloud.com`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
@@ -30,27 +32,26 @@ Example:
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		bucketIDName, _ := util.ParsePath(args[0])
-		region, _ := cmd.Flags().GetString("region")
-
-		removeBucket(bucketIDName, region)
+		flagRegion, _ := cmd.Flags().GetString("region")
+		if param.Endpoint == "" && flagRegion != "" {
+			param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
+		}
+		removeBucket(bucketIDName)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(rbCmd)
-
 	rbCmd.Flags().StringP("region", "r", "", "Region")
-
-	_ = rbCmd.MarkFlagRequired("region")
 }
 
-func removeBucket(bucketIDName string, region string) {
-	c := util.CreateClient(&config, bucketIDName, region)
+func removeBucket(bucketIDName string) {
+	c := util.CreateClient(&config, &param, bucketIDName)
 
 	_, err := c.Bucket.Delete(context.Background())
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
-	fmt.Printf("Delete a empty bucket! name: %s region: %s\n", bucketIDName, region)
+	logger.Infof("Delete a empty bucket! name: %s\n", bucketIDName)
 }

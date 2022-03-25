@@ -15,8 +15,11 @@ limitations under the License.
 */
 package main
 
-import "coscli/cmd"
+import (
+	"coscli/cmd"
+)
 
 func main() {
+
 	cmd.Execute()
 }

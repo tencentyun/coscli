@@ -6,14 +6,16 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"hash"
 	"hash/crc64"
 	"io"
 	"os"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func ShowHash(c *cos.Client, path string, hashType string) (h string, b string){
+func ShowHash(c *cos.Client, path string, hashType string) (h string, b string) {
 	opt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",
 		XCosSSECustomerAglo:   "",
@@ -24,7 +26,7 @@ func ShowHash(c *cos.Client, path string, hashType string) (h string, b string){
 
 	resp, err := c.Object.Head(context.Background(), path, opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 
@@ -33,12 +35,12 @@ func ShowHash(c *cos.Client, path string, hashType string) (h string, b string){
 		h = resp.Header.Get("x-cos-hash-crc64ecma")
 	case "md5":
 		m := resp.Header.Get("etag")
-		h = m[1:len(m)-1]
+		h = m[1 : len(m)-1]
 
 		encode, _ := hex.DecodeString(h)
 		b = base64.StdEncoding.EncodeToString(encode)
 	default:
-		fmt.Println("Wrong args!")
+		logger.Infoln("Wrong args!")
 	}
 	return h, b
 }
@@ -46,7 +48,7 @@ func ShowHash(c *cos.Client, path string, hashType string) (h string, b string){
 func CalculateHash(path string, hashType string) (h string, b string) {
 	f, err := os.Open(path)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 	defer f.Close()
@@ -57,7 +59,7 @@ func CalculateHash(path string, hashType string) (h string, b string) {
 		ecma := crc64.New(crc64.MakeTable(crc64.ECMA))
 		w, _ := ecma.(hash.Hash)
 		if _, err := io.Copy(w, f); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 
@@ -67,7 +69,7 @@ func CalculateHash(path string, hashType string) (h string, b string) {
 		m := md5.New()
 		w, _ := m.(hash.Hash)
 		if _, err := io.Copy(w, f); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 

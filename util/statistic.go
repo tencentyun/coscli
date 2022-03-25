@@ -2,9 +2,11 @@ package util
 
 import (
 	"fmt"
-	"github.com/olekukonko/tablewriter"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
+
+	"github.com/olekukonko/tablewriter"
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func Statistic(objects []cos.Object) {
@@ -72,6 +74,6 @@ func Statistic(objects []cos.Object) {
 		Bottom: true,
 	})
 	table.Render()
-	fmt.Printf("Total Objects Count: %d\n", totalCnt)
-	fmt.Printf("Total Objects Size:  %s\n", FormatSize(totalSize))
+	logger.Infof("Total Objects Count: %d\n", totalCnt)
+	logger.Infof("Total Objects Size:  %s\n", FormatSize(totalSize))
 }

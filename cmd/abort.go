@@ -3,21 +3,22 @@ package cmd
 import (
 	"context"
 	"coscli/util"
-	"fmt"
+
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var abortCmd = &cobra.Command{
 	Use:   "abort",
 	Short: "Abort parts",
-	Long:  `Abort parts
+	Long: `Abort parts
 
 Format:
   ./coscli abort cos://<bucket-name>[/<prefix>] [flags]
 
 Example:
   ./coscli abort cos://examplebucket/test/`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
@@ -35,7 +36,7 @@ func init() {
 
 func abortParts(arg string, include string, exclude string) {
 	bucketName, cosPath := util.ParsePath(arg)
-	c := util.NewClient(&config, bucketName)
+	c := util.NewClient(&config, &param, bucketName)
 
 	uploads := util.GetUploadsListRecursive(c, cosPath, 0, include, exclude)
 
@@ -43,12 +44,12 @@ func abortParts(arg string, include string, exclude string) {
 	for _, u := range uploads {
 		_, err := c.Object.AbortMultipartUpload(context.Background(), u.Key, u.UploadID)
 		if err != nil {
-			fmt.Println("Abort fail!    UploadID:", u.UploadID, "Key:", u.Key)
+			logger.Infoln("Abort fail!    UploadID:", u.UploadID, "Key:", u.Key)
 			failCnt++
 		} else {
-			fmt.Println("Abort success! UploadID:", u.UploadID, "Key:", u.Key)
+			logger.Infoln("Abort success! UploadID:", u.UploadID, "Key:", u.Key)
 			successCnt++
 		}
 	}
-	fmt.Println("Total:", len(uploads), ",", successCnt, "Success,", failCnt, "Fail")
+	logger.Infoln("Total:", len(uploads), ",", successCnt, "Success,", failCnt, "Fail")
 }

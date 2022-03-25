@@ -2,11 +2,14 @@ package util
 
 import (
 	"context"
-	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+
+	logger "github.com/sirupsen/logrus"
+
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 type DownloadOptions struct {
@@ -15,7 +18,51 @@ type DownloadOptions struct {
 	ThreadNum    int
 }
 
-func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions) {
+func DownloadPathFixed(localPath string, cosPath string) (string, string, error) {
+
+	if len(cosPath) == 0 {
+		logger.Warningln("Invalid cosPath")
+		return "", "", errors.New("Invalid cosPath")
+	}
+	// cos://bucket/dirPath/ => ~/example/
+	// Should skip
+	if len(cosPath) >= 1 && cosPath[len(cosPath)-1] == '/' {
+		logger.Warningf("Skip empty cosPath: cos://%s\n", cosPath)
+		return "", "", errors.New("Skip empty cosFile")
+	}
+
+	// cos://bucket/path/123.txt => ~/example/123.txt
+	// input: cos://bucket/path/123.txt => example/
+	// show:  cos://bucket/path/123.txt => /Users/asdf/example/123.txt
+	if !filepath.IsAbs(localPath) {
+		dirPath, err := os.Getwd()
+		if err != nil {
+			logger.Fatalln(err)
+			return "", "", err
+		}
+		localPath = dirPath + "/" + localPath
+	}
+	// 创建文件夹
+	var path string
+	s, _ := os.Stat(localPath)
+	if (s != nil && s.IsDir()) || localPath[len(localPath)-1] == '/' {
+		pathList := strings.Split(cosPath, "/")
+		fileName := pathList[len(pathList)-1]
+		path = localPath
+		if localPath[len(localPath)-1] != '/' {
+			localPath = localPath + "/"
+		}
+		localPath = localPath + fileName
+	} else {
+		pathList := strings.Split(localPath, "/")
+		fileName := pathList[len(pathList)-1]
+		path = localPath[:len(localPath)-len(fileName)]
+	}
+	os.MkdirAll(path, os.ModePerm)
+	return localPath, cosPath, nil
+}
+
+func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions) error {
 	opt := &cos.MultiDownloadOptions{
 		Opt: &cos.ObjectGetOptions{
 			ResponseContentType:        "",
@@ -38,51 +85,19 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 		CheckPoint:     true,
 		CheckPointFile: "",
 	}
-
-	// cos://bucket/dirPath/ => ~/example/
-	// Should skip
-	if len(cosPath) > 1 && cosPath[len(cosPath)-1] == '/' {
-		return
-	}
-
-	// cos://bucket/path/123.txt => ~/example/123.txt
-	// input: cos://bucket/path/123.txt => example/
-	// show:  cos://bucket/path/123.txt => /Users/asdf/example/123.txt
-	if !filepath.IsAbs(localPath) {
-		dirPath, err := os.Getwd()
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		localPath = dirPath + "/" + localPath
-	}
-
-	// 创建文件夹
-	var path string
-	s, _ := os.Stat(localPath)
-	if s != nil && s.IsDir() {
-		pathList := strings.Split(cosPath, "/")
-		fileName := pathList[len(pathList)-1]
-		path = localPath
-		localPath = localPath + fileName
-	} else {
-		pathList := strings.Split(localPath, "/")
-		fileName := pathList[len(pathList)-1]
-		path = localPath[:len(localPath)-len(fileName)]
-	}
-	fmt.Printf("Download cos://%s/%s => %s\n", bucketName, cosPath, localPath)
-
-	err := os.MkdirAll(path, os.ModePerm)
+	localPath, cosPath, err := DownloadPathFixed(localPath, cosPath)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		logger.Errorln(err)
+		return err
 	}
+	logger.Infof("Download cos://%s/%s => %s\n", bucketName, cosPath, localPath)
 
 	_, err = c.Object.Download(context.Background(), cosPath, localPath, opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		logger.Errorln(err)
+		return err
 	}
+	return nil
 }
 
 func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, op *DownloadOptions) {
@@ -92,12 +107,21 @@ func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 		cosDir += "/"
 	}
-
 	objects := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
-
+	failNum := 0
+	successNum := 0
+	if len(objects) == 0 {
+		logger.Warningf("cosDir: cos://%s is empty\n", cosDir)
+		return
+	}
 	for _, o := range objects {
 		objName := o.Key[len(cosDir):]
 		localPath := localDir + objName
-		SingleDownload(c, bucketName, o.Key, localPath, op)
+		err := SingleDownload(c, bucketName, o.Key, localPath, op)
+		if err != nil {
+			failNum += 1
+		} else {
+			successNum += 1
+		}
 	}
 }

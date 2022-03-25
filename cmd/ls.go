@@ -3,38 +3,42 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
+	"os"
+
 	"github.com/olekukonko/tablewriter"
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"os"
 )
 
 var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List buckets or objects",
-	Long:  `List buckets or objects
+	Long: `List buckets or objects
 
 Format:
   ./coscli ls cos://<bucket-name>[/prefix/] [flags]
 
 Example:
   ./coscli ls cos://examplebucket/test/ -r`,
-	Args:  cobra.MaximumNArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		limit, _ := cmd.Flags().GetInt("limit")
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
 		if limit < 0 || limit > 1000 {
-			_, _ = fmt.Fprintln(os.Stderr, "Flag --limit should in range 0~1000")
+			logger.Fatalln("Flag --limit should in range 0~1000")
 			os.Exit(1)
 		}
 
 		// 无参数，则列出当前账号下的所有存储桶
 		if len(args) == 0 {
 			listBuckets(limit, include, exclude)
-		} else {
+		} else if util.IsCosPath(args[0]) {
 			listObjects(args[0], limit, recursive, include, exclude)
+		} else {
+			logger.Fatalln("cospath needs to contain cos://")
 		}
 	},
 }
@@ -49,7 +53,7 @@ func init() {
 }
 
 func listBuckets(limit int, include string, exclude string) {
-	c := util.NewClient(&config, "")
+	c := util.NewClient(&config, &param, "")
 
 	buckets := util.GetBucketsList(c, limit, include, exclude)
 
@@ -65,8 +69,7 @@ func listBuckets(limit int, include string, exclude string) {
 
 func listObjects(cosPath string, limit int, recursive bool, include string, exclude string) {
 	bucketName, path := util.ParsePath(cosPath)
-	c := util.NewClient(&config, bucketName)
-
+	c := util.NewClient(&config, &param, bucketName)
 	var dirs []string
 	var objects []cos.Object
 	if recursive {
@@ -85,6 +88,6 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 	}
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
-	table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", len(dirs) + len(objects))})
+	table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", len(dirs)+len(objects))})
 	table.Render()
 }

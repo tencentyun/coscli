@@ -5,15 +5,17 @@ import (
 	"coscli/util"
 	"encoding/xml"
 	"fmt"
+	"os"
+
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"os"
 )
 
 var rmCmd = &cobra.Command{
-	Use: "rm",
+	Use:   "rm",
 	Short: "Remove objects",
-	Long:  `Remove objects
+	Long: `Remove objects
 
 Format:
   ./coscli rm cos://<bucket-name>[/prefix/] [cos://<bucket-name>[/prefix/]...] [flags]
@@ -26,7 +28,7 @@ Example:
 		}
 		for _, arg := range args {
 			bucketName, _ := util.ParsePath(arg)
-			if bucketName == ""{
+			if bucketName == "" {
 				return fmt.Errorf("Invalid arguments! ")
 			}
 		}
@@ -57,7 +59,7 @@ func init() {
 func removeObjects(args []string, include string, exclude string, force bool) {
 	for _, arg := range args {
 		bucketName, cosDir := util.ParsePath(arg)
-		c := util.NewClient(&config, bucketName)
+		c := util.NewClient(&config, &param, bucketName)
 
 		if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 			cosDir += "/"
@@ -65,14 +67,14 @@ func removeObjects(args []string, include string, exclude string, force bool) {
 
 		objects := util.GetObjectsListRecursive(c, cosDir, 0, include, exclude)
 		if len(objects) == 0 {
-			fmt.Println("No objects were deleted!")
+			logger.Infoln("No objects were deleted!")
 			return
 		}
 
 		var oKeys []cos.Object
 		for _, o := range objects {
 			if !force {
-				fmt.Printf("Do you want to delete %s? (y/n)", o.Key)
+				logger.Infof("Do you want to delete %s? (y/n)", o.Key)
 				var choice string
 				_, _ = fmt.Scanf("%s\n", &choice)
 				if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
@@ -90,20 +92,20 @@ func removeObjects(args []string, include string, exclude string, force bool) {
 
 		res, _, err := c.Object.DeleteMulti(context.Background(), opt)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			logger.Fatalln(err)
 			os.Exit(1)
 		}
 
 		for _, o := range res.DeletedObjects {
-			fmt.Println("Delete ", o.Key)
+			logger.Infoln("Delete ", o.Key)
 		}
 		if len(res.Errors) == 0 {
-			fmt.Printf("\nAll deleted successfully!\n")
+			logger.Infof("\nAll deleted successfully!\n")
 		} else {
-			fmt.Println()
+			logger.Infoln()
 			for i, e := range res.Errors {
-				fmt.Println(i+1, ". Fail to delete", e.Key)
-				fmt.Println("    Error Code: ", e.Code, " Message: ", e.Message)
+				logger.Infoln(i+1, ". Fail to delete", e.Key)
+				logger.Infoln("    Error Code: ", e.Code, " Message: ", e.Message)
 			}
 		}
 	}
@@ -112,7 +114,7 @@ func removeObjects(args []string, include string, exclude string, force bool) {
 func removeObjects1(args []string, include string, exclude string, force bool) {
 	for _, arg := range args {
 		bucketName, cosDir := util.ParsePath(arg)
-		c := util.NewClient(&config, bucketName)
+		c := util.NewClient(&config, &param, bucketName)
 
 		if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 			cosDir += "/"
@@ -123,14 +125,14 @@ func removeObjects1(args []string, include string, exclude string, force bool) {
 		deleteOrNot := false
 		errorOrNot := false
 		for isTruncated {
-			objects, t, m:= util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+			objects, t, m := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
 			isTruncated = t
 			nextMarker = m
 
 			var oKeys []cos.Object
 			for _, o := range objects {
 				if !force {
-					fmt.Printf("Do you want to delete %s? (y/n)", o.Key)
+					logger.Infof("Do you want to delete %s? (y/n)", o.Key)
 					var choice string
 					_, _ = fmt.Scanf("%s\n", &choice)
 					if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
@@ -152,28 +154,28 @@ func removeObjects1(args []string, include string, exclude string, force bool) {
 
 			res, _, err := c.Object.DeleteMulti(context.Background(), opt)
 			if err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
+				logger.Fatalln(err)
 				os.Exit(1)
 			}
 
 			for _, o := range res.DeletedObjects {
-				fmt.Println("Delete ", o.Key)
+				logger.Infoln("Delete ", o.Key)
 			}
 			if len(res.Errors) > 0 {
 				errorOrNot = true
-				fmt.Println()
+				logger.Infoln()
 				for _, e := range res.Errors {
-					fmt.Println("Fail to delete", e.Key)
-					fmt.Println("    Error Code: ", e.Code, " Message: ", e.Message)
+					logger.Infoln("Fail to delete", e.Key)
+					logger.Infoln("    Error Code: ", e.Code, " Message: ", e.Message)
 				}
 			}
 		}
 
 		if deleteOrNot == false {
-			fmt.Println("No objects were deleted!")
+			logger.Infoln("No objects were deleted!")
 		}
 		if errorOrNot == false {
-			fmt.Printf("\nAll deleted successfully!\n")
+			logger.Infof("\nAll deleted successfully!\n")
 		}
 	}
 }
@@ -181,7 +183,7 @@ func removeObjects1(args []string, include string, exclude string, force bool) {
 func removeObject(args []string, force bool) {
 	for _, arg := range args {
 		bucketName, cosPath := util.ParsePath(arg)
-		c := util.NewClient(&config, bucketName)
+		c := util.NewClient(&config, &param, bucketName)
 
 		opt := &cos.ObjectDeleteOptions{
 			XCosSSECustomerAglo:   "",
@@ -192,24 +194,24 @@ func removeObject(args []string, force bool) {
 		}
 
 		if !force {
-			fmt.Printf("Do you want to delete %s? (y/n)", cosPath)
+			logger.Infof("Do you want to delete %s? (y/n)", cosPath)
 			var choice string
 			_, _ = fmt.Scanf("%s\n", &choice)
 			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
 				_, err := c.Object.Delete(context.Background(), cosPath, opt)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
+					logger.Fatalln(err)
 					os.Exit(1)
 				}
-				fmt.Println("Delete", arg, "successfully!")
+				logger.Infoln("Delete", arg, "successfully!")
 			}
 		} else {
 			_, err := c.Object.Delete(context.Background(), cosPath, opt)
 			if err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
+				logger.Fatalln(err)
 				os.Exit(1)
 			}
-			fmt.Println("Delete", arg, "successfully!")
+			logger.Infoln("Delete", arg, "successfully!")
 		}
 	}
 }

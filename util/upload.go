@@ -2,11 +2,12 @@ package util
 
 import (
 	"context"
-	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
 	"path/filepath"
 	"strings"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 type UploadOptions struct {
@@ -16,6 +17,36 @@ type UploadOptions struct {
 	ThreadNum    int
 }
 
+func UploadPathFixed(localPath string, cosPath string) (string, string) {
+	// eg:~/example/123.txt => cos://bucket/path/123.txt
+	// 0. ~/example/123.txt => cos://bucket
+	if cosPath == "" {
+		pathList := strings.Split(localPath, "/")
+		fileName := pathList[len(pathList)-1]
+		cosPath = fileName
+	}
+	// 1. ~/example/123.txt => cos://bucket/path/
+	s, err := os.Stat(localPath)
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+	if s.IsDir() {
+		fileNames := strings.Split(localPath, "/")
+		fileName := fileNames[len(fileNames)-1]
+		cosPath = cosPath + fileName
+	}
+	// 2. 123.txt => cos://bucket/path/
+	if !filepath.IsAbs(localPath) {
+		dirPath, err := os.Getwd()
+		if err != nil {
+			logger.Fatalln(err)
+			os.Exit(1)
+		}
+		localPath = dirPath + "/" + localPath
+	}
+	return localPath, cosPath
+}
 func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *UploadOptions) {
 	opt := &cos.MultiUploadOptions{
 		OptIni: &cos.InitiateMultipartUploadOptions{
@@ -54,38 +85,11 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 		CheckPoint:         true,
 		EnableVerification: false,
 	}
-
-	// eg:~/example/123.txt => cos://bucket/path/123.txt
-	// 0. ~/example/123.txt => cos://bucket
-	if cosPath == "" {
-		pathList := strings.Split(localPath, "/")
-		fileName := pathList[len(pathList)-1]
-		cosPath = fileName
-	}
-	// 1. ~/example/123.txt => cos://bucket/path/
-	s, err := os.Stat(localPath)
+	localPath, cosPath = UploadPathFixed(localPath, cosPath)
+	logger.Infof("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)
+	_, _, err := c.Object.Upload(context.Background(), cosPath, localPath, opt)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if s.IsDir() {
-		fileNames := strings.Split(localPath, "/")
-		fileName := fileNames[len(fileNames)-1]
-		cosPath = cosPath + fileName
-	}
-	// 2. 123.txt => cos://bucket/path/
-	if !filepath.IsAbs(localPath) {
-		dirPath, err := os.Getwd()
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		localPath = dirPath + "/" + localPath
-	}
-	fmt.Printf("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)
-	_, _, err = c.Object.Upload(context.Background(), cosPath, localPath, opt)
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		logger.Fatalln(err)
 		os.Exit(1)
 	}
 }
