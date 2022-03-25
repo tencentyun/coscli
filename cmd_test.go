@@ -23,7 +23,7 @@ var appID string
 
 var testBucket1 = "coscli-test1"
 var testAlias1 = "coscli-test1"
-var testEndpoint1 = "cos.ap-shanghai.myqcloud.com"
+var testEndpoint1 = "cos.ap-guangzhou.myqcloud.com"
 
 var testBucket2 = "coscli-test2"
 var testAlias2 = "coscli-test2"
@@ -40,15 +40,15 @@ func init() {
 func getConfig() {
 	home, err := homedir.Dir()
 	if err != nil {
-		panic(err)
+		logger.Errorln(err)
 	}
 	viper.SetConfigFile(home + "/.cos.yaml")
 
 	if err = viper.ReadInConfig(); err != nil {
-		panic(err)
+		logger.Errorln(err)
 	}
 	if err = viper.UnmarshalKey("cos", &config); err != nil {
-		panic(err)
+		logger.Errorln(err)
 	}
 }
 
@@ -58,7 +58,7 @@ func setUp(testBucket, testAlias, testEndpoint string) {
 	cmd := exec.Command("bash", "-c",
 		fmt.Sprintf("./coscli mb cos://%s-%s -e %s", testBucket, appID, testEndpoint))
 	if err := cmd.Run(); err != nil {
-		panic("SetUp error: 创建测试桶失败")
+		logger.Errorln("SetUp error: 创建测试桶失败")
 	}
 
 	// 更新配置文件
@@ -66,7 +66,7 @@ func setUp(testBucket, testAlias, testEndpoint string) {
 	cmd = exec.Command("bash", "-c",
 		fmt.Sprintf("./coscli config add -b %s-%s -e %s -a %s", testBucket, appID, testEndpoint, testAlias))
 	if err := cmd.Run(); err != nil {
-		panic("SetUp error: 更新配置文件失败")
+		logger.Errorln("SetUp error: 更新配置文件失败")
 	}
 
 	// 更新 Config
@@ -79,12 +79,12 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	cmd := exec.Command("bash", "-c",
 		fmt.Sprintf("./coscli rm cos://%s -r -f", testAlias))
 	if err := cmd.Run(); err != nil {
-		panic("TearDown error: 清空测试桶失败")
+		logger.Errorln("TearDown error: 清空测试桶失败")
 	}
 	cmd = exec.Command("bash", "-c",
 		fmt.Sprintf("./coscli abort cos://%s", testAlias))
 	if err := cmd.Run(); err != nil {
-		panic("TearDown error: 清空测试桶失败")
+		logger.Errorln("TearDown error: 清空测试桶失败")
 	}
 
 	// 删除测试桶
@@ -92,7 +92,7 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	cmd = exec.Command("bash", "-c",
 		fmt.Sprintf("./coscli rb cos://%s-%s -e %s", testBucket, appID, testEndpoint))
 	if err := cmd.Run(); err != nil {
-		panic("TearDown error: 删除测试桶失败")
+		logger.Errorln("TearDown error: 删除测试桶失败")
 	}
 
 	// 更新配置文件
@@ -100,7 +100,7 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	cmd = exec.Command("bash", "-c",
 		fmt.Sprintf("./coscli config delete -a %s", testAlias))
 	if err := cmd.Run(); err != nil {
-		panic("TearDown error: 更新配置文件失败")
+		logger.Errorln("TearDown error: 更新配置文件失败")
 	}
 }
 
@@ -115,22 +115,22 @@ func genFile(fileName string, size int) {
 
 	f, err := os.Create(fileName)
 	if err != nil {
-		panic("genFile error: 创建文件失败")
+		logger.Errorln("genFile error: 创建文件失败")
 	}
 	defer f.Close()
 
 	n, err := f.Write(data)
 	if err != nil || n != size {
-		panic("genFile error: 数据写入失败")
+		logger.Errorln("genFile error: 数据写入失败")
 	}
 }
 
 func genDir(dirName string, num int) {
 	if err := os.MkdirAll(fmt.Sprintf("%s/small-file", dirName), os.ModePerm); err != nil {
-		panic("genDir error: 创建文件夹失败")
+		logger.Errorln("genDir error: 创建文件夹失败")
 	}
 	if err := os.MkdirAll(fmt.Sprintf("%s/big-file", dirName), os.ModePerm); err != nil {
-		panic("genDir error: 创建文件夹失败")
+		logger.Errorln("genDir error: 创建文件夹失败")
 	}
 
 	logger.Infoln(fmt.Sprintf("生成小文件：%s/small-file", dirName))
@@ -139,14 +139,14 @@ func genDir(dirName string, num int) {
 	}
 	logger.Infoln(fmt.Sprintf("生成大文件：%s/big-file", dirName))
 	for i := 0; i < 3; i++ {
-		genFile(fmt.Sprintf("%s/big-file/%d", dirName, i), 40*1024*1024)
+		genFile(fmt.Sprintf("%s/big-file/%d", dirName, i), 5*1024*1024)
 	}
 }
 
 func delDir(dirName string) {
 	logger.Infoln(fmt.Sprintf("删除测试临时文件夹：%s", dirName))
 	if err := os.RemoveAll(dirName); err != nil {
-		panic("delDir error: 删除文件夹失败")
+		logger.Errorln("delDir error: 删除文件夹失败")
 	}
 }
 
