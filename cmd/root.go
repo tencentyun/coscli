@@ -71,6 +71,9 @@ func initConfig() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		if config.Base.Protocol == "" {
+			config.Base.Protocol = "https"
+		}
 	} else {
 		fmt.Println(err)
 		os.Exit(1)
