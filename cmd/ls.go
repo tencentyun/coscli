@@ -68,6 +68,11 @@ func listBuckets(limit int, include string, exclude string) {
 }
 
 func listObjects(cosPath string, limit int, recursive bool, include string, exclude string) {
+	if !util.IsCosPath(cosPath) {
+		_, _ = fmt.Fprintln(os.Stderr, "cos path should be 'cos://<bucket-name>[/prefix/]'")
+		os.Exit(1)
+	}
+
 	bucketName, path := util.ParsePath(cosPath)
 	c := util.NewClient(&config, &param, bucketName)
 	var dirs []string
