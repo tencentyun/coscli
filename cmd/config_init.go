@@ -83,6 +83,10 @@ func initConfigFile(cfgFlag bool) {
 		fmt.Printf("- Name: %s\tEndpoint: %s\tAlias: %s\n", b.Name, b.Endpoint, b.Alias)
 	}
 	fmt.Printf("\nIf you want to configure more buckets, you can use the \"config add\" command later.\n")
+	// 默认加密存储
+	config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
+	config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
+	config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
 
 	viper.Set("cos", config)
 

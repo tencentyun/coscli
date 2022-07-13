@@ -83,7 +83,6 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 		PartSize:           op.PartSize,
 		ThreadPoolSize:     op.ThreadNum,
 		CheckPoint:         true,
-		EnableVerification: false,
 	}
 	localPath, cosPath = UploadPathFixed(localPath, cosPath)
 	logger.Infof("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)

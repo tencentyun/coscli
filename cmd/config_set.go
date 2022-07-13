@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"coscli/util"
 	"os"
 
 	logger "github.com/sirupsen/logrus"
@@ -67,7 +68,11 @@ func setConfigItem(cmd *cobra.Command) {
 		logger.Infoln(cmd.UsageString())
 		os.Exit(1)
 	}
-
+	// 默认加密存储
+	config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
+	config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
+	config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
+	
 	viper.Set("cos.base", config.Base)
 	if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
 		logger.Fatalln(err)

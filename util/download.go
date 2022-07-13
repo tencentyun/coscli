@@ -58,8 +58,8 @@ func DownloadPathFixed(localPath string, cosPath string) (string, string, error)
 		fileName := pathList[len(pathList)-1]
 		path = localPath[:len(localPath)-len(fileName)]
 	}
-	os.MkdirAll(path, os.ModePerm)
-	return localPath, cosPath, nil
+	err := os.MkdirAll(path, os.ModePerm)
+	return localPath, cosPath, err
 }
 
 func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions) error {
