@@ -25,7 +25,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
-	Version: "v0.11.0-beta",
+	Version: "v0.11.1-beta",
 }
 
 func Execute() {
@@ -40,7 +40,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&param.SecretKey, "secret-key", "k", "", "config secretKey")
 	rootCmd.PersistentFlags().StringVarP(&param.SessionToken, "session-token", "t", "", "config sessionToken")
 	rootCmd.PersistentFlags().StringVarP(&param.Endpoint, "endpoint", "e", "", "config endpoint")
-
 }
 
 func initConfig() {
@@ -74,6 +73,20 @@ func initConfig() {
 		if config.Base.Protocol == "" {
 			config.Base.Protocol = "https"
 		}
+		// 尝试解码secretId/secretKey/session, 能解开就是加密的，否则就不解
+		secretKey, err := util.DecryptSecret(config.Base.SecretKey)
+		if err == nil {
+			config.Base.SecretKey = secretKey
+		}
+		secretId, err := util.DecryptSecret(config.Base.SecretID)
+		if err == nil {
+			config.Base.SecretID = secretId
+		}
+		sessionToken, err := util.DecryptSecret(config.Base.SessionToken)
+		if err == nil {
+			config.Base.SessionToken = sessionToken
+		}
+
 	} else {
 		fmt.Println(err)
 		os.Exit(1)

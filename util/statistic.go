@@ -11,9 +11,9 @@ import (
 
 func Statistic(objects []cos.Object) {
 	var standardCnt, standardIACnt, intelligentTieringCnt, archiveCnt, deepArchiveCnt int
-	var mazStandardCnt, mazStandardIACnt, mazIntelligentTieringCnt int
+	var mazStandardCnt, mazStandardIACnt, mazIntelligentTieringCnt, mazArchiveCnt int
 	var standardSize, standardIASize, intelligentTieringSize, archiveSize, deepArchiveSize int64
-	var mazStandardSize, mazStandardIASize, mazIntelligentTieringSize int64
+	var mazStandardSize, mazStandardIASize, mazIntelligentTieringSize, mazArchiveSize int64
 
 	var totalCnt int
 	var totalSize int64
@@ -52,6 +52,10 @@ func Statistic(objects []cos.Object) {
 			mazIntelligentTieringCnt++
 			mazIntelligentTieringSize += o.Size
 			totalSize += o.Size
+		case MAZArchive:
+			mazArchiveCnt++
+			mazArchiveSize += o.Size
+			totalSize += o.Size
 		}
 	}
 	totalCnt = len(objects)
@@ -66,6 +70,8 @@ func Statistic(objects []cos.Object) {
 	table.Append([]string{MAZStandard, fmt.Sprintf("%d", mazStandardCnt), FormatSize(mazStandardSize)})
 	table.Append([]string{MAZStandardIA, fmt.Sprintf("%d", mazStandardIACnt), FormatSize(mazStandardIASize)})
 	table.Append([]string{MAZIntelligentTiering, fmt.Sprintf("%d", mazIntelligentTieringCnt), FormatSize(mazIntelligentTieringSize)})
+	table.Append([]string{MAZArchive, fmt.Sprintf("%d", mazArchiveCnt), FormatSize(mazArchiveSize)})
+
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
 	table.SetBorders(tablewriter.Border{
 		Left:   false,
