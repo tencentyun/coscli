@@ -2,6 +2,7 @@
 .vscode
 .DS_Store
 release
+vendor
 
 coscli
 coscli.exe
