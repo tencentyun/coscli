@@ -4,9 +4,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	logger "github.com/sirupsen/logrus"
+	leveldb "github.com/syndtr/goleveldb/leveldb"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
@@ -15,6 +17,9 @@ type UploadOptions struct {
 	RateLimiting float32
 	PartSize     int64
 	ThreadNum    int
+	Meta         Meta
+	SnapshotDb   *leveldb.DB
+	SnapshotPath string
 }
 
 func UploadPathFixed(localPath string, cosPath string) (string, string) {
@@ -59,17 +64,17 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 				XCosGrantWriteACP:    "",
 			},
 			ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{
-				CacheControl:             "",
-				ContentDisposition:       "",
-				ContentEncoding:          "",
-				ContentType:              "",
-				ContentMD5:               "",
-				ContentLength:            0,
-				ContentLanguage:          "",
+				CacheControl:             op.Meta.CacheControl,
+				ContentDisposition:       op.Meta.ContentDisposition,
+				ContentEncoding:          op.Meta.ContentEncoding,
+				ContentType:              op.Meta.ContentType,
+				ContentMD5:               op.Meta.ContentMD5,
+				ContentLength:            op.Meta.ContentLength,
+				ContentLanguage:          op.Meta.ContentLanguage,
 				Expect:                   "",
-				Expires:                  "",
+				Expires:                  op.Meta.Expires,
 				XCosContentSHA1:          "",
-				XCosMetaXXX:              nil,
+				XCosMetaXXX:              op.Meta.XCosMetaXXX,
 				XCosStorageClass:         op.StorageClass,
 				XCosServerSideEncryption: "",
 				XCosSSECustomerAglo:      "",
@@ -80,9 +85,9 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 				Listener:                 &CosListener{},
 			},
 		},
-		PartSize:           op.PartSize,
-		ThreadPoolSize:     op.ThreadNum,
-		CheckPoint:         true,
+		PartSize:       op.PartSize,
+		ThreadPoolSize: op.ThreadNum,
+		CheckPoint:     true,
 	}
 	localPath, cosPath = UploadPathFixed(localPath, cosPath)
 	logger.Infof("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)
@@ -91,6 +96,12 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 		logger.Fatalln(err)
 		os.Exit(1)
 	}
+
+	fileInfo, err := os.Stat(localPath)
+	if err != nil {
+		return
+	}
+	op.SnapshotDb.Put([]byte(localPath), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 64)), nil)
 }
 
 func MultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclude string, op *UploadOptions) {

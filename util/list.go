@@ -2,6 +2,8 @@ package util
 
 import (
 	"context"
+	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -299,11 +301,19 @@ func GetLocalFilesListRecursive(localPath string, include string, exclude string
 
 		for _, f := range fileInfos {
 			fileName := dirName + "/" + f.Name()
-			if f.IsDir() {
-				dirs = append(dirs, fileName)
-			} else {
+			if f.Mode().IsRegular() { // 普通文件，直接添加
 				fileName = fileName[len(localPath)+1:]
 				files = append(files, fileName)
+			} else if f.IsDir() { // 普通目录，添加到继续迭代
+				dirs = append(dirs, fileName)
+			} else if f.Mode()&os.ModeSymlink == fs.ModeSymlink { // 软链接
+				logger.Infoln(fmt.Sprintf("List %s file is Symlink, will be excluded, "+
+					"please list or upload it from realpath",
+					f.Name()))
+				continue
+			} else {
+				logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", f.Name()))
+				continue
 			}
 		}
 	}
