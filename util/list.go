@@ -309,10 +309,10 @@ func GetLocalFilesListRecursive(localPath string, include string, exclude string
 			} else if f.Mode()&os.ModeSymlink == fs.ModeSymlink { // 软链接
 				logger.Infoln(fmt.Sprintf("List %s file is Symlink, will be excluded, "+
 					"please list or upload it from realpath",
-					f.Name()))
+					fileName))
 				continue
 			} else {
-				logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", f.Name()))
+				logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", fileName))
 				continue
 			}
 		}
