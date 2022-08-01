@@ -113,7 +113,7 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 		if err != nil {
 			return err
 		}
-		op.SnapshotDb.Put([]byte(cosPath), []byte(strconv.FormatInt(cosLastModifiedTime.Unix(), 64)), nil)
+		op.SnapshotDb.Put([]byte(cosPath), []byte(strconv.FormatInt(cosLastModifiedTime.Unix(), 10)), nil)
 	}
 
 	return nil

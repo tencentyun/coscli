@@ -44,7 +44,7 @@ func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, loca
 				return false, nil
 			}
 		} else {
-			return false, err
+			return false, nil
 		}
 	}
 
@@ -153,7 +153,7 @@ func skipDownload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, lo
 				return false, nil
 			}
 		} else {
-			return false, err
+			return false, nil
 		}
 	}
 

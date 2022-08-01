@@ -2,6 +2,8 @@ package util
 
 import (
 	"context"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -90,18 +92,32 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 		CheckPoint:     true,
 	}
 	localPath, cosPath = UploadPathFixed(localPath, cosPath)
+	fileInfo, err := os.Stat(localPath)
+	if err != nil {
+		return
+	}
+
+	if fileInfo.Mode().IsRegular() { // 普通文件，直接添加
+	} else if fileInfo.IsDir() { // 普通目录，添加到继续迭代
+	} else if fileInfo.Mode()&os.ModeSymlink == fs.ModeSymlink { // 软链接
+		logger.Infoln(fmt.Sprintf("List %s file is Symlink, will be excluded, "+
+			"please list or upload it from realpath",
+			localPath))
+	} else {
+		logger.Infoln(fmt.Sprintf("file %s is not regular file, will be excluded", localPath))
+		return
+	}
+
 	logger.Infof("Upload %s => cos://%s/%s\n", localPath, bucketName, cosPath)
-	_, _, err := c.Object.Upload(context.Background(), cosPath, localPath, opt)
+	_, _, err = c.Object.Upload(context.Background(), cosPath, localPath, opt)
 	if err != nil {
 		logger.Fatalln(err)
 		os.Exit(1)
 	}
 
-	fileInfo, err := os.Stat(localPath)
-	if err != nil {
-		return
+	if op.SnapshotPath != "" {
+		op.SnapshotDb.Put([]byte(localPath), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 10)), nil)
 	}
-	op.SnapshotDb.Put([]byte(localPath), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 64)), nil)
 }
 
 func MultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclude string, op *UploadOptions) {
