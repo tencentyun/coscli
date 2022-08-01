@@ -97,12 +97,13 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 		return
 	}
 
-	if fileInfo.Mode().IsRegular() { // 普通文件，直接添加
-	} else if fileInfo.IsDir() { // 普通目录，添加到继续迭代
+	if fileInfo.Mode().IsRegular() {
+	} else if fileInfo.IsDir() {
 	} else if fileInfo.Mode()&os.ModeSymlink == fs.ModeSymlink { // 软链接
 		logger.Infoln(fmt.Sprintf("List %s file is Symlink, will be excluded, "+
 			"please list or upload it from realpath",
 			localPath))
+		return
 	} else {
 		logger.Infoln(fmt.Sprintf("file %s is not regular file, will be excluded", localPath))
 		return
