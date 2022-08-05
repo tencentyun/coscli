@@ -139,7 +139,7 @@ func skipDownload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, lo
 			}
 		}
 		var cosLastModifiedTime time.Time
-		cosLastModifiedTime, err = time.Parse(time.RFC1123, cosLastModified)
+		cosLastModifiedTime, err = time.Parse(time.RFC3339, cosLastModified)
 		if err != nil {
 			return
 		}

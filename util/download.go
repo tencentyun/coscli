@@ -109,7 +109,7 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 			return nil
 		}
 		var cosLastModifiedTime time.Time
-		cosLastModifiedTime, err = time.Parse(time.RFC1123, lastModified)
+		cosLastModifiedTime, err = time.Parse(time.RFC3339, lastModified)
 		if err != nil {
 			return err
 		}
