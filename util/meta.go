@@ -35,12 +35,12 @@ func MetaStringToHeader(meta string) (result Meta, err error) {
 			continue
 		}
 		item := strings.Split(kv, ":")
-		if len(item) != 2 {
+		if len(item) < 2 {
 			return result, fmt.Errorf("invalid meta item %v", item)
 		}
 
 		k := strings.ToLower(item[0])
-		v := item[1]
+		v := strings.Join(item[1:], ":")
 		if strings.HasPrefix(k, "x-cos-meta-") {
 			metaXXX.Set(k, v)
 			metaChange = true
