@@ -1,0 +1,72 @@
+[31mFATA[0m[2022-08-01 16:47:59] stat /Users/suoyi/Downloads/migration-list.tar.gz: no such file or directory 
+[36mINFO[0m[2022-08-01 16:49:53] Upload /Users/suoyi/Downloads/migration-lister-1.0.128-install.tar.gz => cos://suoyi-dst-1253960454/aaaaa.tgz 
+[36mINFO[0m[2022-08-01 16:53:42] Upload /Users/suoyi/Downloads/migration-lister-1.0.128-install.tar.gz => cos://suoyi-dst-1253960454/aaaaa.tgz 
+[36mINFO[0m[2022-08-01 16:54:48] Upload /Users/suoyi/Downloads/migration-lister-1.0.128-install.tar.gz => cos://suoyi-dst-1253960454/aaaaa.tgz 
+[36mINFO[0m[2022-08-01 16:58:06] Upload /tmp/mongodb-27017.sock => cos://suoyi-dst-1253960454/mongodb-27017.sock 
+[36mINFO[0m[2022-08-01 17:03:50] file /tmp/mongodb-27017.sock is not regular file, will be excluded 
+[36mINFO[0m[2022-08-01 17:04:31] file /tmp/mongodb-27017.sock is not regular file, will be excluded 
+[36mINFO[0m[2022-08-01 17:09:11] List mongodb-27017.sock file is not regular file, will be excluded 
+[36mINFO[0m[2022-08-01 17:09:11] List Listeners file is not regular file, will be excluded 
+[31mERRO[0m[2022-08-01 17:09:11] Sync LocalPath:/tmp/system.preferences.plist, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:09:11] Sync LocalPath:/tmp/boost_interprocess/idisk_app_queue, err:leveldb: not found 
+[36mINFO[0m[2022-08-01 17:10:10] List mongodb-27017.sock file is not regular file, will be excluded 
+[36mINFO[0m[2022-08-01 17:10:10] List Listeners file is not regular file, will be excluded 
+[31mERRO[0m[2022-08-01 17:10:10] Sync LocalPath:/tmp/system.preferences.plist, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:10:10] Sync LocalPath:/tmp/boost_interprocess/idisk_app_queue, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/.DS_Store, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/worker/.DS_Store, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/master/bin/msp-master, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/master/bin/start.sh, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/master/bin/stop.sh, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/master/configs/app_logger_config.yaml, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/master/configs/pl_config.yaml, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/master/configs/query_logger_config.yaml, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/worker/bin/msp-worker, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/worker/bin/start.sh, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/worker/bin/stop.sh, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/worker/configs/app_logger_config.yaml, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/worker/configs/pl_config.yaml, err:leveldb: not found 
+[31mERRO[0m[2022-08-01 17:13:37] Sync LocalPath:/Users/suoyi/Documents/msp-agent/worker/configs/query_logger_config.yaml, err:leveldb: not found 
+[36mINFO[0m[2022-08-01 17:18:39] Upload /Users/suoyi/Documents/msp-agent/.DS_Store => cos://suoyi-dst-1253960454/tmp/.DS_Store 
+[36mINFO[0m[2022-08-01 17:18:40] Upload /Users/suoyi/Documents/msp-agent/worker/.DS_Store => cos://suoyi-dst-1253960454/tmp/worker/.DS_Store 
+[36mINFO[0m[2022-08-01 17:18:40] Upload /Users/suoyi/Documents/msp-agent/master/bin/msp-master => cos://suoyi-dst-1253960454/tmp/master/bin/msp-master 
+[36mINFO[0m[2022-08-01 17:18:42] Upload /Users/suoyi/Documents/msp-agent/master/bin/start.sh => cos://suoyi-dst-1253960454/tmp/master/bin/start.sh 
+[36mINFO[0m[2022-08-01 17:18:43] Upload /Users/suoyi/Documents/msp-agent/master/bin/stop.sh => cos://suoyi-dst-1253960454/tmp/master/bin/stop.sh 
+[36mINFO[0m[2022-08-01 17:18:43] Upload /Users/suoyi/Documents/msp-agent/master/configs/app_logger_config.yaml => cos://suoyi-dst-1253960454/tmp/master/configs/app_logger_config.yaml 
+[36mINFO[0m[2022-08-01 17:18:43] Upload /Users/suoyi/Documents/msp-agent/master/configs/pl_config.yaml => cos://suoyi-dst-1253960454/tmp/master/configs/pl_config.yaml 
+[36mINFO[0m[2022-08-01 17:18:43] Upload /Users/suoyi/Documents/msp-agent/master/configs/query_logger_config.yaml => cos://suoyi-dst-1253960454/tmp/master/configs/query_logger_config.yaml 
+[36mINFO[0m[2022-08-01 17:18:43] Upload /Users/suoyi/Documents/msp-agent/worker/bin/msp-worker => cos://suoyi-dst-1253960454/tmp/worker/bin/msp-worker 
+[36mINFO[0m[2022-08-01 17:18:47] Upload /Users/suoyi/Documents/msp-agent/worker/bin/start.sh => cos://suoyi-dst-1253960454/tmp/worker/bin/start.sh 
+[36mINFO[0m[2022-08-01 17:18:47] Upload /Users/suoyi/Documents/msp-agent/worker/bin/stop.sh => cos://suoyi-dst-1253960454/tmp/worker/bin/stop.sh 
+[36mINFO[0m[2022-08-01 17:18:47] Upload /Users/suoyi/Documents/msp-agent/worker/configs/app_logger_config.yaml => cos://suoyi-dst-1253960454/tmp/worker/configs/app_logger_config.yaml 
+[36mINFO[0m[2022-08-01 17:18:47] Upload /Users/suoyi/Documents/msp-agent/worker/configs/pl_config.yaml => cos://suoyi-dst-1253960454/tmp/worker/configs/pl_config.yaml 
+[36mINFO[0m[2022-08-01 17:18:48] Upload /Users/suoyi/Documents/msp-agent/worker/configs/query_logger_config.yaml => cos://suoyi-dst-1253960454/tmp/worker/configs/query_logger_config.yaml 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/.DS_Store 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/worker/.DS_Store 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/master/bin/msp-master 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/master/bin/start.sh 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/master/bin/stop.sh 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/master/configs/app_logger_config.yaml 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/master/configs/pl_config.yaml 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/master/configs/query_logger_config.yaml 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/worker/bin/msp-worker 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/worker/bin/start.sh 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/worker/bin/stop.sh 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/worker/configs/app_logger_config.yaml 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/worker/configs/pl_config.yaml 
+[36mINFO[0m[2022-08-01 17:19:03] Sync upload file localPath skip, /Users/suoyi/Documents/msp-agent/worker/configs/query_logger_config.yaml 
+[36mINFO[0m[2022-08-01 17:21:43] Upload /Users/suoyi/cos/coscli_master/coscli/./go.mod => cos://suoyi-dst-1253960454/go.mod 
+[36mINFO[0m[2022-08-05 11:28:11] Upload /Users/suoyi/Documents/msp-agent/worker/.DS_Store => cos://suoyi-dst-1253960454/tmp/worker/.DS_Store 
+[36mINFO[0m[2022-08-05 11:28:12] Upload /Users/suoyi/Documents/msp-agent/master/bin/msp-master => cos://suoyi-dst-1253960454/tmp/master/bin/msp-master 
+[36mINFO[0m[2022-08-05 11:28:15] Upload /Users/suoyi/Documents/msp-agent/master/bin/start.sh => cos://suoyi-dst-1253960454/tmp/master/bin/start.sh 
+[36mINFO[0m[2022-08-05 11:28:15] Upload /Users/suoyi/Documents/msp-agent/master/bin/stop.sh => cos://suoyi-dst-1253960454/tmp/master/bin/stop.sh 
+[36mINFO[0m[2022-08-05 11:28:16] Upload /Users/suoyi/Documents/msp-agent/master/configs/app_logger_config.yaml => cos://suoyi-dst-1253960454/tmp/master/configs/app_logger_config.yaml 
+[36mINFO[0m[2022-08-05 11:28:16] Upload /Users/suoyi/Documents/msp-agent/master/configs/pl_config.yaml => cos://suoyi-dst-1253960454/tmp/master/configs/pl_config.yaml 
+[36mINFO[0m[2022-08-05 11:28:16] Upload /Users/suoyi/Documents/msp-agent/master/configs/query_logger_config.yaml => cos://suoyi-dst-1253960454/tmp/master/configs/query_logger_config.yaml 
+[36mINFO[0m[2022-08-05 11:28:16] Upload /Users/suoyi/Documents/msp-agent/worker/bin/msp-worker => cos://suoyi-dst-1253960454/tmp/worker/bin/msp-worker 
+[36mINFO[0m[2022-08-05 11:28:18] Upload /Users/suoyi/Documents/msp-agent/worker/bin/msp-worker.bak => cos://suoyi-dst-1253960454/tmp/worker/bin/msp-worker.bak 
+[36mINFO[0m[2022-08-05 11:28:23] Upload /Users/suoyi/Documents/msp-agent/worker/bin/start.sh => cos://suoyi-dst-1253960454/tmp/worker/bin/start.sh 
+[36mINFO[0m[2022-08-05 11:28:23] Upload /Users/suoyi/Documents/msp-agent/worker/bin/stop.sh => cos://suoyi-dst-1253960454/tmp/worker/bin/stop.sh 
+[36mINFO[0m[2022-08-05 11:28:23] Upload /Users/suoyi/Documents/msp-agent/worker/configs/app_logger_config.yaml => cos://suoyi-dst-1253960454/tmp/worker/configs/app_logger_config.yaml 
+[36mINFO[0m[2022-08-05 11:28:23] Upload /Users/suoyi/Documents/msp-agent/worker/configs/pl_config.yaml => cos://suoyi-dst-1253960454/tmp/worker/configs/pl_config.yaml 
+[36mINFO[0m[2022-08-05 11:28:24] Upload /Users/suoyi/Documents/msp-agent/worker/configs/query_logger_config.yaml => cos://suoyi-dst-1253960454/tmp/worker/configs/query_logger_config.yaml 

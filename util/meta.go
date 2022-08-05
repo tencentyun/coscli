@@ -50,19 +50,19 @@ func MetaStringToHeader(meta string) (result Meta, err error) {
 	}
 
 	result = Meta{
-		CacheControl:       header.Get("CacheControl"),
-		ContentDisposition: header.Get("ContentDisposition"),
-		ContentEncoding:    header.Get("ContentEncoding"),
-		ContentType:        header.Get("ContentType"),
-		ContentMD5:         header.Get("ContentMD5"),
+		CacheControl:       header.Get("Cache-Control"),
+		ContentDisposition: header.Get("Content-Disposition"),
+		ContentEncoding:    header.Get("Content-Encoding"),
+		ContentType:        header.Get("Content-Type"),
+		ContentMD5:         header.Get("Content-MD5"),
 		ContentLength:      0,
-		ContentLanguage:    header.Get("ContentLanguage"),
+		ContentLanguage:    header.Get("Content-Language"),
 		Expires:            header.Get("Expires"),
 		XCosMetaXXX:        metaXXX,
 		MetaChange:         metaChange,
 	}
 
-	cl := header.Get("ContentLength")
+	cl := header.Get("Content-Length")
 	if cl != "" {
 		var clInt int64
 		clInt, err = strconv.ParseInt(cl, 10, 64)
