@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Meta struct {
@@ -49,6 +50,15 @@ func MetaStringToHeader(meta string) (result Meta, err error) {
 		}
 	}
 
+	expires := header.Get("Expires")
+	if expires != "" {
+		extime, err := time.Parse(time.RFC3339, expires)
+		if err != nil {
+			return result, fmt.Errorf("invalid meta expires format, %v", err)
+		}
+
+		expires = extime.Format(time.RFC1123)
+	}
 	result = Meta{
 		CacheControl:       header.Get("Cache-Control"),
 		ContentDisposition: header.Get("Content-Disposition"),
