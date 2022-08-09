@@ -67,7 +67,7 @@ func MetaStringToHeader(meta string) (result Meta, err error) {
 		ContentMD5:         header.Get("Content-MD5"),
 		ContentLength:      0,
 		ContentLanguage:    header.Get("Content-Language"),
-		Expires:            header.Get("Expires"),
+		Expires:            expires,
 		XCosMetaXXX:        metaXXX,
 		MetaChange:         metaChange,
 	}
