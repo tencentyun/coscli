@@ -10,6 +10,7 @@ import (
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/writer"
 )
 
 var logName = "coscli.log"
@@ -31,6 +32,22 @@ func init() {
 
 	multiWriter := io.MultiWriter(fsWriter, os.Stdout)
 	log.SetOutput(multiWriter)
+	log.AddHook(&writer.Hook{ // Send logs with level higher than warning to stderr
+		Writer: os.Stderr,
+		LogLevels: []log.Level{
+			log.PanicLevel,
+			log.FatalLevel,
+			log.ErrorLevel,
+			log.WarnLevel,
+		},
+	})
+	log.AddHook(&writer.Hook{ // Send info and debug logs to stdout
+		Writer: os.Stdout,
+		LogLevels: []log.Level{
+			log.InfoLevel,
+			log.DebugLevel,
+		},
+	})
 	log.SetLevel(log.InfoLevel)
 	forceColors := true
 	if runtime.GOOS == "windows" {
