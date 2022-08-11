@@ -2,13 +2,52 @@ package util
 
 import (
 	"context"
-	"os"
-
 	logger "github.com/sirupsen/logrus"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"os"
+	"strconv"
+	"time"
 )
 
 func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *UploadOptions) {
+	localPath, cosPath = UploadPathFixed(localPath, cosPath)
+	skip, err := skipUpload(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath)
+	if err != nil {
+		logger.Errorf("Sync LocalPath:%s, err:%s", localPath, err.Error())
+		return
+	}
+
+	if skip {
+		logger.Infof("Sync upload file localPath skip, %s", localPath)
+	} else {
+		SingleUpload(c, localPath, bucketName, cosPath, op)
+	}
+}
+
+func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, localPath string,
+	cosPath string) (skip bool, err error) {
+	// 直接和本地的snapshot作对比
+	if snapshotPath != "" {
+		var localPathInfo os.FileInfo
+		localPathInfo, err = os.Stat(localPath)
+		if err != nil {
+			return
+		}
+		var info []byte
+		info, err = snapshotDb.Get([]byte(localPath), nil)
+		if err == nil {
+			t, _ := strconv.ParseInt(string(info), 10, 64)
+			if t == localPathInfo.ModTime().Unix() {
+				return true, nil
+			} else {
+				return false, nil
+			}
+		} else {
+			return false, nil
+		}
+	}
+
 	headOpt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",
 		XCosSSECustomerAglo:   "",
@@ -16,28 +55,26 @@ func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *
 		XCosSSECustomerKeyMD5: "",
 		XOptionHeader:         nil,
 	}
-	localPath, cosPath = UploadPathFixed(localPath, cosPath)
 	resp, err := c.Object.Head(context.Background(), cosPath, headOpt)
-
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
 			// 文件不在cos上，上传
-			SingleUpload(c, localPath, bucketName, cosPath, op)
+			return false, nil
 		} else {
-			logger.Fatalln(err)
-			os.Exit(1)
+			return false, err
 		}
 	} else {
 		if resp.StatusCode != 404 {
 			cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
 			localCrc, _ := CalculateHash(localPath, "crc64")
 			if cosCrc == localCrc {
-				logger.Infoln("Skip", localPath)
-				return
+				return true, nil
+			} else {
+				return false, nil
 			}
+		} else {
+			return false, nil
 		}
-
-		SingleUpload(c, localPath, bucketName, cosPath, op)
 	}
 }
 
@@ -59,7 +96,8 @@ func SyncMultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclu
 	}
 }
 
-func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions) error {
+func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions,
+	cosLastModified string) error {
 	localPath, cosPath, err := DownloadPathFixed(localPath, cosPath)
 	if err != nil {
 		return err
@@ -68,22 +106,83 @@ func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op
 	if err != nil {
 		if os.IsNotExist(err) {
 			// 文件不在本地，下载
-			SingleDownload(c, bucketName, cosPath, localPath, op)
+			err = SingleDownload(c, bucketName, cosPath, localPath, op)
 		} else {
 			logger.Fatalln(err)
 			return err
 		}
 	} else {
-		localCrc, _ := CalculateHash(localPath, "crc64")
-		cosCrc, _ := ShowHash(c, cosPath, "crc64")
-		if cosCrc == localCrc {
-			logger.Infof("Skip cos://%s/%s\n", bucketName, cosPath)
-			return nil
+		var skip bool
+		skip, err = skipDownload(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath, cosLastModified)
+		if err != nil {
+			logger.Errorf("Sync cosPath, err:%s", err.Error())
+			return err
 		}
 
-		SingleDownload(c, bucketName, cosPath, localPath, op)
+		if skip {
+			logger.Infof("Sync skip download, localPath:%s, cosPath:%s", localPath, cosPath)
+			return nil
+		}
+		err = SingleDownload(c, bucketName, cosPath, localPath, op)
 	}
-	return nil
+	return err
+}
+
+func skipDownload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, localPath string,
+	cosPath string, cosLastModified string) (skip bool, err error) {
+	// 直接和本地的snapshot作对比
+	if snapshotPath != "" {
+		if cosLastModified == "" {
+			cosLastModified, err = getCosLastModified(c, cosPath)
+			if err != nil {
+				return
+			}
+		}
+		var cosLastModifiedTime time.Time
+		cosLastModifiedTime, err = time.Parse(time.RFC3339, cosLastModified)
+		if err != nil {
+			cosLastModifiedTime, err = time.Parse(time.RFC1123, cosLastModified)
+			if err != nil {
+				return
+			}
+		}
+		var info []byte
+		info, err = snapshotDb.Get([]byte(cosPath), nil)
+		if err == nil {
+			t, _ := strconv.ParseInt(string(info), 10, 64)
+			if t == cosLastModifiedTime.Unix() {
+				return true, nil
+			} else {
+				return false, nil
+			}
+		} else {
+			return false, nil
+		}
+	}
+
+	localCrc, _ := CalculateHash(localPath, "crc64")
+	cosCrc, _ := ShowHash(c, cosPath, "crc64")
+	if cosCrc == localCrc {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+func getCosLastModified(c *cos.Client, cosPath string) (lmt string, err error) {
+	headOpt := &cos.ObjectHeadOptions{
+		IfModifiedSince:       "",
+		XCosSSECustomerAglo:   "",
+		XCosSSECustomerKey:    "",
+		XCosSSECustomerKeyMD5: "",
+		XOptionHeader:         nil,
+	}
+	resp, err := c.Object.Head(context.Background(), cosPath, headOpt)
+	if err != nil {
+		return "", err
+	} else {
+		return resp.Header.Get("Last-Modified"), nil
+	}
 }
 
 func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, op *DownloadOptions) {
@@ -101,7 +200,7 @@ func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exc
 	for _, o := range objects {
 		objName := o.Key[len(cosDir):]
 		localPath := localDir + objName
-		SyncSingleDownload(c, bucketName, o.Key, localPath, op)
+		SyncSingleDownload(c, bucketName, o.Key, localPath, op, o.LastModified)
 
 	}
 }

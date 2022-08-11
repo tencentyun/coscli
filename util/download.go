@@ -3,9 +3,12 @@ package util
 import (
 	"context"
 	"errors"
+	"github.com/syndtr/goleveldb/leveldb"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	logger "github.com/sirupsen/logrus"
 
@@ -16,6 +19,8 @@ type DownloadOptions struct {
 	RateLimiting float32
 	PartSize     int64
 	ThreadNum    int
+	SnapshotDb   *leveldb.DB
+	SnapshotPath string
 }
 
 func DownloadPathFixed(localPath string, cosPath string) (string, string, error) {
@@ -92,11 +97,27 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 	}
 	logger.Infof("Download cos://%s/%s => %s\n", bucketName, cosPath, localPath)
 
-	_, err = c.Object.Download(context.Background(), cosPath, localPath, opt)
+	resp, err := c.Object.Download(context.Background(), cosPath, localPath, opt)
 	if err != nil {
 		logger.Errorln(err)
 		return err
 	}
+
+	if op.SnapshotPath != "" {
+		lastModified := resp.Header.Get("Last-Modified")
+		if lastModified == "" {
+			return nil
+		}
+
+		var cosLastModifiedTime time.Time
+		cosLastModifiedTime, err = time.Parse(time.RFC1123, lastModified)
+
+		if err != nil {
+			return err
+		}
+		op.SnapshotDb.Put([]byte(cosPath), []byte(strconv.FormatInt(cosLastModifiedTime.Unix(), 10)), nil)
+	}
+
 	return nil
 }
 
