@@ -181,7 +181,8 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 	return dirs, objects, isTruncated, nextMaker
 }
 
-func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (objects []cos.Object) {
+func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (objects []cos.Object,
+	commonPrefixes []string) {
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
@@ -202,6 +203,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 		}
 
 		objects = append(objects, res.Contents...)
+		commonPrefixes = res.CommonPrefixes
 
 		if limit > 0 {
 			isTruncated = false
@@ -218,11 +220,11 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 		objects = MatchCosPattern(objects, exclude, false)
 	}
 
-	return objects
+	return objects, commonPrefixes
 }
 
 func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, include string, exclude string,
-	marker string) (objects []cos.Object, isTruncated bool, nextMarker string) {
+	marker string) (objects []cos.Object, isTruncated bool, nextMarker string, commonPrefixes []string) {
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
@@ -238,6 +240,7 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 	}
 
 	objects = append(objects, res.Contents...)
+	commonPrefixes = res.CommonPrefixes
 
 	if limit > 0 {
 		isTruncated = false
@@ -253,7 +256,7 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 		objects = MatchCosPattern(objects, exclude, false)
 	}
 
-	return objects, isTruncated, nextMarker
+	return objects, isTruncated, nextMarker, commonPrefixes
 }
 
 func GetLocalFilesList(localPath string, include string, exclude string) (dirs []string, files []string) {

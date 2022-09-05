@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"coscli/util"
 	"os"
+
+	"coscli/util"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -31,6 +32,7 @@ func init() {
 	configAddCmd.Flags().StringP("endpoint", "e", "", "Bucket endpoint")
 	configAddCmd.Flags().StringP("region", "r", "", "Bucket region")
 	configAddCmd.Flags().StringP("alias", "a", "", "Bucket alias")
+	configAddCmd.Flags().BoolP("ofs", "o", false, "Bucket ofs")
 
 	_ = configAddCmd.MarkFlagRequired("bucket")
 	// _ = configAddCmd.MarkFlagRequired("endpoint")
@@ -41,6 +43,7 @@ func addBucketConfig(cmd *cobra.Command) {
 	endpoint, _ := cmd.Flags().GetString("endpoint")
 	region, _ := cmd.Flags().GetString("region")
 	alias, _ := cmd.Flags().GetString("alias")
+	ofs, _ := cmd.Flags().GetBool("ofs")
 	if alias == "" {
 		alias = name
 	}
@@ -50,6 +53,7 @@ func addBucketConfig(cmd *cobra.Command) {
 		Endpoint: endpoint,
 		Region:   region,
 		Alias:    alias,
+		Ofs:      ofs,
 	}
 
 	for _, b := range config.Buckets {
@@ -72,5 +76,5 @@ func addBucketConfig(cmd *cobra.Command) {
 		logger.Fatalln(err)
 		os.Exit(1)
 	}
-	logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n", name, endpoint, alias)
+	logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n, ofs: %t\n", name, endpoint, alias, ofs)
 }

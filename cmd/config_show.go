@@ -41,5 +41,6 @@ func showConfig() {
 		logger.Infof("  Name:  \t%s\n", b.Name)
 		logger.Infof("  Endpoint:\t%s\n", b.Endpoint)
 		logger.Infof("  Alias: \t%s\n", b.Alias)
+		logger.Infof(" Ofs: \t%v\n", b.Ofs)
 	}
 }

@@ -8,7 +8,8 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func GetObjectsListIterator(c *cos.Client, prefix, marker string, include, exclude string) (objects []cos.Object, isTruncated bool, nextMarker string) {
+func GetObjectsListIterator(c *cos.Client, prefix, marker string, include, exclude string) (objects []cos.Object,
+	isTruncated bool, nextMarker string, commonPrefixes []string) {
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
@@ -24,6 +25,8 @@ func GetObjectsListIterator(c *cos.Client, prefix, marker string, include, exclu
 	}
 
 	objects = append(objects, res.Contents...)
+	commonPrefixes = res.CommonPrefixes
+
 	isTruncated = res.IsTruncated
 	nextMarker = res.NextMarker
 
@@ -34,5 +37,5 @@ func GetObjectsListIterator(c *cos.Client, prefix, marker string, include, exclu
 		objects = MatchCosPattern(objects, exclude, false)
 	}
 
-	return objects, isTruncated, nextMarker
+	return objects, isTruncated, nextMarker, commonPrefixes
 }

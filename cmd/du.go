@@ -38,7 +38,7 @@ func init() {
 func duBucket(bucketName string, include string, exclude string) {
 	c := util.NewClient(&config, &param, bucketName)
 
-	objects := util.GetObjectsListRecursive(c, "", 0, include, exclude)
+	objects, _ := util.GetObjectsListRecursive(c, "", 0, include, exclude)
 
 	util.Statistic(objects)
 }
@@ -46,7 +46,7 @@ func duBucket(bucketName string, include string, exclude string) {
 func duObjects(bucketName string, cosPath string, include string, exclude string) {
 	c := util.NewClient(&config, &param, bucketName)
 
-	objects := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+	objects, _ := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
 
 	util.Statistic(objects)
 }

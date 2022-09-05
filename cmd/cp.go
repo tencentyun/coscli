@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
+
+	"coscli/util"
+	"github.com/tencentyun/cos-go-sdk-v5"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -133,7 +134,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
 			cosPath2 += "/"
 		}
 
-		objects := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
+		objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
 
 		opt := &cos.ObjectCopyOptions{
 			ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{

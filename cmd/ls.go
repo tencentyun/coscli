@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"coscli/util"
 	"fmt"
 	"os"
+
+	"coscli/util"
 
 	"github.com/olekukonko/tablewriter"
 	logger "github.com/sirupsen/logrus"
@@ -68,12 +69,14 @@ func listBuckets(limit int, include string, exclude string) {
 }
 
 func listObjects(cosPath string, limit int, recursive bool, include string, exclude string) {
+
 	bucketName, path := util.ParsePath(cosPath)
 	c := util.NewClient(&config, &param, bucketName)
 	var dirs []string
 	var objects []cos.Object
 	var marker = ""
 	var isTruncated bool
+	var commonPrefixes []string
 	var nextMarker string
 	var total int64
 	table := tablewriter.NewWriter(os.Stdout)
@@ -84,22 +87,33 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 	if recursive {
 		for {
 			table.ClearRows()
-			objects, isTruncated, nextMarker = util.GetObjectsListRecursiveForLs(c, path, limit, include, exclude, marker)
+			objects, isTruncated, nextMarker, commonPrefixes = util.GetObjectsListRecursiveForLs(c, path, limit, include, exclude, marker)
 			for _, d := range dirs {
 				table.Append([]string{d, "DIR", "", ""})
 			}
 			for _, v := range objects {
 				table.Append([]string{v.Key, v.StorageClass, v.LastModified, util.FormatSize(v.Size)})
 			}
-
 			total = total + int64(len(dirs)) + int64(len(objects))
+			if len(commonPrefixes) > 0 {
+				for _, v := range commonPrefixes {
+					objects, isTruncated, nextMarker, commonPrefixes = util.GetObjectsListRecursiveForLs(c, v, limit,
+						include, exclude, marker)
+					for _, d := range dirs {
+						table.Append([]string{d, "DIR", "", ""})
+					}
+					for _, v := range objects {
+						table.Append([]string{v.Key, v.StorageClass, v.LastModified, util.FormatSize(v.Size)})
+					}
+					total = total + int64(len(dirs)) + int64(len(objects))
+				}
+			}
 			if !isTruncated {
 				break
 			}
 			table.Render()
 			marker = nextMarker
 		}
-		table.ClearRows()
 		table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", total)})
 		table.SetBorder(false)
 		table.SetAlignment(tablewriter.ALIGN_RIGHT)

@@ -3,12 +3,13 @@ package util
 import (
 	"context"
 	"errors"
-	"github.com/syndtr/goleveldb/leveldb"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/syndtr/goleveldb/leveldb"
 
 	logger "github.com/sirupsen/logrus"
 
@@ -128,7 +129,17 @@ func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 		cosDir += "/"
 	}
-	objects := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
+	objects, commonPrefixes := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
+	listObjects(c, bucketName, objects, cosDir, localDir, op)
+
+	if len(commonPrefixes) > 0 {
+		for i := 0; i < len(commonPrefixes); i++ {
+			localDirTemp := localDir + commonPrefixes[i]
+			MultiDownload(c, bucketName, commonPrefixes[i], localDirTemp, include, exclude, op)
+		}
+	}
+}
+func listObjects(c *cos.Client, bucketName string, objects []cos.Object, cosDir string, localDir string, op *DownloadOptions) {
 	failNum := 0
 	successNum := 0
 	if len(objects) == 0 {
