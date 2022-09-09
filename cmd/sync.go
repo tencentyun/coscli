@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
-	"github.com/syndtr/goleveldb/leveldb"
 	"os"
+
+	"coscli/util"
+	"github.com/syndtr/goleveldb/leveldb"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -166,7 +167,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 			cosPath2 += "/"
 		}
 
-		objects := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
+		objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
 		opt := &cos.ObjectCopyOptions{
 			ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{
 				CacheControl:       meta.CacheControl,

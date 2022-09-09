@@ -2,12 +2,13 @@ package util
 
 import (
 	"context"
-	logger "github.com/sirupsen/logrus"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
 	"strconv"
 	"time"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *UploadOptions) {
@@ -192,7 +193,7 @@ func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exc
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 		cosDir += "/"
 	}
-	objects := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
+	objects, _ := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
 	if len(objects) == 0 {
 		logger.Warningf("cosDir: cos://%s is empty\n", cosDir)
 		return

@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
 	"os"
+
+	"coscli/util"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -40,10 +41,12 @@ func init() {
 	rootCmd.AddCommand(mbCmd)
 
 	mbCmd.Flags().StringP("region", "r", "", "Region")
+	mbCmd.Flags().BoolP("ofs", "o", false, "Ofs")
 }
 
 func createBucket(cmd *cobra.Command, args []string) {
 	flagRegion, _ := cmd.Flags().GetString("region")
+	flagOfs, _ := cmd.Flags().GetBool("ofs")
 	if param.Endpoint == "" && flagRegion != "" {
 		param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
 	}
@@ -59,6 +62,12 @@ func createBucket(cmd *cobra.Command, args []string) {
 		XCosGrantReadACP:          "",
 		XCosGrantWriteACP:         "",
 		CreateBucketConfiguration: nil,
+	}
+
+	if flagOfs {
+		opt.CreateBucketConfiguration = &cos.CreateBucketConfiguration{
+			BucketArchConfig: "OFS",
+		}
 	}
 
 	_, err := c.Bucket.Put(context.Background(), opt)

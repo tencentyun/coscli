@@ -17,6 +17,7 @@ type Bucket struct {
 	Alias    string `yaml:"alias"`
 	Region   string `yaml:"region"`
 	Endpoint string `yaml:"endpoint"`
+	Ofs      bool   `yaml:"ofs"`
 }
 type Param struct {
 	SecretID     string

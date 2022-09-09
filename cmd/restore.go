@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"encoding/xml"
 	"fmt"
 	"os"
+
+	"coscli/util"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -71,7 +72,7 @@ func restoreObjects(arg string, days int, mode string, include string, exclude s
 	bucketName, cosPath := util.ParsePath(arg)
 	c := util.NewClient(&config, &param, bucketName)
 
-	objects := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+	objects, _ := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
 
 	for _, o := range objects {
 		restoreObject(fmt.Sprintf("cos://%s/%s", bucketName, o.Key), days, mode)
