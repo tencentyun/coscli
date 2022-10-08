@@ -79,13 +79,14 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 	var commonPrefixes []string
 	var nextMarker string
 	var total int64
+	var output_num int64
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Key", "Type", "Last Modified", "Size"})
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
-
 	if recursive {
 		for {
+			output_num = 0
 			table.ClearRows()
 			objects, isTruncated, nextMarker, commonPrefixes = util.GetObjectsListRecursiveForLs(c, path, limit, include, exclude, marker)
 			for _, d := range dirs {
@@ -95,6 +96,7 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 				table.Append([]string{v.Key, v.StorageClass, v.LastModified, util.FormatSize(v.Size)})
 			}
 			total = total + int64(len(dirs)) + int64(len(objects))
+			output_num += int64(len(dirs)) + int64(len(objects))
 			if len(commonPrefixes) > 0 {
 				for _, v := range commonPrefixes {
 					objects, isTruncated, nextMarker, commonPrefixes = util.GetObjectsListRecursiveForLs(c, v, limit,
@@ -106,17 +108,19 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 						table.Append([]string{v.Key, v.StorageClass, v.LastModified, util.FormatSize(v.Size)})
 					}
 					total = total + int64(len(dirs)) + int64(len(objects))
+					output_num += int64(len(dirs)) + int64(len(objects))
 				}
+			}
+			if output_num > 0 {
+				table.Render()
+				table.ClearRows()
 			}
 			if !isTruncated {
 				break
 			}
-			table.Render()
 			marker = nextMarker
 		}
 		table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", total)})
-		table.SetBorder(false)
-		table.SetAlignment(tablewriter.ALIGN_RIGHT)
 		table.Render()
 	} else {
 		for {
@@ -129,16 +133,18 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 				table.Append([]string{v.Key, v.StorageClass, v.LastModified, util.FormatSize(v.Size)})
 			}
 			total = total + int64(len(dirs)) + int64(len(objects))
+			output_num += int64(len(dirs)) + int64(len(objects))
+			if output_num > 0 {
+				table.Render()
+				table.ClearRows()
+			}
 			if !isTruncated {
 				break
 			}
-			table.Render()
 			marker = nextMarker
 		}
 
 		table.SetFooter([]string{"", "", "Total Objects: ", fmt.Sprintf("%d", total)})
-		table.SetBorder(false)
-		table.SetAlignment(tablewriter.ALIGN_RIGHT)
 		table.Render()
 	}
 }

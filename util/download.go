@@ -127,6 +127,8 @@ func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude
 		localDir += "/"
 	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
+		tmp := strings.Split(cosDir, "/")
+		localDir = localDir + tmp[len(tmp)-1] + "/"
 		cosDir += "/"
 	}
 	objects, commonPrefixes := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
