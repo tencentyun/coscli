@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"coscli/util"
+
 	"github.com/tencentyun/cos-go-sdk-v5"
 
 	logger "github.com/sirupsen/logrus"
@@ -127,11 +129,14 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
 	if recursive {
 		c1 := util.NewClient(&config, &param, bucketName1)
 
-		if cosPath1 != "" && cosPath1[len(cosPath1)-1] != '/' {
-			cosPath1 += "/"
-		}
 		if cosPath2 != "" && cosPath2[len(cosPath2)-1] != '/' {
 			cosPath2 += "/"
+		}
+
+		if cosPath1 != "" && cosPath1[len(cosPath1)-1] != '/' {
+			tmp := strings.Split(cosPath1, "/")
+			cosPath2 = cosPath2 + tmp[len(tmp)-1] + "/"
+			cosPath1 += "/"
 		}
 
 		objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)

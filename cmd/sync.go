@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"coscli/util"
+
 	"github.com/syndtr/goleveldb/leveldb"
 
 	logger "github.com/sirupsen/logrus"
@@ -160,11 +162,14 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 	c1 := util.NewClient(&config, &param, bucketName1)
 
 	if recursive {
-		if cosPath1 != "" && cosPath1[len(cosPath1)-1] != '/' {
-			cosPath1 += "/"
-		}
 		if cosPath2 != "" && cosPath2[len(cosPath2)-1] != '/' {
 			cosPath2 += "/"
+		}
+
+		if cosPath1 != "" && cosPath1[len(cosPath1)-1] != '/' {
+			tmp := strings.Split(cosPath1, "/")
+			cosPath2 = cosPath2 + tmp[len(tmp)-1] + "/"
+			cosPath1 += "/"
 		}
 
 		objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)

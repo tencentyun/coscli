@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	logger "github.com/sirupsen/logrus"
@@ -80,11 +81,13 @@ func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, loca
 }
 
 func SyncMultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclude string, op *UploadOptions) {
-	if localDir != "" && (localDir[len(localDir)-1] != '/' && localDir[len(localDir)-1] != '\\') {
-		localDir += "/"
-	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 		cosDir += "/"
+	}
+	if localDir != "" && (localDir[len(localDir)-1] != '/' && localDir[len(localDir)-1] != '\\') {
+		tmp := strings.Split(localDir, "/")
+		cosDir = cosDir + tmp[len(tmp)-1] + "/"
+		localDir += "/"
 	}
 
 	files := GetLocalFilesListRecursive(localDir, include, exclude)
@@ -187,10 +190,12 @@ func getCosLastModified(c *cos.Client, cosPath string) (lmt string, err error) {
 }
 
 func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, op *DownloadOptions) {
-	if localDir != "" && localDir[len(localDir)-1] != '/' {
+	if localDir != "" && (localDir[len(localDir)-1] != '/' && localDir[len(localDir)-1] != '\\') {
 		localDir += "/"
 	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
+		tmp := strings.Split(cosDir, "/")
+		localDir = localDir + tmp[len(tmp)-1] + "/"
 		cosDir += "/"
 	}
 	objects, _ := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
