@@ -26,8 +26,11 @@ Example:
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		time, _ := cmd.Flags().GetInt("time")
-
-		GetSignedURL(args[0], time)
+		if util.IsCosPath(args[0]) {
+			GetSignedURL(args[0], time)
+		} else {
+			logger.Fatalln("cospath needs to contain cos://")
+		}
 	},
 }
 
