@@ -30,7 +30,7 @@ func init() {
 
 	configSetCmd.Flags().StringP("secret_id", "", "", "Set secret id")
 	configSetCmd.Flags().StringP("secret_key", "", "", "Set secret key")
-	configSetCmd.Flags().StringP("session_token", "", "", "Set session token")
+	configSetCmd.Flags().StringP("session_token", "t", "", "Set session token")
 }
 
 func setConfigItem(cmd *cobra.Command) {
@@ -72,7 +72,7 @@ func setConfigItem(cmd *cobra.Command) {
 	config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
 	config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
 	config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
-	
+
 	viper.Set("cos.base", config.Base)
 	if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
 		logger.Fatalln(err)
