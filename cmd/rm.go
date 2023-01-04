@@ -151,10 +151,10 @@ func removeObjects1(args []string, include string, exclude string, force bool) {
 						oKeys = append(oKeys, cos.Object{Key: o.Key})
 					}
 				}
-				if len(oKeys) > 0 {
-					deleteOrNot = true
+				if len(oKeys) == 0 {
+					continue
 				}
-
+				deleteOrNot = true
 				opt := &cos.ObjectDeleteMultiOptions{
 					XMLName: xml.Name{},
 					Quiet:   false,
@@ -258,7 +258,7 @@ func recursiveRemoveObject(bucketName string, cosPath string, force bool) {
 	}
 }
 
-//获取所有文件和目录
+// 获取所有文件和目录
 func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string) {
 	objects, _, _, commonPrefixes := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
 	tempFiles := make([]string, 0)
