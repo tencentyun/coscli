@@ -57,61 +57,6 @@ func init() {
 	rmCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 }
 
-func removeObjects(args []string, include string, exclude string, force bool) {
-	for _, arg := range args {
-		bucketName, cosDir := util.ParsePath(arg)
-		c := util.NewClient(&config, &param, bucketName)
-
-		if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
-			cosDir += "/"
-		}
-
-		objects, _ := util.GetObjectsListRecursive(c, cosDir, 0, include, exclude)
-		if len(objects) == 0 {
-			logger.Infoln("No objects were deleted!")
-			return
-		}
-
-		var oKeys []cos.Object
-		for _, o := range objects {
-			if !force {
-				logger.Infof("Do you want to delete %s? (y/n)", o.Key)
-				var choice string
-				_, _ = fmt.Scanf("%s\n", &choice)
-				if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
-					oKeys = append(oKeys, cos.Object{Key: o.Key})
-				}
-			} else {
-				oKeys = append(oKeys, cos.Object{Key: o.Key})
-			}
-		}
-		opt := &cos.ObjectDeleteMultiOptions{
-			XMLName: xml.Name{},
-			Quiet:   false,
-			Objects: oKeys,
-		}
-
-		res, _, err := c.Object.DeleteMulti(context.Background(), opt)
-		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
-		}
-
-		for _, o := range res.DeletedObjects {
-			logger.Infoln("Delete ", o.Key)
-		}
-		if len(res.Errors) == 0 {
-			logger.Infof("\nAll deleted successfully!\n")
-		} else {
-			logger.Infoln()
-			for i, e := range res.Errors {
-				logger.Infoln(i+1, ". Fail to delete", e.Key)
-				logger.Infoln("    Error Code: ", e.Code, " Message: ", e.Message)
-			}
-		}
-	}
-}
-
 func removeObjects1(args []string, include string, exclude string, force bool) {
 	for _, arg := range args {
 		bucketName, cosDir := util.ParsePath(arg)

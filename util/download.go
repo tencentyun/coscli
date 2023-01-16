@@ -28,13 +28,13 @@ func DownloadPathFixed(localPath string, cosPath string) (string, string, error)
 
 	if len(cosPath) == 0 {
 		logger.Warningln("Invalid cosPath")
-		return "", "", errors.New("Invalid cosPath")
+		return "", "", errors.New("invalid cosPath")
 	}
 	// cos://bucket/dirPath/ => ~/example/
 	// Should skip
 	if len(cosPath) >= 1 && cosPath[len(cosPath)-1] == '/' {
 		logger.Warningf("Skip empty cosPath: cos://%s\n", cosPath)
-		return "", "", errors.New("Skip empty cosFile")
+		return "", "", errors.New("skip empty cosFile")
 	}
 
 	// cos://bucket/path/123.txt => ~/example/123.txt
@@ -46,7 +46,7 @@ func DownloadPathFixed(localPath string, cosPath string) (string, string, error)
 			logger.Fatalln(err)
 			return "", "", err
 		}
-		localPath = dirPath + "/" + localPath
+		localPath = filepath.Join(dirPath, "/", localPath)
 	}
 	// 创建文件夹
 	var path string
@@ -58,7 +58,7 @@ func DownloadPathFixed(localPath string, cosPath string) (string, string, error)
 		if localPath[len(localPath)-1] != '/' {
 			localPath = localPath + "/"
 		}
-		localPath = localPath + fileName
+		localPath = filepath.Join(localPath, fileName)
 	} else {
 		pathList := strings.Split(localPath, "/")
 		fileName := pathList[len(pathList)-1]
@@ -128,8 +128,9 @@ func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude
 	}
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 		tmp := strings.Split(cosDir, "/")
-		localDir = localDir + tmp[len(tmp)-1] + "/"
-		cosDir += "/"
+
+		localDir = filepath.Join(localDir, tmp[len(tmp)-1], "/")
+		cosDir = filepath.Join(cosDir, "/")
 	}
 	objects, commonPrefixes := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
 	listObjects(c, bucketName, objects, cosDir, localDir, op)

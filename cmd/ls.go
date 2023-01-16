@@ -99,7 +99,7 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 			output_num += int64(len(dirs)) + int64(len(objects))
 			if len(commonPrefixes) > 0 {
 				for _, v := range commonPrefixes {
-					objects, isTruncated, nextMarker, commonPrefixes = util.GetObjectsListRecursiveForLs(c, v, limit,
+					objects, isTruncated, nextMarker, _ = util.GetObjectsListRecursiveForLs(c, v, limit,
 						include, exclude, marker)
 					for _, d := range dirs {
 						table.Append([]string{d, "DIR", "", ""})

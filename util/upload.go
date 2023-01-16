@@ -128,15 +128,14 @@ func MultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclude s
 	}
 	if localDir != "" && (localDir[len(localDir)-1] != '/' && localDir[len(localDir)-1] != '\\') {
 		tmp := strings.Split(localDir, "/")
-		cosDir = cosDir + tmp[len(tmp)-1] + "/"
-		localDir += "/"
+		cosDir = filepath.Join(cosDir, tmp[len(tmp)-1])
 	}
 
 	files := GetLocalFilesListRecursive(localDir, include, exclude)
 
 	for _, f := range files {
-		localPath := localDir + f
-		cosPath := cosDir + f
+		localPath := filepath.Join(localDir, "/", f)
+		cosPath := filepath.Join(cosDir, "/", f)
 		SingleUpload(c, localPath, bucketName, cosPath, op)
 	}
 }
