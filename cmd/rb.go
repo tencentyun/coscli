@@ -33,21 +33,38 @@ Example:
 	Run: func(cmd *cobra.Command, args []string) {
 		bucketIDName, _ := util.ParsePath(args[0])
 		flagRegion, _ := cmd.Flags().GetString("region")
+		Force, _ := cmd.Flags().GetBool("force")
 		if param.Endpoint == "" && flagRegion != "" {
 			param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
 		}
-		removeBucket(bucketIDName)
+		var choice string
+		if Force {
+			logger.Infof("Do you want to clear all inside the bucket and delete bucket %s ? (y/n)", bucketIDName)
+			_, _ = fmt.Scanf("%s\n", &choice)
+			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
+				removeObjects1(args, "", "", true)
+				abortParts(args[0], "", "")
+				removeBucket(bucketIDName)
+			}
+		} else {
+			logger.Infof("Do you want to delete %s? (y/n)", bucketIDName)
+			_, _ = fmt.Scanf("%s\n", &choice)
+			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
+				removeBucket(bucketIDName)
+			}
+		}
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(rbCmd)
+	rbCmd.Flags().BoolP("force", "f", false, "Clear all inside the bucket and delete bucket")
 	rbCmd.Flags().StringP("region", "r", "", "Region")
 }
 
 func removeBucket(bucketIDName string) {
-	c := util.CreateClient(&config, &param, bucketIDName)
-
+	c := util.NewClient(&config, &param, bucketIDName)
 	_, err := c.Bucket.Delete(context.Background())
 	if err != nil {
 		logger.Fatalln(err)

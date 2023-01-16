@@ -2,8 +2,6 @@ module coscli
 
 go 1.18
 
-replace github.com/tencentyun/cos-go-sdk-v5 => github.com/zttingyao/cos-go-sdk-v5 v0.7.12
-
 require (
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/mitchellh/go-homedir v1.1.0
@@ -14,7 +12,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.8.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/tencentyun/cos-go-sdk-v5 v0.7.37
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.41
 )
 
 require (

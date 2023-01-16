@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"os"
 
 	"coscli/util"
 
@@ -49,7 +48,7 @@ func init() {
 	restoreCmd.Flags().StringP("mode", "m", "Standard", "Specifies the mode for fetching temporary files")
 }
 
-func restoreObject(arg string, days int, mode string) {
+func restoreObject(arg string, days int, mode string) error {
 	bucketName, cosPath := util.ParsePath(arg)
 	c := util.NewClient(&config, &param, bucketName)
 
@@ -63,9 +62,10 @@ func restoreObject(arg string, days int, mode string) {
 	logger.Infof("Restore cos://%s/%s\n", bucketName, cosPath)
 	_, err := c.Object.PostRestore(context.Background(), cosPath, opt)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		logger.Errorln(err)
+		return err
 	}
+	return nil
 }
 
 func restoreObjects(arg string, days int, mode string, include string, exclude string) {
@@ -73,8 +73,15 @@ func restoreObjects(arg string, days int, mode string, include string, exclude s
 	c := util.NewClient(&config, &param, bucketName)
 
 	objects, _ := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+	succeed_num := 0
+	failed_num := 0
 
 	for _, o := range objects {
-		restoreObject(fmt.Sprintf("cos://%s/%s", bucketName, o.Key), days, mode)
+		err := restoreObject(fmt.Sprintf("cos://%s/%s", bucketName, o.Key), days, mode)
+		if err != nil {
+			failed_num += 1
+		} else {
+			succeed_num += 1
+		}
 	}
 }

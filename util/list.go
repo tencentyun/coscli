@@ -40,6 +40,34 @@ func MatchCosPattern(objects []cos.Object, pattern string, include bool) []cos.O
 	return res
 }
 
+func MatchVersionPattern(versions []cos.ListVersionsResultVersion, pattern string, include bool) []cos.ListVersionsResultVersion {
+	res := make([]cos.ListVersionsResultVersion, 0)
+	for _, o := range versions {
+		match, _ := regexp.Match(pattern, []byte(o.Key))
+		if !include {
+			match = !match
+		}
+		if match {
+			res = append(res, o)
+		}
+	}
+	return res
+}
+
+func MatchDeleteMarkerPattern(deletemarkers []cos.ListVersionsResultDeleteMarker, pattern string, include bool) []cos.ListVersionsResultDeleteMarker {
+	res := make([]cos.ListVersionsResultDeleteMarker, 0)
+	for _, o := range deletemarkers {
+		match, _ := regexp.Match(pattern, []byte(o.Key))
+		if !include {
+			match = !match
+		}
+		if match {
+			res = append(res, o)
+		}
+	}
+	return res
+}
+
 func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []UploadInfo {
 	res := make([]UploadInfo, 0)
 	for _, u := range uploads {
@@ -257,6 +285,47 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 	}
 
 	return objects, isTruncated, nextMarker, commonPrefixes
+}
+
+func GetObjectsListVersionsRecursiveForLs(c *cos.Client, prefix string, limit int, include string, exclude string, key_marker string, verionid_marker string) (
+	versions []cos.ListVersionsResultVersion, deleteMarkers []cos.ListVersionsResultDeleteMarker, isTruncated bool, nextKeyMarker string, nextVersionIdMarker string, commonPrefixes []string) {
+	opt := &cos.BucketGetObjectVersionsOptions{
+		Prefix:          prefix,
+		Delimiter:       "",
+		EncodingType:    "",
+		KeyMarker:       key_marker,
+		VersionIdMarker: verionid_marker,
+		MaxKeys:         limit,
+	}
+
+	res, _, err := c.Bucket.GetObjectVersions(context.Background(), opt)
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+
+	versions = append(versions, res.Version...)
+	deleteMarkers = append(deleteMarkers, res.DeleteMarker...)
+	commonPrefixes = res.CommonPrefixes
+
+	if limit > 0 {
+		isTruncated = false
+	} else {
+		isTruncated = res.IsTruncated
+		nextKeyMarker = res.NextKeyMarker
+		nextVersionIdMarker = res.NextVersionIdMarker
+	}
+
+	if len(include) > 0 {
+		versions = MatchVersionPattern(versions, include, true)
+		deleteMarkers = MatchDeleteMarkerPattern(deleteMarkers, include, true)
+	}
+	if len(exclude) > 0 {
+		versions = MatchVersionPattern(versions, include, false)
+		deleteMarkers = MatchDeleteMarkerPattern(deleteMarkers, include, false)
+	}
+
+	return versions, deleteMarkers, isTruncated, nextKeyMarker, nextVersionIdMarker, commonPrefixes
 }
 
 func GetLocalFilesList(localPath string, include string, exclude string) (dirs []string, files []string) {
