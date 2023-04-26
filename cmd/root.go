@@ -18,6 +18,10 @@ var config util.Config
 var param util.Param
 var cmdCnt int //控制某些函数在一个命令中被调用的次数
 
+// set version when build,
+// go build -ldflags "-s -w -X coscli/cmd.version=$(git describe --tags --abbrev=0)"
+var version string
+
 var rootCmd = &cobra.Command{
 	Use:   "coscli",
 	Short: "Welcome to use coscli",
@@ -25,7 +29,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
-	Version: "v0.13.0-beta",
+	Version: version,
 }
 
 func Execute() {
