@@ -8,3 +8,5 @@ coscli
 coscli.exe
 
 test_clear.sh
+
+dist/
