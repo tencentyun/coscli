@@ -68,12 +68,12 @@ func CamAuth(roleName string) Data {
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		logger.Fatalln("Get cam auth error : unmarshal json error", err)
+		logger.Fatalln("Get cam auth error : auth error", err)
 		os.Exit(1)
 	}
 
 	if data.Code != "Success" {
-		logger.Fatalln("Get cam auth error : response code error", err)
+		logger.Fatalln("Get cam auth error : response error", err)
 		os.Exit(1)
 	}
 
