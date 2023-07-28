@@ -31,6 +31,8 @@ func init() {
 	configSetCmd.Flags().StringP("secret_id", "", "", "Set secret id")
 	configSetCmd.Flags().StringP("secret_key", "", "", "Set secret key")
 	configSetCmd.Flags().StringP("session_token", "t", "", "Set session token")
+	configSetCmd.Flags().StringP("mode", "", "", "Set mode")
+	configSetCmd.Flags().StringP("cvm_role_name", "", "", "Set cvm role name")
 }
 
 func setConfigItem(cmd *cobra.Command) {
@@ -38,7 +40,8 @@ func setConfigItem(cmd *cobra.Command) {
 	secretID, _ := cmd.Flags().GetString("secret_id")
 	secretKey, _ := cmd.Flags().GetString("secret_key")
 	sessionToken, _ := cmd.Flags().GetString("session_token")
-
+	mode, _ := cmd.Flags().GetString("mode")
+	cvmRoleName, _ := cmd.Flags().GetString("cvm_role_name")
 	if secretID != "" {
 		flag = true
 		if secretID == "@" {
@@ -63,6 +66,25 @@ func setConfigItem(cmd *cobra.Command) {
 			config.Base.SessionToken = sessionToken
 		}
 	}
+	if mode != "" {
+		flag = true
+		if mode != "SecretKey" && mode != "CvmRole" {
+			logger.Fatalln("Please Enter Mode As SecretKey Or CvmRole!")
+			logger.Infoln(cmd.UsageString())
+			os.Exit(1)
+		} else {
+			config.Base.Mode = mode
+		}
+	}
+	if cvmRoleName != "" {
+		flag = true
+		if cvmRoleName == "@" {
+			config.Base.CvmRoleName = ""
+		} else {
+			config.Base.CvmRoleName = cvmRoleName
+		}
+	}
+
 	if !flag {
 		logger.Fatalln("Enter at least one configuration item to be modified!")
 		logger.Infoln(cmd.UsageString())

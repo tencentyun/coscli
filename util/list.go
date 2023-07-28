@@ -175,7 +175,7 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "/",
-		EncodingType: "",
+		EncodingType: "url",
 		Marker:       marker,
 		MaxKeys:      limit,
 	}
@@ -214,7 +214,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
-		EncodingType: "",
+		EncodingType: "url",
 		Marker:       "",
 		MaxKeys:      limit,
 	}
@@ -256,7 +256,7 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
-		EncodingType: "",
+		EncodingType: "url",
 		Marker:       marker,
 		MaxKeys:      limit,
 	}
