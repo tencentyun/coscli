@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"regexp"
 
@@ -22,6 +23,15 @@ func MatchBucketPattern(buckets []cos.Bucket, pattern string, include bool) []co
 		if match {
 			res = append(res, b)
 		}
+	}
+	return res
+}
+
+func UrlDecodeCosPattern(objects []cos.Object) []cos.Object {
+	res := make([]cos.Object, 0)
+	for _, o := range objects {
+		o.Key, _ = url.QueryUnescape(o.Key)
+		res = append(res, o)
 	}
 	return res
 }
@@ -190,6 +200,9 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 	dirs = append(dirs, res.CommonPrefixes...)
 	objects = append(objects, res.Contents...)
 
+	// 对key进行urlDecode解码
+	objects = UrlDecodeCosPattern(objects)
+
 	if limit > 0 {
 		isTruncated = false
 	} else {
@@ -233,6 +246,9 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 		objects = append(objects, res.Contents...)
 		commonPrefixes = res.CommonPrefixes
 
+		// 对key进行urlDecode解码
+		objects = UrlDecodeCosPattern(objects)
+
 		if limit > 0 {
 			isTruncated = false
 		} else {
@@ -269,6 +285,9 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 
 	objects = append(objects, res.Contents...)
 	commonPrefixes = res.CommonPrefixes
+
+	// 对key进行urlDecode解码
+	objects = UrlDecodeCosPattern(objects)
 
 	if limit > 0 {
 		isTruncated = false
