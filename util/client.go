@@ -21,12 +21,14 @@ func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
 		secretKey = config.Base.SecretKey
 		secretToken = config.Base.SessionToken
 	}
-
+	// 若参数中有传 SecretID 或 SecretKey ，需将之前赋值的SessionToken置为空，否则会出现使用参数的 SecretID 和 SecretKey ，却使用了CvmRole方式返回的token，导致鉴权失败
 	if param.SecretID != "" {
 		secretID = param.SecretID
+		secretToken = ""
 	}
 	if param.SecretKey != "" {
 		secretKey = param.SecretKey
+		secretToken = ""
 	}
 	if param.SessionToken != "" {
 		secretToken = param.SessionToken
@@ -65,11 +67,14 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 		secretToken = config.Base.SessionToken
 	}
 
+	// 若参数中有传 SecretID 或 SecretKey ，需将之前赋值的SessionToken置为空，否则会出现使用参数的 SecretID 和 SecretKey ，却使用了CvmRole方式返回的token，导致鉴权失败
 	if param.SecretID != "" {
 		secretID = param.SecretID
+		secretToken = ""
 	}
 	if param.SecretKey != "" {
 		secretKey = param.SecretKey
+		secretToken = ""
 	}
 	if param.SessionToken != "" {
 		secretToken = param.SessionToken
