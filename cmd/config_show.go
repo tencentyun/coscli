@@ -33,6 +33,8 @@ func showConfig() {
 	logger.Infof("  Secret ID:     %s\n", config.Base.SecretID)
 	logger.Infof("  Secret Key:    %s\n", config.Base.SecretKey)
 	logger.Infof("  Session Token: %s\n", config.Base.SessionToken)
+	logger.Infof("  Mode: %s\n", config.Base.Mode)
+	logger.Infof("  CvmRoleName: %s\n", config.Base.CvmRoleName)
 	logger.Infoln("====================")
 	logger.Infoln("Bucket Configuration Information:")
 

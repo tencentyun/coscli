@@ -104,6 +104,7 @@ func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op
 	cosLastModified string) error {
 	localPath, cosPath, err := DownloadPathFixed(localPath, cosPath)
 	if err != nil {
+		logger.Fatalln(err)
 		return err
 	}
 	_, err = os.Stat(localPath)
