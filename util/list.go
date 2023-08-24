@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 
 	logger "github.com/sirupsen/logrus"
@@ -234,6 +235,28 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 	return dirs, objects, isTruncated, nextMaker
 }
 
+func checkCosPathType(c *cos.Client, prefix string, limit int) (isDir bool) {
+	opt := &cos.BucketGetOptions{
+		Prefix:       prefix,
+		Delimiter:    "",
+		EncodingType: "url",
+		Marker:       "",
+		MaxKeys:      limit,
+	}
+
+	res, _, err := c.Bucket.Get(context.Background(), opt)
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+
+	isDir = true
+	if len(res.Contents) == 0 {
+		isDir = false
+	}
+	return isDir
+}
+
 func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (objects []cos.Object,
 	commonPrefixes []string) {
 	opt := &cos.BucketGetOptions{
@@ -401,11 +424,15 @@ func GetLocalFilesListRecursive(localPath string, include string, exclude string
 			logger.Fatalln(err)
 			os.Exit(1)
 		}
+		if len(fileInfos) == 0 {
+			logger.Warningf("skip empty dir: %s", dirName)
+			continue
+		}
 
 		for _, f := range fileInfos {
-			fileName := dirName + "/" + f.Name()
+			fileName := filepath.Join(dirName, f.Name())
 			if f.Mode().IsRegular() { // 普通文件，直接添加
-				fileName = fileName[len(localPath)+1:]
+				fileName = fileName[len(localPath):]
 				files = append(files, fileName)
 			} else if f.IsDir() { // 普通目录，添加到继续迭代
 				dirs = append(dirs, fileName)

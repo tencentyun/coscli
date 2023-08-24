@@ -117,7 +117,7 @@ func download(args []string, recursive bool, include string, exclude string, op 
 	if recursive {
 		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
 	} else {
-		util.SingleDownload(c, bucketName, cosPath, localPath, op)
+		util.SingleDownload(c, bucketName, cosPath, localPath, op, false)
 	}
 }
 

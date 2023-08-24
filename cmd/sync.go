@@ -151,7 +151,7 @@ func syncDownload(args []string, recursive bool, include string, exclude string,
 	if recursive {
 		util.SyncMultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
 	} else {
-		util.SyncSingleDownload(c, bucketName, cosPath, localPath, op, "")
+		util.SyncSingleDownload(c, bucketName, cosPath, localPath, op, "", recursive)
 	}
 }
 
