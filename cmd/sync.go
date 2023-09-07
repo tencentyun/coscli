@@ -194,6 +194,9 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 		for _, o := range objects {
 			srcKey := o.Key
 			dstKey := cosPath2 + srcKey[len(cosPath1):]
+			if dstKey == "" {
+				continue
+			}
 			srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
 			dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
 
