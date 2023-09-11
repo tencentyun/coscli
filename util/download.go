@@ -53,7 +53,6 @@ func DownloadPathFixed(localPath string, cosPath string, isRecursive bool) (stri
 			return "", "", err
 		}
 		localPath = filepath.Join(dirPath, localPath)
-		localPath += string(filepath.Separator)
 	}
 
 	// 创建文件夹
@@ -68,6 +67,9 @@ func DownloadPathFixed(localPath string, cosPath string, isRecursive bool) (stri
 		path = localPath[:len(localPath)-len(fileName)]
 	}
 	err := os.MkdirAll(path, os.ModePerm)
+	if err != nil {
+		logger.Fatalln(err)
+	}
 	return localPath, cosPath, err
 }
 
@@ -139,7 +141,7 @@ func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude
 		cosDir += "/"
 	}
 	// 判断cosDir是否是文件夹
-	isDir := checkCosPathType(c, cosDir, 0)
+	isDir := CheckCosPathType(c, cosDir, 0)
 
 	if isDir {
 		// cosDir是文件夹 且 localDir不以路径分隔符结尾，则添加
@@ -187,6 +189,13 @@ func listObjects(c *cos.Client, bucketName string, objects []cos.Object, cosDir 
 		// 兼容windows，将cos的路径分隔符 "/" 转换为 "\"
 		objName = strings.ReplaceAll(objName, "/", string(filepath.Separator))
 		localPath := localDir + objName
+
+		// 格式化文件名
+		if objName == "" && strings.HasSuffix(localPath, "/") {
+			fileName := filepath.Base(o.Key)
+			localPath = localPath + fileName
+		}
+
 		err := SingleDownload(c, bucketName, o.Key, localPath, op, true)
 		if err != nil {
 			failNum += 1

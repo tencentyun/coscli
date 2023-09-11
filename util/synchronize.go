@@ -88,6 +88,9 @@ func SyncMultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclu
 		os.Exit(1)
 	}
 
+	// 格式化本地路径
+	localDir = strings.TrimPrefix(localDir, "./")
+
 	// 判断local路径是文件还是文件夹
 	localDirInfo, err := os.Stat(localDir)
 	if err != nil {
@@ -107,7 +110,14 @@ func SyncMultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclu
 				// cos路径若不以路径分隔符结尾，则添加路径分隔符
 				cosDir += "/"
 			}
+		} else {
+			// cos路径为空，且 local路径若不以路径分隔符结尾，则需将local路径的最终文件拼接至cos路径最后
+			if !strings.HasSuffix(localDir, string(filepath.Separator)) {
+				fileName := filepath.Base(localDir)
+				cosDir += fileName
+			}
 		}
+
 		// local路径若不以路径分隔符结尾，则添加
 		if !strings.HasSuffix(localDir, string(filepath.Separator)) {
 			localDir += string(filepath.Separator)
@@ -117,7 +127,15 @@ func SyncMultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclu
 			localPath := filepath.Join(localDir, f)
 			// 兼容windows，将windows的路径分隔符 "\" 转换为 "/"
 			f = strings.ReplaceAll(f, string(filepath.Separator), "/")
-			cosPath := cosDir + "/" + f
+			// 格式化cos路径
+			cosPath := f
+			if cosDir != "" {
+				if !strings.HasSuffix(cosDir, "/") {
+					cosPath = cosDir + "/" + f
+				} else {
+					cosPath = cosDir + f
+				}
+			}
 			SyncSingleUpload(c, localPath, bucketName, cosPath, op)
 		}
 	} else {
@@ -255,7 +273,7 @@ func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exc
 		cosDir += "/"
 	}
 	// 判断cosDir是否是文件夹
-	isDir := checkCosPathType(c, cosDir, 0)
+	isDir := CheckCosPathType(c, cosDir, 0)
 
 	if isDir {
 		// cosDir是文件夹

@@ -235,7 +235,7 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 	return dirs, objects, isTruncated, nextMaker
 }
 
-func checkCosPathType(c *cos.Client, prefix string, limit int) (isDir bool) {
+func CheckCosPathType(c *cos.Client, prefix string, limit int) (isDir bool) {
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
