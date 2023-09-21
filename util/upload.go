@@ -33,7 +33,7 @@ func UploadPathFixed(localPath string, cosPath string) (string, string) {
 			logger.Fatalln(err)
 			os.Exit(1)
 		}
-		localPath = filepath.Join(dirPath, localPath)
+		localPath = dirPath + string(filepath.Separator) + localPath
 	}
 
 	fileInfo, err := os.Stat(localPath)

@@ -25,7 +25,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
-	Version: "v0.15.0-beta",
+	Version: "v0.16.0-beta",
 }
 
 func Execute() {

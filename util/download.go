@@ -52,7 +52,7 @@ func DownloadPathFixed(localPath string, cosPath string, isRecursive bool) (stri
 			logger.Fatalln(err)
 			return "", "", err
 		}
-		localPath = filepath.Join(dirPath, localPath)
+		localPath = dirPath + string(filepath.Separator) + localPath
 	}
 
 	// 创建文件夹
