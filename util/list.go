@@ -281,9 +281,6 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 		objects = append(objects, res.Contents...)
 		commonPrefixes = res.CommonPrefixes
 
-		// 对key进行urlDecode解码
-		objects = UrlDecodeCosPattern(objects)
-
 		if limit > 0 {
 			isTruncated = false
 		} else {
@@ -291,6 +288,9 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 			marker = res.NextMarker
 		}
 	}
+
+	// 对key进行urlDecode解码
+	objects = UrlDecodeCosPattern(objects)
 
 	if len(include) > 0 {
 		objects = MatchCosPattern(objects, include, true)
