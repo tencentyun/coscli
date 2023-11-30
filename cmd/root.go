@@ -5,6 +5,7 @@ import (
 	"coscli/util"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
+	"log"
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -46,6 +47,9 @@ func initConfig() {
 	home, err := homedir.Dir()
 	cobra.CheckErr(err)
 
+	// 获取命令参数
+	cmdArgs := os.Args[1]
+
 	viper.SetConfigType("yaml")
 	if cfgFile != "" {
 		if cfgFile[0] == '~' {
@@ -55,26 +59,27 @@ func initConfig() {
 	} else {
 		_, err = os.Stat(home + "/.cos.yaml")
 		if os.IsNotExist(err) {
-			// 执行命令不再强制 init config文件，不存在则直接返回
-			//log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
-			//initConfigFile(false)
-			//cmdCnt++
-
-
-			// 若无配置文件，则需有输入ak，sk及endpoint
-			if param.SecretID == ""{
-				logger.Fatalln("Auth failed，missing parameter SecretID")
-				os.Exit(1)
+			// 执行命令除config相关命令外不再强制 init config文件，不存在则直接返回
+			if cmdArgs == "config" {
+				log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
+				initConfigFile(false)
+				cmdCnt++
+			} else {
+				// 若无配置文件，则需有输入ak，sk及endpoint
+				if param.SecretID == "" {
+					logger.Fatalln("Auth failed，missing parameter SecretID")
+					os.Exit(1)
+				}
+				if param.SecretKey == "" {
+					logger.Fatalln("Auth failed，missing parameter SecretKey")
+					os.Exit(1)
+				}
+				if param.Endpoint == "" {
+					logger.Fatalln("Auth failed，missing parameter Endpoint")
+					os.Exit(1)
+				}
+				return
 			}
-			if param.SecretKey == ""{
-				logger.Fatalln("Auth failed，missing parameter SecretKey")
-				os.Exit(1)
-			}
-			if param.Endpoint == "" {
-				logger.Fatalln("Auth failed，missing parameter Endpoint")
-				os.Exit(1)
-			}
-			return
 		}
 
 		viper.AddConfigPath(home)
