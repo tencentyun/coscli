@@ -7,6 +7,7 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"log"
 	"os"
+	"strings"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -14,7 +15,7 @@ import (
 )
 
 var cfgFile string
-
+var initSkip bool
 var config util.Config
 var param util.Param
 var cmdCnt int //控制某些函数在一个命令中被调用的次数
@@ -41,45 +42,52 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&param.SecretKey, "secret-key", "k", "", "config secretKey")
 	rootCmd.PersistentFlags().StringVarP(&param.SessionToken, "token", "", "", "config sessionToken")
 	rootCmd.PersistentFlags().StringVarP(&param.Endpoint, "endpoint", "e", "", "config endpoint")
+	rootCmd.PersistentFlags().BoolVarP(&initSkip, "init-skip", "", false, "skip config init")
 }
 
 func initConfig() {
 	home, err := homedir.Dir()
 	cobra.CheckErr(err)
-
-	// 获取命令参数
-	cmdArgs := os.Args[1]
-
 	viper.SetConfigType("yaml")
+	firstArg := ""
+	if len(os.Args) > 1 {
+		firstArg = os.Args[1]
+	}
+
 	if cfgFile != "" {
 		if cfgFile[0] == '~' {
 			cfgFile = home + cfgFile[1:]
+		}
+		if !strings.HasSuffix(cfgFile, ".yaml") {
+			fmt.Println("config file need end with .yaml ")
+			os.Exit(1)
 		}
 		viper.SetConfigFile(cfgFile)
 	} else {
 		_, err = os.Stat(home + "/.cos.yaml")
 		if os.IsNotExist(err) {
-			// 执行命令除config相关命令外不再强制 init config文件，不存在则直接返回
-			if cmdArgs == "config" {
-				log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
-				initConfigFile(false)
-				cmdCnt++
-			} else {
+			if firstArg != "config" {
 				// 若无配置文件，则需有输入ak，sk及endpoint
 				if param.SecretID == "" {
-					logger.Fatalln("Auth failed，missing parameter SecretID")
+					logger.Fatalln("missing parameter SecretID")
 					os.Exit(1)
 				}
 				if param.SecretKey == "" {
-					logger.Fatalln("Auth failed，missing parameter SecretKey")
+					logger.Fatalln("missing parameter SecretKey")
 					os.Exit(1)
 				}
 				if param.Endpoint == "" {
-					logger.Fatalln("Auth failed，missing parameter Endpoint")
+					logger.Fatalln("missing parameter Endpoint")
 					os.Exit(1)
 				}
-				return
+			} else {
+				if !initSkip {
+					log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
+					initConfigFile(false)
+					cmdCnt++
+				}
 			}
+			return
 		}
 
 		viper.AddConfigPath(home)

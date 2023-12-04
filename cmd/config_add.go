@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+	"github.com/mitchellh/go-homedir"
 	"os"
 
 	"coscli/util"
@@ -72,9 +74,29 @@ func addBucketConfig(cmd *cobra.Command) {
 	config.Buckets = append(config.Buckets, bucket)
 	viper.Set("cos.buckets", config.Buckets)
 
-	if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+	// 判断config文件是否存在。不存在则创建
+	home, err := homedir.Dir()
+	configFile := ""
+	if cfgFile != "" {
+		if cfgFile[0] == '~' {
+			configFile = home + cfgFile[1:]
+		} else {
+			configFile = cfgFile
+		}
+	} else {
+		configFile = home + "/.cos.yaml"
+	}
+	_, err = os.Stat(configFile)
+	if os.IsNotExist(err) || cfgFile != "" {
+		if err := viper.WriteConfigAs(configFile); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	} else {
+		if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
+			logger.Fatalln(err)
+			os.Exit(1)
+		}
 	}
 	logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n, ofs: %t\n", name, endpoint, alias, ofs)
 }
