@@ -79,7 +79,12 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 	if param.SessionToken != "" {
 		secretToken = param.SessionToken
 	}
-	return cos.NewClient(CreateURL(bucketIDName, config.Base.Protocol, param.Endpoint), &http.Client{
+
+	protocol := "https"
+	if config.Base.Protocol != "" {
+		protocol = config.Base.Protocol
+	}
+	return cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint), &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:     secretID,
 			SecretKey:    secretKey,
