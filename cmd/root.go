@@ -27,7 +27,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
-	Version: "v0.17.0-beta",
+	Version: "v0.18.0-beta",
 }
 
 func Execute() {
@@ -86,6 +86,8 @@ func initConfig() {
 					log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
 					initConfigFile(false)
 					cmdCnt++
+				} else {
+					return
 				}
 			}
 
