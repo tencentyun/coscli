@@ -80,6 +80,7 @@ func initConfig() {
 					logger.Fatalln("missing parameter Endpoint")
 					os.Exit(1)
 				}
+				return
 			} else {
 				if !initSkip {
 					log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
@@ -87,7 +88,7 @@ func initConfig() {
 					cmdCnt++
 				}
 			}
-			return
+
 		}
 
 		viper.AddConfigPath(home)
