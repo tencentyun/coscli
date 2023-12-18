@@ -4,8 +4,10 @@ import (
 	_ "coscli/logger"
 	"coscli/util"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"log"
 	"os"
+	"strings"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -13,7 +15,7 @@ import (
 )
 
 var cfgFile string
-
+var initSkip bool
 var config util.Config
 var param util.Param
 var cmdCnt int //控制某些函数在一个命令中被调用的次数
@@ -25,7 +27,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
-	Version: "v0.16.0-beta",
+	Version: "v0.18.0-beta",
 }
 
 func Execute() {
@@ -40,24 +42,55 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&param.SecretKey, "secret-key", "k", "", "config secretKey")
 	rootCmd.PersistentFlags().StringVarP(&param.SessionToken, "token", "", "", "config sessionToken")
 	rootCmd.PersistentFlags().StringVarP(&param.Endpoint, "endpoint", "e", "", "config endpoint")
+	rootCmd.PersistentFlags().BoolVarP(&initSkip, "init-skip", "", false, "skip config init")
 }
 
 func initConfig() {
 	home, err := homedir.Dir()
 	cobra.CheckErr(err)
-
 	viper.SetConfigType("yaml")
+	firstArg := ""
+	if len(os.Args) > 1 {
+		firstArg = os.Args[1]
+	}
+
 	if cfgFile != "" {
 		if cfgFile[0] == '~' {
 			cfgFile = home + cfgFile[1:]
+		}
+		if !strings.HasSuffix(cfgFile, ".yaml") {
+			fmt.Println("config file need end with .yaml ")
+			os.Exit(1)
 		}
 		viper.SetConfigFile(cfgFile)
 	} else {
 		_, err = os.Stat(home + "/.cos.yaml")
 		if os.IsNotExist(err) {
-			log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
-			initConfigFile(false)
-			cmdCnt++
+			if firstArg != "config" {
+				// 若无配置文件，则需有输入ak，sk及endpoint
+				if param.SecretID == "" {
+					logger.Fatalln("missing parameter SecretID")
+					os.Exit(1)
+				}
+				if param.SecretKey == "" {
+					logger.Fatalln("missing parameter SecretKey")
+					os.Exit(1)
+				}
+				if param.Endpoint == "" {
+					logger.Fatalln("missing parameter Endpoint")
+					os.Exit(1)
+				}
+				return
+			} else {
+				if !initSkip {
+					log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
+					initConfigFile(false)
+					cmdCnt++
+				} else {
+					return
+				}
+			}
+
 		}
 
 		viper.AddConfigPath(home)
