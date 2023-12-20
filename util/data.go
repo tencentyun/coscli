@@ -26,6 +26,7 @@ type Param struct {
 	SecretKey    string
 	SessionToken string
 	Endpoint     string
+	Protocol     string
 }
 
 type UploadInfo struct {

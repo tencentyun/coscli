@@ -34,7 +34,7 @@ func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
 		secretToken = param.SessionToken
 	}
 	if bucketName == "" { // 不指定 bucket，则创建用于发送 Service 请求的客户端
-		return cos.NewClient(nil, &http.Client{
+		return cos.NewClient(GenBaseURL(config, param), &http.Client{
 			Transport: &cos.AuthorizationTransport{
 				SecretID:     secretID,
 				SecretKey:    secretKey,
@@ -83,6 +83,9 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 	protocol := "https"
 	if config.Base.Protocol != "" {
 		protocol = config.Base.Protocol
+	}
+	if param.Protocol != "" {
+		protocol = param.Protocol
 	}
 	return cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint), &http.Client{
 		Transport: &cos.AuthorizationTransport{
