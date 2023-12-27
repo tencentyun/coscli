@@ -97,11 +97,20 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 	if param.Protocol != "" {
 		protocol = param.Protocol
 	}
-	return cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint), &http.Client{
+
+	var client *cos.Client
+	client = cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint), &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:     secretID,
 			SecretKey:    secretKey,
 			SessionToken: secretToken,
 		},
 	})
+
+	// 切换备用域名开关
+	if config.Base.CloseAutoSwitchHost == "true" {
+		client.Conf.RetryOpt.AutoSwitchHost = false
+	}
+
+	return client
 }
