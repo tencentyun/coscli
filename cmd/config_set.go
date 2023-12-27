@@ -35,6 +35,7 @@ func init() {
 	configSetCmd.Flags().StringP("session_token", "t", "", "Set session token")
 	configSetCmd.Flags().StringP("mode", "", "", "Set mode")
 	configSetCmd.Flags().StringP("cvm_role_name", "", "", "Set cvm role name")
+	configSetCmd.Flags().StringP("close_auto_switch_host", "", "true", "Close Auto Switch Host")
 }
 
 func setConfigItem(cmd *cobra.Command) {
@@ -44,6 +45,7 @@ func setConfigItem(cmd *cobra.Command) {
 	sessionToken, _ := cmd.Flags().GetString("session_token")
 	mode, _ := cmd.Flags().GetString("mode")
 	cvmRoleName, _ := cmd.Flags().GetString("cvm_role_name")
+	closeAutoSwitchHost, _ := cmd.Flags().GetString("close_auto_switch_host")
 	if secretID != "" {
 		flag = true
 		if secretID == "@" {
@@ -84,6 +86,15 @@ func setConfigItem(cmd *cobra.Command) {
 			config.Base.CvmRoleName = ""
 		} else {
 			config.Base.CvmRoleName = cvmRoleName
+		}
+	}
+
+	if closeAutoSwitchHost != ""{
+		flag = true
+		if closeAutoSwitchHost == "@" {
+			config.Base.CloseAutoSwitchHost = ""
+		} else {
+			config.Base.CloseAutoSwitchHost = closeAutoSwitchHost
 		}
 	}
 

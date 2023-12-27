@@ -12,7 +12,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.8.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/tencentyun/cos-go-sdk-v5 v0.7.46-0.20231208033646-d7bc349cfdea
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.46-0.20231225073710-191cedc740df
 )
 
 require (

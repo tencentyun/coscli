@@ -68,20 +68,26 @@ func initConfig() {
 		_, err = os.Stat(home + "/.cos.yaml")
 		if os.IsNotExist(err) {
 			if firstArg != "config" {
-				// 若无配置文件，则需有输入ak，sk及endpoint
-				if param.SecretID == "" {
-					logger.Fatalln("missing parameter SecretID")
-					os.Exit(1)
+				if !initSkip {
+					log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
+					initConfigFile(false)
+					cmdCnt++
+				} else {
+					// 若无配置文件，则需有输入ak，sk及endpoint
+					if param.SecretID == "" {
+						logger.Fatalln("missing parameter SecretID")
+						os.Exit(1)
+					}
+					if param.SecretKey == "" {
+						logger.Fatalln("missing parameter SecretKey")
+						os.Exit(1)
+					}
+					if param.Endpoint == "" {
+						logger.Fatalln("missing parameter Endpoint")
+						os.Exit(1)
+					}
+					return
 				}
-				if param.SecretKey == "" {
-					logger.Fatalln("missing parameter SecretKey")
-					os.Exit(1)
-				}
-				if param.Endpoint == "" {
-					logger.Fatalln("missing parameter Endpoint")
-					os.Exit(1)
-				}
-				return
 			} else {
 				if !initSkip {
 					log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
