@@ -236,6 +236,9 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 }
 
 func CheckCosPathType(c *cos.Client, prefix string, limit int) (isDir bool) {
+	if prefix == "" {
+		return true
+	}
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",

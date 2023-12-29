@@ -136,7 +136,7 @@ func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude
 	// 记录是否是代码添加的路径分隔符
 	isCosAddSeparator := false
 	// cos路径若不以路径分隔符结尾，则添加
-	if !strings.HasSuffix(cosDir, "/") {
+	if !strings.HasSuffix(cosDir, "/") && cosDir != ""{
 		isCosAddSeparator = true
 		cosDir += "/"
 	}

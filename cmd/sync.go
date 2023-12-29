@@ -167,7 +167,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 		// 记录是否是代码添加的路径分隔符
 		isAddSeparator := false
 		// 源路径若不以路径分隔符结尾，则添加
-		if !strings.HasSuffix(cosPath1, "/") {
+		if !strings.HasSuffix(cosPath1, "/")  && cosPath1 != ""{
 			isAddSeparator = true
 			cosPath1 += "/"
 		}
