@@ -167,7 +167,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 		// 记录是否是代码添加的路径分隔符
 		isAddSeparator := false
 		// 源路径若不以路径分隔符结尾，则添加
-		if !strings.HasSuffix(cosPath1, "/") {
+		if !strings.HasSuffix(cosPath1, "/")  && cosPath1 != ""{
 			isAddSeparator = true
 			cosPath1 += "/"
 		}
@@ -257,8 +257,8 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 				}
 			} else {
 				// 存在，判断crc64
-				crc1, _ := util.ShowHash(c1, srcKey, "crc64")
-				crc2, _ := util.ShowHash(c2, dstKey, "crc64")
+				crc1, _, _ := util.ShowHash(c1, srcKey, "crc64")
+				crc2, _, _ := util.ShowHash(c2, dstKey, "crc64")
 				if crc1 == crc2 {
 					logger.Infoln("Skip", srcPath)
 				} else {
@@ -337,8 +337,8 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 			}
 		} else {
 			// 存在，判断crc64
-			crc1, _ := util.ShowHash(c1, cosPath1, "crc64")
-			crc2, _ := util.ShowHash(c2, cosPath2, "crc64")
+			crc1, _, _ := util.ShowHash(c1, cosPath1, "crc64")
+			crc2, _, _ := util.ShowHash(c2, cosPath2, "crc64")
 			if crc1 == crc2 {
 				logger.Infoln("Skip", args[0])
 			} else {

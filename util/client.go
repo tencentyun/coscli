@@ -33,16 +33,19 @@ func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
 	if param.SessionToken != "" {
 		secretToken = param.SessionToken
 	}
+
+	var client *cos.Client
 	if bucketName == "" { // 不指定 bucket，则创建用于发送 Service 请求的客户端
-		return cos.NewClient(nil, &http.Client{
+		client = cos.NewClient(GenBaseURL(config, param), &http.Client{
 			Transport: &cos.AuthorizationTransport{
 				SecretID:     secretID,
 				SecretKey:    secretKey,
 				SessionToken: secretToken,
 			},
 		})
+
 	} else {
-		return cos.NewClient(GenURL(config, param, bucketName), &http.Client{
+		client = cos.NewClient(GenURL(config, param, bucketName), &http.Client{
 			Transport: &cos.AuthorizationTransport{
 				SecretID:     secretID,
 				SecretKey:    secretKey,
@@ -50,6 +53,13 @@ func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
 			},
 		})
 	}
+
+	// 切换备用域名开关
+	if config.Base.CloseAutoSwitchHost == "true" {
+		client.Conf.RetryOpt.AutoSwitchHost = false
+	}
+
+	return client
 }
 
 // 根据函数参数创建客户端
@@ -84,11 +94,23 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 	if config.Base.Protocol != "" {
 		protocol = config.Base.Protocol
 	}
-	return cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint), &http.Client{
+	if param.Protocol != "" {
+		protocol = param.Protocol
+	}
+
+	var client *cos.Client
+	client = cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint), &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:     secretID,
 			SecretKey:    secretKey,
 			SessionToken: secretToken,
 		},
 	})
+
+	// 切换备用域名开关
+	if config.Base.CloseAutoSwitchHost == "true" {
+		client.Conf.RetryOpt.AutoSwitchHost = false
+	}
+
+	return client
 }

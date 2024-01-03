@@ -31,10 +31,11 @@ func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *
 
 func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, localPath string,
 	cosPath string) (skip bool, err error) {
+
+	var localPathInfo os.FileInfo
+	localPathInfo, err = os.Stat(localPath)
 	// 直接和本地的snapshot作对比
 	if snapshotPath != "" {
-		var localPathInfo os.FileInfo
-		localPathInfo, err = os.Stat(localPath)
 		if err != nil {
 			return
 		}
@@ -47,8 +48,6 @@ func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, loca
 			} else {
 				return false, nil
 			}
-		} else {
-			return false, nil
 		}
 	}
 
@@ -72,6 +71,10 @@ func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, loca
 			cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
 			localCrc, _ := CalculateHash(localPath, "crc64")
 			if cosCrc == localCrc {
+				// 本地校验通过后，若未记录快照。则添加
+				if snapshotPath != "" {
+					snapshotDb.Put([]byte(localPath), []byte(strconv.FormatInt(localPathInfo.ModTime().Unix(), 10)), nil)
+				}
 				return true, nil
 			} else {
 				return false, nil
@@ -230,14 +233,25 @@ func skipDownload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, lo
 			} else {
 				return false, nil
 			}
-		} else {
-			return false, nil
 		}
 	}
 
 	localCrc, _ := CalculateHash(localPath, "crc64")
-	cosCrc, _ := ShowHash(c, cosPath, "crc64")
+	cosCrc, _, resp := ShowHash(c, cosPath, "crc64")
 	if cosCrc == localCrc {
+		// 本地校验通过后，若未记录快照。则添加
+		if snapshotPath != "" {
+			lastModified := resp.Header.Get("Last-Modified")
+			if lastModified == "" {
+				return false, nil
+			}
+			var cosLastModifiedTime time.Time
+			cosLastModifiedTime, err = time.Parse(time.RFC1123, lastModified)
+			if err != nil {
+				return false, nil
+			}
+			snapshotDb.Put([]byte(cosPath), []byte(strconv.FormatInt(cosLastModifiedTime.Unix(), 10)), nil)
+		}
 		return true, nil
 	} else {
 		return false, nil
@@ -268,7 +282,7 @@ func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exc
 	// 记录是否是代码添加的路径分隔符
 	isCosAddSeparator := false
 	// cos路径若不以路径分隔符结尾，则添加
-	if !strings.HasSuffix(cosDir, "/") {
+	if !strings.HasSuffix(cosDir, "/") && cosDir != ""{
 		isCosAddSeparator = true
 		cosDir += "/"
 	}

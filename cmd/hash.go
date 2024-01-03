@@ -41,10 +41,10 @@ func showHash(bucketName string, path string, hashType string) {
 	c := util.NewClient(&config, &param, bucketName)
 	switch hashType {
 	case "crc64":
-		h, _ := util.ShowHash(c, path, "crc64")
+		h, _ ,_:= util.ShowHash(c, path, "crc64")
 		logger.Infoln("crc64-ecma:  ", h)
 	case "md5":
-		h, b := util.ShowHash(c, path, "md5")
+		h, b ,_:= util.ShowHash(c, path, "md5")
 		logger.Infoln("md5:    ", h)
 		logger.Infoln("base64: ", b)
 	default:

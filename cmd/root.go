@@ -27,7 +27,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
-	Version: "v0.18.0-beta",
+	Version: "v0.19.0-beta",
 }
 
 func Execute() {
@@ -42,6 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&param.SecretKey, "secret-key", "k", "", "config secretKey")
 	rootCmd.PersistentFlags().StringVarP(&param.SessionToken, "token", "", "", "config sessionToken")
 	rootCmd.PersistentFlags().StringVarP(&param.Endpoint, "endpoint", "e", "", "config endpoint")
+	rootCmd.PersistentFlags().StringVarP(&param.Protocol, "protocol", "p", "", "config protocol")
 	rootCmd.PersistentFlags().BoolVarP(&initSkip, "init-skip", "", false, "skip config init")
 }
 
@@ -67,20 +68,26 @@ func initConfig() {
 		_, err = os.Stat(home + "/.cos.yaml")
 		if os.IsNotExist(err) {
 			if firstArg != "config" {
-				// 若无配置文件，则需有输入ak，sk及endpoint
-				if param.SecretID == "" {
-					logger.Fatalln("missing parameter SecretID")
-					os.Exit(1)
+				if !initSkip {
+					log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
+					initConfigFile(false)
+					cmdCnt++
+				} else {
+					// 若无配置文件，则需有输入ak，sk及endpoint
+					if param.SecretID == "" {
+						logger.Fatalln("missing parameter SecretID")
+						os.Exit(1)
+					}
+					if param.SecretKey == "" {
+						logger.Fatalln("missing parameter SecretKey")
+						os.Exit(1)
+					}
+					if param.Endpoint == "" {
+						logger.Fatalln("missing parameter Endpoint")
+						os.Exit(1)
+					}
+					return
 				}
-				if param.SecretKey == "" {
-					logger.Fatalln("missing parameter SecretKey")
-					os.Exit(1)
-				}
-				if param.Endpoint == "" {
-					logger.Fatalln("missing parameter Endpoint")
-					os.Exit(1)
-				}
-				return
 			} else {
 				if !initSkip {
 					log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")

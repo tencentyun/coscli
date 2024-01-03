@@ -35,6 +35,7 @@ func showConfig() {
 	fmt.Printf("  Session Token: %s\n", config.Base.SessionToken)
 	fmt.Printf("  Mode: %s\n", config.Base.Mode)
 	fmt.Printf("  CvmRoleName: %s\n", config.Base.CvmRoleName)
+	fmt.Printf("  CloseAutoSwitchHost: %s\n", config.Base.CloseAutoSwitchHost)
 	fmt.Println("====================")
 	fmt.Println("Bucket Configuration Information:")
 

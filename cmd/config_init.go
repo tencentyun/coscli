@@ -64,6 +64,8 @@ func initConfigFile(cfgFlag bool) {
 	_, _ = fmt.Scanf("%s\n", &config.Base.Mode)
 	fmt.Println("Input Your Cvm Role Name:")
 	_, _ = fmt.Scanf("%s\n", &config.Base.CvmRoleName)
+	fmt.Println("Input Auto Switch Host:")
+	_, _ = fmt.Scanf("%s\n", &config.Base.CloseAutoSwitchHost)
 	if len(config.Base.SessionToken) < 3 {
 		config.Base.SessionToken = ""
 	}
