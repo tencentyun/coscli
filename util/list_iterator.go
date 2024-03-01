@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"net/url"
 	"os"
 
 	logger "github.com/sirupsen/logrus"
@@ -28,7 +29,7 @@ func GetObjectsListIterator(c *cos.Client, prefix, marker string, include, exclu
 	commonPrefixes = res.CommonPrefixes
 
 	isTruncated = res.IsTruncated
-	nextMarker = res.NextMarker
+	nextMarker, _ = url.QueryUnescape(res.NextMarker)
 
 	if len(include) > 0 {
 		objects = MatchCosPattern(objects, include, true)

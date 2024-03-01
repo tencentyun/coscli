@@ -175,7 +175,7 @@ func GetObjectsList(c *cos.Client, prefix string, limit int, include string, exc
 			isTruncated = false
 		} else {
 			isTruncated = res.IsTruncated
-			marker = res.NextMarker
+			marker, _ = url.QueryUnescape(res.NextMarker)
 		}
 	}
 
@@ -193,7 +193,7 @@ func GetObjectsList(c *cos.Client, prefix string, limit int, include string, exc
 
 func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string, exclude string,
 	marker string) (dirs []string,
-	objects []cos.Object, isTruncated bool, nextMaker string) {
+	objects []cos.Object, isTruncated bool, nextMarker string) {
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "/",
@@ -222,7 +222,7 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 		isTruncated = false
 	} else {
 		isTruncated = res.IsTruncated
-		nextMaker = res.NextMarker
+		nextMarker, _ = url.QueryUnescape(res.NextMarker)
 	}
 
 	if len(include) > 0 {
@@ -234,7 +234,7 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 		dirs = MatchPattern(dirs, exclude, false)
 	}
 
-	return dirs, objects, isTruncated, nextMaker
+	return dirs, objects, isTruncated, nextMarker
 }
 
 func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
@@ -302,7 +302,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 			isTruncated = false
 		} else {
 			isTruncated = res.IsTruncated
-			marker = res.NextMarker
+			marker, _ = url.QueryUnescape(res.NextMarker)
 		}
 	}
 
@@ -368,7 +368,7 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 		isTruncated = false
 	} else {
 		isTruncated = res.IsTruncated
-		nextMarker = res.NextMarker
+		nextMarker, _ = url.QueryUnescape(res.NextMarker)
 	}
 
 	if len(include) > 0 {
