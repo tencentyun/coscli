@@ -6,10 +6,13 @@ type Config struct {
 }
 
 type BaseCfg struct {
-	SecretID     string `yaml:"secretid"`
-	SecretKey    string `yaml:"secretkey"`
-	SessionToken string `yaml:"sessiontoken"`
-	Protocol     string `yaml:"protocol"`
+	SecretID            string `yaml:"secretid"`
+	SecretKey           string `yaml:"secretkey"`
+	SessionToken        string `yaml:"sessiontoken"`
+	Protocol            string `yaml:"protocol"`
+	Mode                string `yaml:"mode"`
+	CvmRoleName         string `yaml:"cvmrolename"`
+	CloseAutoSwitchHost string `yaml:"closeautoswitchhost"`
 }
 
 type Bucket struct {
@@ -24,6 +27,7 @@ type Param struct {
 	SecretKey    string
 	SessionToken string
 	Endpoint     string
+	Protocol     string
 }
 
 type UploadInfo struct {

@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -25,33 +26,39 @@ type UploadOptions struct {
 }
 
 func UploadPathFixed(localPath string, cosPath string) (string, string) {
-	// eg:~/example/123.txt => cos://bucket/path/123.txt
-	// 0. ~/example/123.txt => cos://bucket
-	if cosPath == "" {
-		pathList := strings.Split(localPath, "/")
-		fileName := pathList[len(pathList)-1]
-		cosPath = fileName
-	}
-	// 1. ~/example/123.txt => cos://bucket/path/
-	s, err := os.Stat(localPath)
-	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
-	if s.IsDir() {
-		fileNames := strings.Split(localPath, "/")
-		fileName := fileNames[len(fileNames)-1]
-		cosPath = cosPath + fileName
-	}
-	// 2. 123.txt => cos://bucket/path/
+	// 若local路径不是绝对路径，则补齐
 	if !filepath.IsAbs(localPath) {
 		dirPath, err := os.Getwd()
 		if err != nil {
 			logger.Fatalln(err)
 			os.Exit(1)
 		}
-		localPath = dirPath + "/" + localPath
+		localPath = dirPath + string(filepath.Separator) + localPath
 	}
+
+	fileInfo, err := os.Stat(localPath)
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+	// 若local路径为文件夹则报错
+	if fileInfo.IsDir() || strings.HasSuffix(localPath, string(filepath.Separator)) {
+		logger.Fatalf("path %s : is a dir", localPath)
+		os.Exit(1)
+	}
+
+	// 文件名称
+	fileName := filepath.Base(localPath)
+	// 若cos路径为空，则直接赋值为文件名
+	if cosPath == "" {
+		cosPath = fileName
+	} else {
+		// 若cos路径不为空且以路径分隔符结尾，则拼接文件名
+		if strings.HasSuffix(cosPath, "/") {
+			cosPath += fileName
+		}
+	}
+
 	return localPath, cosPath
 }
 func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *UploadOptions) {
@@ -122,20 +129,93 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *Uplo
 }
 
 func MultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclude string, op *UploadOptions) {
-
-	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
-		cosDir += "/"
-	}
-	if localDir != "" && (localDir[len(localDir)-1] != '/' && localDir[len(localDir)-1] != '\\') {
-		tmp := strings.Split(localDir, "/")
-		cosDir = filepath.Join(cosDir, tmp[len(tmp)-1])
+	if localDir == "" {
+		logger.Fatalln("localDir is empty")
+		os.Exit(1)
 	}
 
-	files := GetLocalFilesListRecursive(localDir, include, exclude)
+	// 格式化本地路径
+	localDir = strings.TrimPrefix(localDir, "./")
 
-	for _, f := range files {
-		localPath := filepath.Join(localDir, "/", f)
-		cosPath := filepath.Join(cosDir, "/", f)
+	// 判断local路径是文件还是文件夹
+	localDirInfo, err := os.Stat(localDir)
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+	var files []string
+	if localDirInfo.IsDir() {
+		if cosDir != "" {
+			if strings.HasSuffix(cosDir, "/") {
+				// cos路径若以路径分隔符结尾，且 local路径若不以路径分隔符结尾，则需将local路径的最终文件拼接至cos路径最后
+				if !strings.HasSuffix(localDir, string(filepath.Separator)) {
+					fileName := filepath.Base(localDir)
+					cosDir += fileName
+				}
+			} else {
+				// cos路径若不以路径分隔符结尾，则添加路径分隔符
+				cosDir += "/"
+			}
+		} else {
+			// cos路径为空，且 local路径若不以路径分隔符结尾，则需将local路径的最终文件拼接至cos路径最后
+			if !strings.HasSuffix(localDir, string(filepath.Separator)) {
+				fileName := filepath.Base(localDir)
+				cosDir += fileName
+			}
+		}
+
+		// local路径若不以路径分隔符结尾，则添加
+		if !strings.HasSuffix(localDir, string(filepath.Separator)) {
+			localDir += string(filepath.Separator)
+		}
+
+		files = GetLocalFilesListRecursive(localDir, include, exclude)
+		for _, f := range files {
+			localPath := filepath.Join(localDir, f)
+			// 兼容windows，将windows的路径分隔符 "\" 转换为 "/"
+			f = strings.ReplaceAll(f, string(filepath.Separator), "/")
+			// 格式化cos路径
+			cosPath := f
+			if cosDir != "" {
+				if !strings.HasSuffix(cosDir, "/") {
+					cosPath = cosDir + "/" + f
+				} else {
+					cosPath = cosDir + f
+				}
+			}
+
+			SingleUpload(c, localPath, bucketName, cosPath, op)
+		}
+	} else {
+		// 若是文件直接取出文件名
+		fileName := filepath.Base(localDir)
+		// 匹配规则
+		if len(include) > 0 {
+			re := regexp.MustCompile(include)
+			match := re.MatchString(fileName)
+			if !match {
+				logger.Warningf("skip file %s due to not matching \"%s\" pattern ", localDir, include)
+				os.Exit(1)
+			}
+		}
+
+		if len(exclude) > 0 {
+			re := regexp.MustCompile(exclude)
+			match := re.MatchString(fileName)
+			if match {
+				logger.Warningf("skip file %s due to matching \"%s\" pattern ", localDir, exclude)
+				os.Exit(1)
+			}
+		}
+
+		// 若cos路径为空或以路径分隔符结尾，则需拼接文件名
+		cosPath := cosDir
+		if cosDir == "" || strings.HasSuffix(cosDir, "/") {
+			cosPath = cosDir + fileName
+		}
+		localPath := localDir
+
 		SingleUpload(c, localPath, bucketName, cosPath, op)
 	}
+
 }

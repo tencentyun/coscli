@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	logger "github.com/sirupsen/logrus"
+	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -26,21 +26,24 @@ func init() {
 }
 
 func showConfig() {
-	logger.Infoln("Configuration file path:")
-	logger.Infof("  %s\n", viper.ConfigFileUsed())
-	logger.Infoln("====================")
-	logger.Infoln("Basic Configuration Information:")
-	logger.Infof("  Secret ID:     %s\n", config.Base.SecretID)
-	logger.Infof("  Secret Key:    %s\n", config.Base.SecretKey)
-	logger.Infof("  Session Token: %s\n", config.Base.SessionToken)
-	logger.Infoln("====================")
-	logger.Infoln("Bucket Configuration Information:")
+	fmt.Println("Configuration file path:")
+	fmt.Printf("  %s\n", viper.ConfigFileUsed())
+	fmt.Println("====================")
+	fmt.Println("Basic Configuration Information:")
+	fmt.Printf("  Secret ID:     %s\n", config.Base.SecretID)
+	fmt.Printf("  Secret Key:    %s\n", config.Base.SecretKey)
+	fmt.Printf("  Session Token: %s\n", config.Base.SessionToken)
+	fmt.Printf("  Mode: %s\n", config.Base.Mode)
+	fmt.Printf("  CvmRoleName: %s\n", config.Base.CvmRoleName)
+	fmt.Printf("  CloseAutoSwitchHost: %s\n", config.Base.CloseAutoSwitchHost)
+	fmt.Println("====================")
+	fmt.Println("Bucket Configuration Information:")
 
 	for i, b := range config.Buckets {
-		logger.Infof("- Bucket %d :\n", i+1)
-		logger.Infof("  Name:  \t%s\n", b.Name)
-		logger.Infof("  Endpoint:\t%s\n", b.Endpoint)
-		logger.Infof("  Alias: \t%s\n", b.Alias)
-		logger.Infof(" Ofs: \t%v\n", b.Ofs)
+		fmt.Printf("- Bucket %d :\n", i+1)
+		fmt.Printf("  Name:  \t%s\n", b.Name)
+		fmt.Printf("  Endpoint:\t%s\n", b.Endpoint)
+		fmt.Printf("  Alias: \t%s\n", b.Alias)
+		fmt.Printf("  Ofs: \t%v\n", b.Ofs)
 	}
 }

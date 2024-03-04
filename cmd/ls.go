@@ -84,6 +84,7 @@ func listObjects(cosPath string, limit int, recursive bool, include string, excl
 	table.SetHeader([]string{"Key", "Type", "Last Modified", "Size"})
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
+	table.SetAutoWrapText(false)
 	if recursive {
 		for {
 			output_num = 0

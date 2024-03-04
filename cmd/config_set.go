@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"coscli/util"
+	"fmt"
+	"github.com/mitchellh/go-homedir"
 	"os"
 
 	logger "github.com/sirupsen/logrus"
@@ -31,6 +33,9 @@ func init() {
 	configSetCmd.Flags().StringP("secret_id", "", "", "Set secret id")
 	configSetCmd.Flags().StringP("secret_key", "", "", "Set secret key")
 	configSetCmd.Flags().StringP("session_token", "t", "", "Set session token")
+	configSetCmd.Flags().StringP("mode", "", "", "Set mode")
+	configSetCmd.Flags().StringP("cvm_role_name", "", "", "Set cvm role name")
+	configSetCmd.Flags().StringP("close_auto_switch_host", "", "true", "Close Auto Switch Host")
 }
 
 func setConfigItem(cmd *cobra.Command) {
@@ -38,7 +43,9 @@ func setConfigItem(cmd *cobra.Command) {
 	secretID, _ := cmd.Flags().GetString("secret_id")
 	secretKey, _ := cmd.Flags().GetString("secret_key")
 	sessionToken, _ := cmd.Flags().GetString("session_token")
-
+	mode, _ := cmd.Flags().GetString("mode")
+	cvmRoleName, _ := cmd.Flags().GetString("cvm_role_name")
+	closeAutoSwitchHost, _ := cmd.Flags().GetString("close_auto_switch_host")
 	if secretID != "" {
 		flag = true
 		if secretID == "@" {
@@ -63,6 +70,34 @@ func setConfigItem(cmd *cobra.Command) {
 			config.Base.SessionToken = sessionToken
 		}
 	}
+	if mode != "" {
+		flag = true
+		if mode != "SecretKey" && mode != "CvmRole" {
+			logger.Fatalln("Please Enter Mode As SecretKey Or CvmRole!")
+			logger.Infoln(cmd.UsageString())
+			os.Exit(1)
+		} else {
+			config.Base.Mode = mode
+		}
+	}
+	if cvmRoleName != "" {
+		flag = true
+		if cvmRoleName == "@" {
+			config.Base.CvmRoleName = ""
+		} else {
+			config.Base.CvmRoleName = cvmRoleName
+		}
+	}
+
+	if closeAutoSwitchHost != ""{
+		flag = true
+		if closeAutoSwitchHost == "@" {
+			config.Base.CloseAutoSwitchHost = ""
+		} else {
+			config.Base.CloseAutoSwitchHost = closeAutoSwitchHost
+		}
+	}
+
 	if !flag {
 		logger.Fatalln("Enter at least one configuration item to be modified!")
 		logger.Infoln(cmd.UsageString())
@@ -73,10 +108,32 @@ func setConfigItem(cmd *cobra.Command) {
 	config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
 	config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
 
-	viper.Set("cos.base", config.Base)
-	if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+	// 判断config文件是否存在。不存在则创建
+	home, err := homedir.Dir()
+	configFile := ""
+	if cfgFile != "" {
+		if cfgFile[0] == '~' {
+			configFile = home + cfgFile[1:]
+		} else {
+			configFile = cfgFile
+		}
+	} else {
+		configFile = home + "/.cos.yaml"
 	}
+	_, err = os.Stat(configFile)
+	if os.IsNotExist(err) || cfgFile != "" {
+		viper.Set("cos.base", config.Base)
+		if err := viper.WriteConfigAs(configFile); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	} else {
+		viper.Set("cos.base", config.Base)
+		if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
+			logger.Fatalln(err)
+			os.Exit(1)
+		}
+	}
+
 	logger.Infoln("Modify successfully!")
 }

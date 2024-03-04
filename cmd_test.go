@@ -154,7 +154,7 @@ func getCRC(cosPath string) string {
 	bucketName, key := util.ParsePath(cosPath)
 	param.Endpoint = "cos.ap-guangzhou.myqcloud.com"
 	c := util.NewClient(&config, &param, bucketName)
-	h, _ := util.ShowHash(c, key, "crc64")
+	h, _ ,_:= util.ShowHash(c, key, "crc64")
 	return h
 }
 

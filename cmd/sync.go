@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"coscli/util"
@@ -151,7 +152,7 @@ func syncDownload(args []string, recursive bool, include string, exclude string,
 	if recursive {
 		util.SyncMultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
 	} else {
-		util.SyncSingleDownload(c, bucketName, cosPath, localPath, op, "")
+		util.SyncSingleDownload(c, bucketName, cosPath, localPath, op, "", recursive)
 	}
 }
 
@@ -162,14 +163,34 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 	c1 := util.NewClient(&config, &param, bucketName1)
 
 	if recursive {
-		if cosPath2 != "" && cosPath2[len(cosPath2)-1] != '/' {
-			cosPath2 += "/"
-		}
-
-		if cosPath1 != "" && cosPath1[len(cosPath1)-1] != '/' {
-			tmp := strings.Split(cosPath1, "/")
-			cosPath2 = cosPath2 + tmp[len(tmp)-1] + "/"
+		// 路径分隔符
+		// 记录是否是代码添加的路径分隔符
+		isAddSeparator := false
+		// 源路径若不以路径分隔符结尾，则添加
+		if !strings.HasSuffix(cosPath1, "/")  && cosPath1 != ""{
+			isAddSeparator = true
 			cosPath1 += "/"
+		}
+		// 判断cosDir是否是文件夹
+		isDir := util.CheckCosPathType(c1, cosPath1, 0)
+
+		if isDir {
+			// cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加
+			if cosPath2 != "" && !strings.HasSuffix(cosPath2, string(filepath.Separator)) {
+				cosPath2 += string(filepath.Separator)
+			} else {
+				// 若cosPath2以路径分隔符结尾，且cosPath1传入时不以路径分隔符结尾，则需将cos路径的最终文件拼接至local路径最后
+				if isAddSeparator {
+					fileName := filepath.Base(cosPath1)
+					cosPath2 += fileName
+					cosPath2 += string(filepath.Separator)
+				}
+			}
+		} else {
+			// cosPath1不是文件夹且路径分隔符为代码添加,则去掉路径分隔符
+			if isAddSeparator {
+				cosPath1 = strings.TrimSuffix(cosPath1, "/")
+			}
 		}
 
 		objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
@@ -193,7 +214,18 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 		}
 		for _, o := range objects {
 			srcKey := o.Key
-			dstKey := cosPath2 + srcKey[len(cosPath1):]
+			objName := srcKey[len(cosPath1):]
+
+			// 格式化文件名
+			dstKey := cosPath2 + objName
+			if objName == "" && (strings.HasSuffix(cosPath2, "/") || cosPath2 == "") {
+				fileName := filepath.Base(o.Key)
+				dstKey = cosPath2 + fileName
+			}
+
+			if dstKey == "" {
+				continue
+			}
 			srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
 			dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
 
@@ -225,8 +257,8 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 				}
 			} else {
 				// 存在，判断crc64
-				crc1, _ := util.ShowHash(c1, srcKey, "crc64")
-				crc2, _ := util.ShowHash(c2, dstKey, "crc64")
+				crc1, _, _ := util.ShowHash(c1, srcKey, "crc64")
+				crc2, _, _ := util.ShowHash(c2, dstKey, "crc64")
 				if crc1 == crc2 {
 					logger.Infoln("Skip", srcPath)
 				} else {
@@ -244,9 +276,21 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 			}
 		}
 	} else { // 非递归，单个拷贝
-		if cosPath2 == "" || cosPath2[len(cosPath2)-1] == '/' {
-			logger.Infoln("When copying a single file, you need to specify a full path")
+
+		if len(cosPath1) == 0 {
+			logger.Errorln("Invalid srcPath")
 			os.Exit(1)
+		}
+
+		if strings.HasSuffix(cosPath1, "/") {
+			logger.Errorln("srcPath is a dir")
+			os.Exit(1)
+		}
+
+		if cosPath2 == "" || strings.HasSuffix(cosPath2, "/") {
+			fileName := filepath.Base(cosPath1)
+			cosPath2 = filepath.Join(cosPath2, fileName)
+			args[1] = filepath.Join(args[1], fileName)
 		}
 
 		headOpt := &cos.ObjectHeadOptions{
@@ -293,8 +337,8 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 			}
 		} else {
 			// 存在，判断crc64
-			crc1, _ := util.ShowHash(c1, cosPath1, "crc64")
-			crc2, _ := util.ShowHash(c2, cosPath2, "crc64")
+			crc1, _, _ := util.ShowHash(c1, cosPath1, "crc64")
+			crc2, _, _ := util.ShowHash(c2, cosPath2, "crc64")
 			if crc1 == crc2 {
 				logger.Infoln("Skip", args[0])
 			} else {

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 
 	logger "github.com/sirupsen/logrus"
@@ -22,6 +24,24 @@ func MatchBucketPattern(buckets []cos.Bucket, pattern string, include bool) []co
 		if match {
 			res = append(res, b)
 		}
+	}
+	return res
+}
+
+func UrlDecodeCosPattern(objects []cos.Object) []cos.Object {
+	res := make([]cos.Object, 0)
+	for _, o := range objects {
+		o.Key, _ = url.QueryUnescape(o.Key)
+		res = append(res, o)
+	}
+	return res
+}
+
+func UrlDecodePattern(strs []string) []string {
+	res := make([]string, 0)
+	for _, s := range strs {
+		s, _ = url.QueryUnescape(s)
+		res = append(res, s)
 	}
 	return res
 }
@@ -175,7 +195,7 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "/",
-		EncodingType: "",
+		EncodingType: "url",
 		Marker:       marker,
 		MaxKeys:      limit,
 	}
@@ -189,6 +209,12 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 
 	dirs = append(dirs, res.CommonPrefixes...)
 	objects = append(objects, res.Contents...)
+
+	// 对key进行urlDecode解码
+	objects = UrlDecodeCosPattern(objects)
+
+	// 对dir进行urlDecode解码
+	dirs = UrlDecodePattern(dirs)
 
 	if limit > 0 {
 		isTruncated = false
@@ -209,12 +235,37 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 	return dirs, objects, isTruncated, nextMaker
 }
 
+func CheckCosPathType(c *cos.Client, prefix string, limit int) (isDir bool) {
+	if prefix == "" {
+		return true
+	}
+	opt := &cos.BucketGetOptions{
+		Prefix:       prefix,
+		Delimiter:    "",
+		EncodingType: "url",
+		Marker:       "",
+		MaxKeys:      limit,
+	}
+
+	res, _, err := c.Bucket.Get(context.Background(), opt)
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+
+	isDir = true
+	if len(res.Contents) == 0 {
+		isDir = false
+	}
+	return isDir
+}
+
 func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (objects []cos.Object,
 	commonPrefixes []string) {
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
-		EncodingType: "",
+		EncodingType: "url",
 		Marker:       "",
 		MaxKeys:      limit,
 	}
@@ -241,6 +292,9 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 		}
 	}
 
+	// 对key进行urlDecode解码
+	objects = UrlDecodeCosPattern(objects)
+
 	if len(include) > 0 {
 		objects = MatchCosPattern(objects, include, true)
 	}
@@ -256,7 +310,7 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
-		EncodingType: "",
+		EncodingType: "url",
 		Marker:       marker,
 		MaxKeys:      limit,
 	}
@@ -269,6 +323,9 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 
 	objects = append(objects, res.Contents...)
 	commonPrefixes = res.CommonPrefixes
+
+	// 对key进行urlDecode解码
+	objects = UrlDecodeCosPattern(objects)
 
 	if limit > 0 {
 		isTruncated = false
@@ -370,11 +427,15 @@ func GetLocalFilesListRecursive(localPath string, include string, exclude string
 			logger.Fatalln(err)
 			os.Exit(1)
 		}
+		if len(fileInfos) == 0 {
+			logger.Warningf("skip empty dir: %s", dirName)
+			continue
+		}
 
 		for _, f := range fileInfos {
-			fileName := dirName + "/" + f.Name()
+			fileName := filepath.Join(dirName, f.Name())
 			if f.Mode().IsRegular() { // 普通文件，直接添加
-				fileName = fileName[len(localPath)+1:]
+				fileName = fileName[len(localPath):]
 				files = append(files, fileName)
 			} else if f.IsDir() { // 普通目录，添加到继续迭代
 				dirs = append(dirs, fileName)

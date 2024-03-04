@@ -15,7 +15,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func ShowHash(c *cos.Client, path string, hashType string) (h string, b string) {
+func ShowHash(c *cos.Client, path string, hashType string) (h string, b string,resp *cos.Response) {
 	opt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",
 		XCosSSECustomerAglo:   "",
@@ -42,7 +42,7 @@ func ShowHash(c *cos.Client, path string, hashType string) (h string, b string) 
 	default:
 		logger.Infoln("Wrong args!")
 	}
-	return h, b
+	return h, b, resp
 }
 
 func CalculateHash(path string, hashType string) (h string, b string) {

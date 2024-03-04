@@ -41,6 +41,34 @@ func CreateURL(idName string, protocol string, endpoint string) *cos.BaseURL {
 	}
 }
 
+// 根据配置文件生成ServiceURL
+func GenBaseURL(config *Config, param *Param) *cos.BaseURL {
+	if param.Endpoint == "" {
+		return nil
+	}
+	endpoint := param.Endpoint
+
+	protocol := "https"
+	if config.Base.Protocol != "" {
+		protocol = config.Base.Protocol
+	}
+	if param.Protocol != "" {
+		protocol = param.Protocol
+	}
+
+	return CreateBaseURL(protocol, endpoint)
+}
+
+// 根据函数参数生成ServiceURL
+func CreateBaseURL(protocol string, endpoint string) *cos.BaseURL {
+	service := GenServiceURL(protocol, endpoint)
+	serviceURL, _ := url.Parse(service)
+
+	return &cos.BaseURL{
+		ServiceURL: serviceURL,
+	}
+}
+
 // 根据配置文件生成URL
 func GenURL(config *Config, param *Param, bucketName string) *cos.BaseURL {
 	bucket, _, err := FindBucket(config, bucketName)
@@ -57,5 +85,14 @@ func GenURL(config *Config, param *Param, bucketName string) *cos.BaseURL {
 	if endpoint == "" && bucket.Region != "" {
 		endpoint = fmt.Sprintf("cos.%s.myqcloud.com", bucket.Region)
 	}
-	return CreateURL(idName, config.Base.Protocol, endpoint)
+
+	protocol := "https"
+	if config.Base.Protocol != "" {
+		protocol = config.Base.Protocol
+	}
+	if param.Protocol != "" {
+		protocol = param.Protocol
+	}
+
+	return CreateURL(idName, protocol, endpoint)
 }
