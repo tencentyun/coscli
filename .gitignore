@@ -8,3 +8,5 @@ coscli
 coscli.exe
 coscli.log
 test_clear.sh
+
+dist/
