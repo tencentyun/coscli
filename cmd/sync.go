@@ -57,6 +57,12 @@ Example:
 		if err != nil {
 			logger.Fatalln("Sync invalid meta, reason: " + err.Error())
 		}
+
+		if retryNum < 0 || retryNum > 10 {
+			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
+			return
+		}
+
 		// args[0]: 源地址
 		// args[1]: 目标地址
 		var snapshotDb *leveldb.DB
