@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"coscli/util"
 
@@ -99,14 +100,40 @@ func init() {
 }
 
 func upload(args []string, recursive bool, include string, exclude string, op *util.UploadOptions) {
+	startTime := time.Now()
 	_, localPath := util.ParsePath(args[0])
 	bucketName, cosPath := util.ParsePath(args[1])
 	c := util.NewClient(&config, &param, bucketName)
 
+	if localPath == "" {
+		logger.Fatalln("localPath is empty")
+		os.Exit(1)
+	}
+
+	// 格式化本地路径
+	localPath = strings.TrimPrefix(localPath, "./")
+
+	// 获取本地文件/文件夹信息
+	localPathInfo, err := os.Stat(localPath)
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+
 	if recursive {
-		util.MultiUpload(c, localPath, bucketName, cosPath, include, exclude, op)
+		util.MultiUpload(c, localPath, localPathInfo, bucketName, cosPath, include, exclude, op, startTime)
 	} else {
-		util.SingleUpload(c, localPath, bucketName, cosPath, op)
+		// 初始化进度
+		util.PrintTransferProcess(1, localPathInfo.Size(), 0, 0, 0, startTime, true)
+		err = util.SingleUpload(c, localPath, bucketName, cosPath, &util.SingleCosListener{StartTime: startTime}, op)
+		if err != nil {
+			// 清空进度条
+			util.CleanTransferProcess()
+			logger.Fatalln(err)
+			os.Exit(1)
+		}
+		elapsedTime := time.Since(startTime)
+		logger.Infof("Upload file successed.  cost %v", elapsedTime)
 	}
 }
 
@@ -133,7 +160,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
 		// 记录是否是代码添加的路径分隔符
 		isAddSeparator := false
 		// 源路径若不以路径分隔符结尾，则添加
-		if !strings.HasSuffix(cosPath1, "/")  && cosPath1 != ""{
+		if !strings.HasSuffix(cosPath1, "/") && cosPath1 != "" {
 			isAddSeparator = true
 			cosPath1 += "/"
 		}

@@ -2,32 +2,44 @@ package util
 
 import (
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func drawBar(percent int) (bar string) {
-	bar1 := "##############################"
-	bar2 := "------------------------------"
-	total := 30
-	doneNum := total * percent / 100
-	remainNum := total - doneNum
-	bar = bar1[:doneNum] + bar2[:remainNum]
-	return bar
+type CosListener struct {
+	TotalUploadedBytes int64
+	mu                 sync.Mutex
+}
+type SingleCosListener struct {
+	StartTime time.Time
 }
 
-type CosListener struct {
+func (l *SingleCosListener) ProgressChangedCallback(event *cos.ProgressEvent) {
+	switch event.EventType {
+	case cos.ProgressStartedEvent:
+		PrintTransferProcess(1, event.TotalBytes, 0, 0, event.ConsumedBytes, l.StartTime, false)
+	case cos.ProgressDataEvent:
+		PrintTransferProcess(1, event.TotalBytes, 0, 0, event.ConsumedBytes, l.StartTime, false)
+	case cos.ProgressCompletedEvent:
+		PrintTransferProcess(1, event.TotalBytes, 1, 0, event.ConsumedBytes, l.StartTime, false)
+	case cos.ProgressFailedEvent:
+		PrintTransferProcess(1, event.TotalBytes, 0, 1, event.ConsumedBytes, l.StartTime, false)
+	default:
+		fmt.Printf("Progress Changed Error: unknown progress event type\n")
+	}
 }
 
 func (l *CosListener) ProgressChangedCallback(event *cos.ProgressEvent) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	switch event.EventType {
 	case cos.ProgressStartedEvent:
-		fmt.Printf("%3d%% [%s] %d/%d Bytes", 0, drawBar(0), 0, event.TotalBytes)
 	case cos.ProgressDataEvent:
-		percent := int(event.ConsumedBytes * 100 / event.TotalBytes)
-		fmt.Printf("\r%3d%% [%s] %d/%d Bytes", percent, drawBar(percent), event.ConsumedBytes, event.TotalBytes)
+		l.TotalUploadedBytes += event.RWBytes
 	case cos.ProgressCompletedEvent:
-		fmt.Printf("\r%3d%% [%s] %d/%d Bytes\n", 100, drawBar(100), event.TotalBytes, event.TotalBytes)
 	case cos.ProgressFailedEvent:
 		fmt.Printf("\nTransfer Failed!\n")
 	default:

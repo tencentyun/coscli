@@ -15,7 +15,7 @@ import (
 )
 
 func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *UploadOptions) {
-	localPath, cosPath = UploadPathFixed(localPath, cosPath)
+	localPath, cosPath, err := UploadPathFixed(localPath, cosPath)
 	skip, err := skipUpload(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath)
 	if err != nil {
 		logger.Errorf("Sync LocalPath:%s, err:%s", localPath, err.Error())
@@ -25,7 +25,7 @@ func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *
 	if skip {
 		logger.Infof("Sync upload file localPath skip, %s", localPath)
 	} else {
-		SingleUpload(c, localPath, bucketName, cosPath, op)
+		SingleUpload(c, localPath, bucketName, cosPath, &CosListener{}, op)
 	}
 }
 
@@ -282,7 +282,7 @@ func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exc
 	// 记录是否是代码添加的路径分隔符
 	isCosAddSeparator := false
 	// cos路径若不以路径分隔符结尾，则添加
-	if !strings.HasSuffix(cosDir, "/") && cosDir != ""{
+	if !strings.HasSuffix(cosDir, "/") && cosDir != "" {
 		isCosAddSeparator = true
 		cosDir += "/"
 	}
