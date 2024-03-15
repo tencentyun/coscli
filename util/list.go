@@ -440,10 +440,27 @@ func GetLocalFilesListRecursive(localPath string, include string, exclude string
 			} else if f.IsDir() { // 普通目录，添加到继续迭代
 				dirs = append(dirs, fileName)
 			} else if f.Mode()&os.ModeSymlink == fs.ModeSymlink { // 软链接
-				logger.Infoln(fmt.Sprintf("List %s file is Symlink, will be excluded, "+
-					"please list or upload it from realpath",
-					fileName))
-				continue
+				linkTarget, err := os.Readlink(fileName)
+				if err != nil {
+					logger.Infoln(fmt.Sprintf("Failed to read symlink %s, will be excluded", fileName))
+					continue
+				}
+				fmt.Println(dirName, linkTarget)
+				linkTargetPath := filepath.Join(dirName, linkTarget)
+				linkTargetInfo, err := os.Stat(linkTargetPath)
+				if err != nil {
+					logger.Infoln(fmt.Sprintf("Failed to stat symlink target %s, will be excluded", linkTargetPath))
+					continue
+				}
+				if linkTargetInfo.Mode().IsRegular() {
+					linkTargetPath = linkTargetPath[len(localPath):]
+					files = append(files, linkTargetPath)
+				} else if linkTargetInfo.IsDir() {
+					dirs = append(dirs, linkTargetPath)
+				} else {
+					logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", linkTargetPath))
+					continue
+				}
 			} else {
 				logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", fileName))
 				continue

@@ -41,7 +41,6 @@ func (l *CosListener) ProgressChangedCallback(event *cos.ProgressEvent) {
 		l.TotalUploadedBytes += event.RWBytes
 	case cos.ProgressCompletedEvent:
 	case cos.ProgressFailedEvent:
-		fmt.Printf("\nTransfer Failed!\n")
 	default:
 		fmt.Printf("Progress Changed Error: unknown progress event type\n")
 	}

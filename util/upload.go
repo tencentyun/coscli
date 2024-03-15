@@ -27,7 +27,8 @@ type ProgressInfo struct {
 }
 
 var (
-	mu sync.Mutex
+	mu       sync.Mutex
+	outputMu sync.Mutex
 )
 
 type UploadOptions struct {
@@ -139,6 +140,7 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, listener
 		CheckPoint:     true,
 	}
 
+	// 根据单文件和多文件上传区分监听事件
 	switch l := listener.(type) {
 	case *CosListener:
 		opt.OptIni.ObjectPutHeaderOptions.Listener = l
@@ -161,7 +163,7 @@ func SingleUpload(c *cos.Client, localPath, bucketName, cosPath string, listener
 	return nil
 }
 
-func MultiUpload(c *cos.Client, localDir string, localPathInfo os.FileInfo, bucketName, cosDir, include, exclude string, op *UploadOptions, startTime time.Time) {
+func MultiUpload(c *cos.Client, localDir string, localPathInfo os.FileInfo, bucketName, cosDir, include, exclude string, fileThreadNum int, failOutput bool, failOutputPath string, op *UploadOptions, startTime time.Time) {
 	// 判断local路径是文件还是文件夹
 	if localPathInfo.IsDir() {
 		if cosDir != "" {
@@ -203,9 +205,30 @@ func MultiUpload(c *cos.Client, localDir string, localPathInfo os.FileInfo, buck
 		successNum := 0
 
 		// 控制并发数
-		concurrency := 10
+		concurrency := fileThreadNum
 		semaphore := make(chan struct{}, concurrency)
 		listener := &CosListener{}
+
+		// 开启错误输出
+		var outputFile *os.File
+		if failOutput {
+			// 创建错误日志目录
+			_, err := os.Stat(failOutputPath)
+			if os.IsNotExist(err) {
+				err := os.MkdirAll(failOutputPath, 0755)
+				if err != nil {
+					logger.Fatalf("Failed to create error output dir: %v", err)
+				}
+			}
+			// 创建错误日志文件
+			failOutputFilePath := filepath.Join(failOutputPath, time.Now().Format("20060102_150405")+".report")
+			outputFile, err = os.OpenFile(failOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+			if err != nil {
+				logger.Fatal("Failed to create error output file:", err)
+			}
+			defer outputFile.Close()
+		}
+
 		for _, f := range files {
 			wg.Add(1)
 
@@ -233,6 +256,16 @@ func MultiUpload(c *cos.Client, localDir string, localPathInfo os.FileInfo, buck
 					failNum += 1
 					// 修改完成后解锁
 					mu.Unlock()
+
+					// 记录失败原因
+					if failOutput {
+						outputMu.Lock()
+						_, writeErr := outputFile.WriteString(fmt.Sprintf("[Upload error]Failed to upload %s: %v\n", localPath, err))
+						if writeErr != nil {
+							logger.Printf("Failed to write error output file for %s: %v\n", localPath, writeErr)
+						}
+						outputMu.Unlock()
+					}
 				} else {
 					// 在修改 successNum 之前锁定互斥锁
 					mu.Lock()
@@ -265,7 +298,10 @@ func MultiUpload(c *cos.Client, localDir string, localPathInfo os.FileInfo, buck
 		PrintTransferProcess(fileNum, totalSize, successNum, failNum, totalSize, startTime, false)
 		elapsedTime := time.Since(startTime)
 		logger.Infof("Upload %d files completed. %d successed, %d failed. cost %v", fileNum, successNum, failNum, elapsedTime)
-
+		if failNum > 0 {
+			absOutputFile, _ := filepath.Abs(outputFile.Name())
+			logger.Warnf("Some file upload failed, please check the detailed information in the %s.", absOutputFile)
+		}
 	} else {
 		// 若是文件直接取出文件名
 		fileName := filepath.Base(localDir)

@@ -50,14 +50,31 @@ Example:
 		rateLimiting, _ := cmd.Flags().GetFloat32("rate-limiting")
 		partSize, _ := cmd.Flags().GetInt64("part-size")
 		threadNum, _ := cmd.Flags().GetInt("thread-num")
+		fileThreadNum, _ := cmd.Flags().GetInt("file-thread-num")
+		failOutput, _ := cmd.Flags().GetBool("fail-output")
+		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+
 		metaString, _ := cmd.Flags().GetString("meta")
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
 			logger.Fatalln("Copy invalid meta " + err.Error())
 		}
-		// args[0]: 源地址
-		// args[1]: 目标地址
-		if !util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
+
+		srcUrl, err := util.StorageUrlFromString(args[0])
+		if err != nil {
+			logger.Fatalf("storage srcURL error,%v", err)
+		}
+
+		destUrl, err := util.StorageUrlFromString(args[1])
+		if err != nil {
+			logger.Fatalf("storage destURL error,%v", err)
+		}
+
+		if destUrl.IsFileUrl() && destUrl.IsFileUrl() {
+			logger.Fatalln("not support cp between local directory")
+		}
+
+		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
 			// 上传
 			op := &util.UploadOptions{
 				StorageClass: storageClass,
@@ -66,8 +83,8 @@ Example:
 				ThreadNum:    threadNum,
 				Meta:         meta,
 			}
-			upload(args, recursive, include, exclude, op)
-		} else if util.IsCosPath(args[0]) && !util.IsCosPath(args[1]) {
+			upload(srcUrl, destUrl, recursive, include, exclude, fileThreadNum, failOutput, failOutputPath, op)
+		} else if srcUrl.IsCosUrl() && srcUrl.IsFileUrl() {
 			// 下载
 			op := &util.DownloadOptions{
 				RateLimiting: rateLimiting,
@@ -75,11 +92,11 @@ Example:
 				ThreadNum:    threadNum,
 			}
 			download(args, recursive, include, exclude, op)
-		} else if util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
+		} else if srcUrl.IsCosUrl() && srcUrl.IsCosUrl() {
 			// 拷贝
 			cosCopy(args, recursive, include, exclude, meta, storageClass)
 		} else {
-			logger.Fatalln("cospath needs to contain cos://")
+			logger.Fatalf("cospath needs to contain %s", util.SchemePrefix)
 		}
 	},
 }
@@ -93,16 +110,21 @@ func init() {
 	cpCmd.Flags().String("storage-class", "", "Specifying a storage class")
 	cpCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
 	cpCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
-	cpCmd.Flags().Int("thread-num", 5, "Specifies the number of concurrent upload or download threads")
+	cpCmd.Flags().Int("thread-num", 5, "Specifies the number of partition concurrent upload or download threads")
+	cpCmd.Flags().Int("file-thread-num", 10, "Specifies the number of files concurrent upload or download threads")
+	cpCmd.Flags().Bool("fail-output", false, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
+	cpCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
 	cpCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
 }
 
-func upload(args []string, recursive bool, include string, exclude string, op *util.UploadOptions) {
+func upload(fileUrl util.StorageUrl, cosUrl util.StorageUrl, recursive bool, include string, exclude string, fileThreadNum int, failOutput bool, failOutputPath string, op *util.UploadOptions) {
 	startTime := time.Now()
-	_, localPath := util.ParsePath(args[0])
-	bucketName, cosPath := util.ParsePath(args[1])
+	localPath := fileUrl.ToString()
+	bucketName := cosUrl.(util.CosUrl).Bucket
+	cosPath := cosUrl.(util.CosUrl).Object
+
 	c := util.NewClient(&config, &param, bucketName)
 
 	if localPath == "" {
@@ -121,7 +143,7 @@ func upload(args []string, recursive bool, include string, exclude string, op *u
 	}
 
 	if recursive {
-		util.MultiUpload(c, localPath, localPathInfo, bucketName, cosPath, include, exclude, op, startTime)
+		util.MultiUpload(c, localPath, localPathInfo, bucketName, cosPath, include, exclude, fileThreadNum, failOutput, failOutputPath, op, startTime)
 	} else {
 		// 初始化进度
 		util.PrintTransferProcess(1, localPathInfo.Size(), 0, 0, 0, startTime, true)

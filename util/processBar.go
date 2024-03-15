@@ -22,7 +22,12 @@ func PrintTransferProcess(fileNum int, totalSize int64, successNum int, failNum 
 		// 清空内容
 		fmt.Print("\033[1A\033[K\033[1A\033[K")
 	}
-	totalProgress := float64(totalUploadedBytes) / float64(totalSize) * 100
+
+	totalProgress := float64(0)
+	if totalSize > int64(0) {
+		totalProgress = float64(totalUploadedBytes) / float64(totalSize) * 100
+	}
+
 	speed := float64(totalUploadedBytes) / 1024 / 1024 / time.Since(startTime).Seconds()
 	fmt.Printf("Total num: %d, Total size: %s. Dealed num: %d(upload %d files), OK size: %s, Progress: %.3f%%, AvgSpeed: %.2fMB/s\n[%s] %s/%s \n",
 		fileNum, formatBytes(totalSize), successNum+failNum, successNum, formatBytes(totalUploadedBytes), totalProgress, speed, drawBar(int(totalProgress)), formatBytes(totalUploadedBytes), formatBytes(totalSize))
