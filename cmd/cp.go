@@ -51,9 +51,16 @@ Example:
 		threadNum, _ := cmd.Flags().GetInt("thread-num")
 		metaString, _ := cmd.Flags().GetString("meta")
 		meta, err := util.MetaStringToHeader(metaString)
+		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		if err != nil {
 			logger.Fatalln("Copy invalid meta " + err.Error())
 		}
+
+		if retryNum < 0 || retryNum > 10 {
+			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
+			return
+		}
+
 		// args[0]: 源地址
 		// args[1]: 目标地址
 		if !util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
@@ -73,7 +80,7 @@ Example:
 				PartSize:     partSize,
 				ThreadNum:    threadNum,
 			}
-			download(args, recursive, include, exclude, op)
+			download(args, recursive, include, exclude, retryNum, op)
 		} else if util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
 			// 拷贝
 			cosCopy(args, recursive, include, exclude, meta, storageClass)
@@ -96,6 +103,7 @@ func init() {
 	cpCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
+	cpCmd.Flags().Int("retry-num", 0, "Retry download")
 }
 
 func upload(args []string, recursive bool, include string, exclude string, op *util.UploadOptions) {
@@ -110,13 +118,13 @@ func upload(args []string, recursive bool, include string, exclude string, op *u
 	}
 }
 
-func download(args []string, recursive bool, include string, exclude string, op *util.DownloadOptions) {
+func download(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {
 	bucketName, cosPath := util.ParsePath(args[0])
 	_, localPath := util.ParsePath(args[1])
 	c := util.NewClient(&config, &param, bucketName)
 
 	if recursive {
-		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
+		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, retryNum, op)
 	} else {
 		util.SingleDownload(c, bucketName, cosPath, localPath, op, false)
 	}
@@ -133,7 +141,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
 		// 记录是否是代码添加的路径分隔符
 		isAddSeparator := false
 		// 源路径若不以路径分隔符结尾，则添加
-		if !strings.HasSuffix(cosPath1, "/")  && cosPath1 != ""{
+		if !strings.HasSuffix(cosPath1, "/") && cosPath1 != "" {
 			isAddSeparator = true
 			cosPath1 += "/"
 		}

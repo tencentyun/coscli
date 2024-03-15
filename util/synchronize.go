@@ -274,7 +274,7 @@ func getCosLastModified(c *cos.Client, cosPath string) (lmt string, err error) {
 	}
 }
 
-func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, op *DownloadOptions) {
+func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, retryNum int, op *DownloadOptions) {
 	if localDir == "" {
 		logger.Fatalln("localDir is empty")
 		os.Exit(1)
@@ -282,12 +282,12 @@ func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exc
 	// 记录是否是代码添加的路径分隔符
 	isCosAddSeparator := false
 	// cos路径若不以路径分隔符结尾，则添加
-	if !strings.HasSuffix(cosDir, "/") && cosDir != ""{
+	if !strings.HasSuffix(cosDir, "/") && cosDir != "" {
 		isCosAddSeparator = true
 		cosDir += "/"
 	}
 	// 判断cosDir是否是文件夹
-	isDir := CheckCosPathType(c, cosDir, 0)
+	isDir := CheckCosPathType(c, cosDir, 0, retryNum)
 
 	if isDir {
 		// cosDir是文件夹
@@ -309,7 +309,7 @@ func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exc
 		}
 	}
 
-	objects, _ := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
+	objects, _ := GetObjectsListRecursive(c, cosDir, 0, include, exclude, retryNum)
 	if len(objects) == 0 {
 		logger.Warningf("cosDir: cos://%s is empty\n", cosDir)
 		return

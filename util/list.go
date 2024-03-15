@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
@@ -173,7 +175,7 @@ func GetObjectsList(c *cos.Client, prefix string, limit int, include string, exc
 			isTruncated = false
 		} else {
 			isTruncated = res.IsTruncated
-			marker = res.NextMarker
+			marker, _ = url.QueryUnescape(res.NextMarker)
 		}
 	}
 
@@ -191,7 +193,7 @@ func GetObjectsList(c *cos.Client, prefix string, limit int, include string, exc
 
 func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string, exclude string,
 	marker string) (dirs []string,
-	objects []cos.Object, isTruncated bool, nextMaker string) {
+	objects []cos.Object, isTruncated bool, nextMarker string) {
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "/",
@@ -220,7 +222,7 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 		isTruncated = false
 	} else {
 		isTruncated = res.IsTruncated
-		nextMaker = res.NextMarker
+		nextMarker, _ = url.QueryUnescape(res.NextMarker)
 	}
 
 	if len(include) > 0 {
@@ -232,13 +234,19 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 		dirs = MatchPattern(dirs, exclude, false)
 	}
 
-	return dirs, objects, isTruncated, nextMaker
+	return dirs, objects, isTruncated, nextMarker
 }
 
-func CheckCosPathType(c *cos.Client, prefix string, limit int) (isDir bool) {
+func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
 	if prefix == "" {
 		return true
 	}
+
+	retries := 0
+	if len(retryCount) > 0 {
+		retries = retryCount[0]
+	}
+
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
@@ -247,7 +255,7 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int) (isDir bool) {
 		MaxKeys:      limit,
 	}
 
-	res, _, err := c.Bucket.Get(context.Background(), opt)
+	res, err := tryGetBucket(c, opt, retries)
 	if err != nil {
 		logger.Fatalln(err)
 		os.Exit(1)
@@ -260,8 +268,14 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int) (isDir bool) {
 	return isDir
 }
 
-func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (objects []cos.Object,
+func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object,
 	commonPrefixes []string) {
+
+	retries := 0
+	if len(retryCount) > 0 {
+		retries = retryCount[0]
+	}
+
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
@@ -275,7 +289,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 	for isTruncated {
 		opt.Marker = marker
 
-		res, _, err := c.Bucket.Get(context.Background(), opt)
+		res, err := tryGetBucket(c, opt, retries)
 		if err != nil {
 			logger.Fatalln(err)
 			os.Exit(1)
@@ -288,7 +302,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 			isTruncated = false
 		} else {
 			isTruncated = res.IsTruncated
-			marker = res.NextMarker
+			marker, _ = url.QueryUnescape(res.NextMarker)
 		}
 	}
 
@@ -303,6 +317,29 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 	}
 
 	return objects, commonPrefixes
+}
+
+func tryGetBucket(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*cos.BucketGetResult, error) {
+	for i := 0; i <= retryCount; i++ {
+		res, resp, err := c.Bucket.Get(context.Background(), opt)
+		if err != nil {
+			if resp.StatusCode == 503 {
+				if i == retryCount {
+					return res, err
+				} else {
+					fmt.Println("Error 503: Service Unavailable. Retrying...")
+					waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+					time.Sleep(waitTime)
+					continue
+				}
+			} else {
+				return res, err
+			}
+		} else {
+			return res, err
+		}
+	}
+	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
 func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, include string, exclude string,
@@ -331,7 +368,7 @@ func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, inclu
 		isTruncated = false
 	} else {
 		isTruncated = res.IsTruncated
-		nextMarker = res.NextMarker
+		nextMarker, _ = url.QueryUnescape(res.NextMarker)
 	}
 
 	if len(include) > 0 {
