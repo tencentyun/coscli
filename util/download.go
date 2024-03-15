@@ -126,7 +126,7 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 	return nil
 }
 
-func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, op *DownloadOptions) {
+func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, retryNum int, op *DownloadOptions) {
 	if localDir == "" {
 		logger.Fatalln("localDir is empty")
 		os.Exit(1)
@@ -136,12 +136,12 @@ func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude
 	// 记录是否是代码添加的路径分隔符
 	isCosAddSeparator := false
 	// cos路径若不以路径分隔符结尾，则添加
-	if !strings.HasSuffix(cosDir, "/") && cosDir != ""{
+	if !strings.HasSuffix(cosDir, "/") && cosDir != "" {
 		isCosAddSeparator = true
 		cosDir += "/"
 	}
 	// 判断cosDir是否是文件夹
-	isDir := CheckCosPathType(c, cosDir, 0)
+	isDir := CheckCosPathType(c, cosDir, 0, retryNum)
 
 	if isDir {
 		// cosDir是文件夹 且 localDir不以路径分隔符结尾，则添加
@@ -162,13 +162,13 @@ func MultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude
 		}
 	}
 
-	objects, commonPrefixes := GetObjectsListRecursive(c, cosDir, 0, include, exclude)
+	objects, commonPrefixes := GetObjectsListRecursive(c, cosDir, 0, include, exclude, retryNum)
 	listObjects(c, bucketName, objects, cosDir, localDir, op)
 
 	if len(commonPrefixes) > 0 {
 		for i := 0; i < len(commonPrefixes); i++ {
 			localDirTemp := localDir + commonPrefixes[i]
-			MultiDownload(c, bucketName, commonPrefixes[i], localDirTemp, include, exclude, op)
+			MultiDownload(c, bucketName, commonPrefixes[i], localDirTemp, include, exclude, retryNum, op)
 		}
 	}
 

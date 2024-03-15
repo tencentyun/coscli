@@ -60,6 +60,12 @@ Example:
 			logger.Fatalln("Copy invalid meta " + err.Error())
 		}
 
+		retryNum, _ := cmd.Flags().GetInt("retry-num")
+		if retryNum < 0 || retryNum > 10 {
+			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
+			return
+		}
+
 		srcUrl, err := util.StorageUrlFromString(args[0])
 		if err != nil {
 			logger.Fatalf("storage srcURL error,%v", err)
@@ -91,7 +97,7 @@ Example:
 				PartSize:     partSize,
 				ThreadNum:    threadNum,
 			}
-			download(args, recursive, include, exclude, op)
+			download(args, recursive, include, exclude, retryNum, op)
 		} else if srcUrl.IsCosUrl() && srcUrl.IsCosUrl() {
 			// 拷贝
 			cosCopy(args, recursive, include, exclude, meta, storageClass)
@@ -117,6 +123,7 @@ func init() {
 	cpCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
+	cpCmd.Flags().Int("retry-num", 0, "Retry download")
 }
 
 func upload(fileUrl util.StorageUrl, cosUrl util.StorageUrl, recursive bool, include string, exclude string, fileThreadNum int, failOutput bool, failOutputPath string, op *util.UploadOptions) {
@@ -159,13 +166,13 @@ func upload(fileUrl util.StorageUrl, cosUrl util.StorageUrl, recursive bool, inc
 	}
 }
 
-func download(args []string, recursive bool, include string, exclude string, op *util.DownloadOptions) {
+func download(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {
 	bucketName, cosPath := util.ParsePath(args[0])
 	_, localPath := util.ParsePath(args[1])
 	c := util.NewClient(&config, &param, bucketName)
 
 	if recursive {
-		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
+		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, retryNum, op)
 	} else {
 		util.SingleDownload(c, bucketName, cosPath, localPath, op, false)
 	}

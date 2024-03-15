@@ -53,9 +53,16 @@ Example:
 		metaString, _ := cmd.Flags().GetString("meta")
 		snapshotPath, _ := cmd.Flags().GetString("snapshot-path")
 		meta, err := util.MetaStringToHeader(metaString)
+		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		if err != nil {
 			logger.Fatalln("Sync invalid meta, reason: " + err.Error())
 		}
+
+		if retryNum < 0 || retryNum > 10 {
+			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
+			return
+		}
+
 		// args[0]: 源地址
 		// args[1]: 目标地址
 		var snapshotDb *leveldb.DB
@@ -86,7 +93,7 @@ Example:
 				SnapshotPath: snapshotPath,
 				SnapshotDb:   snapshotDb,
 			}
-			syncDownload(args, recursive, include, exclude, op)
+			syncDownload(args, recursive, include, exclude, retryNum, op)
 		} else if util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
 			// 拷贝
 			syncCopy(args, recursive, include, exclude, meta, storageClass)
@@ -129,6 +136,7 @@ func init() {
 		"In addition, coscli does not automatically delete snapshot-path snapshot information, "+
 		"in order to avoid too much snapshot information, when the snapshot information is useless, "+
 		"please clean up your own snapshot-path on your own immediately.")
+	syncCmd.Flags().Int("retry-num", 0, "Retry download")
 }
 
 func syncUpload(args []string, recursive bool, include string, exclude string, op *util.UploadOptions,
@@ -144,13 +152,13 @@ func syncUpload(args []string, recursive bool, include string, exclude string, o
 	}
 }
 
-func syncDownload(args []string, recursive bool, include string, exclude string, op *util.DownloadOptions) {
+func syncDownload(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {
 	bucketName, cosPath := util.ParsePath(args[0])
 	_, localPath := util.ParsePath(args[1])
 	c := util.NewClient(&config, &param, bucketName)
 
 	if recursive {
-		util.SyncMultiDownload(c, bucketName, cosPath, localPath, include, exclude, op)
+		util.SyncMultiDownload(c, bucketName, cosPath, localPath, include, exclude, retryNum, op)
 	} else {
 		util.SyncSingleDownload(c, bucketName, cosPath, localPath, op, "", recursive)
 	}
@@ -167,7 +175,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 		// 记录是否是代码添加的路径分隔符
 		isAddSeparator := false
 		// 源路径若不以路径分隔符结尾，则添加
-		if !strings.HasSuffix(cosPath1, "/")  && cosPath1 != ""{
+		if !strings.HasSuffix(cosPath1, "/") && cosPath1 != "" {
 			isAddSeparator = true
 			cosPath1 += "/"
 		}
