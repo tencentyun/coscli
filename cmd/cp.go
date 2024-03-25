@@ -2,13 +2,12 @@ package cmd
 
 import (
 	"context"
+	"coscli/util"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"coscli/util"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
 
@@ -18,8 +17,8 @@ import (
 
 var cpCmd = &cobra.Command{
 	Use:   "cp",
-	Short: "Upload, download or copy objects",
-	Long: `Upload, download or copy objects
+	Short: "Upload, download or cper objects",
+	Long: `Upload, download or cper objects
 
 Format:
   ./coscli cp <source_path> <destination_path> [flags]
@@ -50,47 +49,73 @@ Example:
 		rateLimiting, _ := cmd.Flags().GetFloat32("rate-limiting")
 		partSize, _ := cmd.Flags().GetInt64("part-size")
 		threadNum, _ := cmd.Flags().GetInt("thread-num")
-		fileThreadNum, _ := cmd.Flags().GetInt("file-thread-num")
+		routines, _ := cmd.Flags().GetInt("routines")
 		failOutput, _ := cmd.Flags().GetBool("fail-output")
 		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
-
 		metaString, _ := cmd.Flags().GetString("meta")
+		retryNum, _ := cmd.Flags().GetInt("retry-num")
+		onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
+		disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
+		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
+		checkpointDir, _ := cmd.Flags().GetString("checkpoint-dir")
+		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
+
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
 			logger.Fatalln("Copy invalid meta " + err.Error())
 		}
 
-		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		if retryNum < 0 || retryNum > 10 {
 			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
 			return
 		}
 
-		srcUrl, err := util.StorageUrlFromString(args[0])
-		if err != nil {
-			logger.Fatalf("storage srcURL error,%v", err)
+		_, filters := util.GetFilter(include, exclude)
+
+		cc := &util.CopyCommand{
+			CpParams: util.CpParams{
+				Recursive:         recursive,
+				Filters:           filters,
+				StorageClass:      storageClass,
+				RateLimiting:      rateLimiting,
+				PartSize:          partSize,
+				ThreadNum:         threadNum,
+				Routines:          routines,
+				FailOutput:        failOutput,
+				FailOutputPath:    failOutputPath,
+				Meta:              meta,
+				RetryNum:          retryNum,
+				OnlyCurrentDir:    onlyCurrentDir,
+				DisableAllSymlink: disableAllSymlink,
+				EnableSymlinkDir:  enableSymlinkDir,
+				CheckpointDir:     checkpointDir,
+				DisableCrc64:      disableCrc64,
+			},
+			Monitor:   &util.CpProcessMonitor{},
+			Config:    &config,
+			Param:     &param,
+			ErrOutput: &util.ErrOutput{},
 		}
 
-		destUrl, err := util.StorageUrlFromString(args[1])
+		srcUrl, err := util.FormatUrl(args[0])
 		if err != nil {
-			logger.Fatalf("storage destURL error,%v", err)
+			logger.Fatalf("format srcURL error,%v", err)
 		}
 
-		if destUrl.IsFileUrl() && destUrl.IsFileUrl() {
+		destUrl, err := util.FormatUrl(args[1])
+		if err != nil {
+			logger.Fatalf("format destURL error,%v", err)
+		}
+
+		if srcUrl.IsFileUrl() && destUrl.IsFileUrl() {
 			logger.Fatalln("not support cp between local directory")
 		}
 
+		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
 			// 上传
-			op := &util.UploadOptions{
-				StorageClass: storageClass,
-				RateLimiting: rateLimiting,
-				PartSize:     partSize,
-				ThreadNum:    threadNum,
-				Meta:         meta,
-			}
-			upload(srcUrl, destUrl, recursive, include, exclude, fileThreadNum, failOutput, failOutputPath, op)
-		} else if srcUrl.IsCosUrl() && srcUrl.IsFileUrl() {
+			util.Upload(srcUrl, destUrl, cc, getCommandType(srcUrl, destUrl))
+		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
 			// 下载
 			op := &util.DownloadOptions{
 				RateLimiting: rateLimiting,
@@ -98,12 +123,14 @@ Example:
 				ThreadNum:    threadNum,
 			}
 			download(args, recursive, include, exclude, retryNum, op)
-		} else if srcUrl.IsCosUrl() && srcUrl.IsCosUrl() {
+		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
 			// 拷贝
 			cosCopy(args, recursive, include, exclude, meta, storageClass)
 		} else {
 			logger.Fatalf("cospath needs to contain %s", util.SchemePrefix)
 		}
+		endT := time.Now().UnixNano() / 1000 / 1000
+		util.PrintCpStats(startT, endT, cc)
 	},
 }
 
@@ -117,53 +144,18 @@ func init() {
 	cpCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
 	cpCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
 	cpCmd.Flags().Int("thread-num", 5, "Specifies the number of partition concurrent upload or download threads")
-	cpCmd.Flags().Int("file-thread-num", 10, "Specifies the number of files concurrent upload or download threads")
+	cpCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
 	cpCmd.Flags().Bool("fail-output", false, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
 	cpCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
 	cpCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
 	cpCmd.Flags().Int("retry-num", 0, "Retry download")
-}
-
-func upload(fileUrl util.StorageUrl, cosUrl util.StorageUrl, recursive bool, include string, exclude string, fileThreadNum int, failOutput bool, failOutputPath string, op *util.UploadOptions) {
-	startTime := time.Now()
-	localPath := fileUrl.ToString()
-	bucketName := cosUrl.(util.CosUrl).Bucket
-	cosPath := cosUrl.(util.CosUrl).Object
-
-	c := util.NewClient(&config, &param, bucketName)
-
-	if localPath == "" {
-		logger.Fatalln("localPath is empty")
-		os.Exit(1)
-	}
-
-	// 格式化本地路径
-	localPath = strings.TrimPrefix(localPath, "./")
-
-	// 获取本地文件/文件夹信息
-	localPathInfo, err := os.Stat(localPath)
-	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
-
-	if recursive {
-		util.MultiUpload(c, localPath, localPathInfo, bucketName, cosPath, include, exclude, fileThreadNum, failOutput, failOutputPath, op, startTime)
-	} else {
-		// 初始化进度
-		util.PrintTransferProcess(1, localPathInfo.Size(), 0, 0, 0, startTime, true)
-		err = util.SingleUpload(c, localPath, bucketName, cosPath, &util.SingleCosListener{StartTime: startTime}, op)
-		if err != nil {
-			// 清空进度条
-			util.CleanTransferProcess()
-			logger.Fatalln(err)
-			os.Exit(1)
-		}
-		elapsedTime := time.Since(startTime)
-		logger.Infof("Upload file successed.  cost %v", elapsedTime)
-	}
+	cpCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
+	cpCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
+	cpCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
+	cpCmd.Flags().String("checkpoint-dir", util.CheckpointDir, "Specify the directory where the checkpoint information for resuming uploads is stored. When the resume upload operation fails, coscli will automatically create a directory named .coscli_checkpoint and record the checkpoint information in that directory. After the resume upload is successful, the directory will be deleted. If this option is specified, make sure the specified directory can be deleted.")
+	cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 }
 
 func download(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {
@@ -292,4 +284,14 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
 			os.Exit(1)
 		}
 	}
+}
+
+func getCommandType(srcUrl util.StorageUrl, destUrl util.StorageUrl) util.CpType {
+	if srcUrl.IsCosUrl() {
+		if destUrl.IsFileUrl() {
+			return util.CpTypeDownload
+		}
+		return util.CpTypeCopy
+	}
+	return util.CpTypeUpload
 }

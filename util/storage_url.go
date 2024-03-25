@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
 
 const SchemePrefix string = "cos://"
+const CosSeparator string = "/"
 
 type StorageUrl interface {
 	IsCosUrl() bool
@@ -122,7 +124,7 @@ func currentHomeDir() string {
 	return homeDir
 }
 
-func StorageUrlFromString(urlStr string) (StorageUrl, error) {
+func FormatUrl(urlStr string) (StorageUrl, error) {
 	if strings.HasPrefix(strings.ToLower(urlStr), SchemePrefix) {
 		var CosUrl CosUrl
 		if err := CosUrl.Init(urlStr); err != nil {
@@ -135,4 +137,22 @@ func StorageUrlFromString(urlStr string) (StorageUrl, error) {
 		return nil, err
 	}
 	return FileUrl, nil
+}
+
+// 格式化cos路径及local路径
+func formatPath(cosPath string, localPath string) (string, string) {
+	fileName := ""
+	// 若local路径若不以路径分隔符结尾，则需将local路径的最终文件夹拼接至cos路径最后，并给local路径补充路径分隔符
+	if !strings.HasSuffix(localPath, string(filepath.Separator)) {
+		fileName = filepath.Base(localPath)
+		localPath += string(filepath.Separator)
+	}
+	// cos路径格式化
+	if cosPath != "" && !strings.HasSuffix(cosPath, CosSeparator) {
+		cosPath += CosSeparator
+	}
+	// cos路径拼接文件夹名
+	cosPath += fileName + CosSeparator
+
+	return cosPath, localPath
 }

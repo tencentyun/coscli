@@ -59,6 +59,10 @@ func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
 		client.Conf.RetryOpt.AutoSwitchHost = false
 	}
 
+	// 错误重试
+	client.Conf.RetryOpt.Count = 10
+	client.Conf.RetryOpt.Interval = 2
+
 	return client
 }
 
@@ -111,6 +115,10 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 	if config.Base.CloseAutoSwitchHost == "true" {
 		client.Conf.RetryOpt.AutoSwitchHost = false
 	}
+
+	// 错误重试
+	client.Conf.RetryOpt.Count = 10
+	client.Conf.RetryOpt.Interval = 2
 
 	return client
 }

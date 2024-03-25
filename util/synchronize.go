@@ -15,18 +15,18 @@ import (
 )
 
 func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *UploadOptions) {
-	localPath, cosPath, err := UploadPathFixed(localPath, cosPath)
-	skip, err := skipUpload(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath)
-	if err != nil {
-		logger.Errorf("Sync LocalPath:%s, err:%s", localPath, err.Error())
-		return
-	}
-
-	if skip {
-		logger.Infof("Sync upload file localPath skip, %s", localPath)
-	} else {
-		SingleUpload(c, localPath, bucketName, cosPath, &CosListener{}, op)
-	}
+	//localPath, cosPath, err := UploadPathFixed(localPath, cosPath)
+	//skip, err := skipUpload(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath)
+	//if err != nil {
+	//	logger.Errorf("Sync LocalPath:%s, err:%s", localPath, err.Error())
+	//	return
+	//}
+	//
+	//if skip {
+	//	logger.Infof("Sync upload file localPath skip, %s", localPath)
+	//} else {
+	//	SingleUpload(c, localPath, bucketName, cosPath, &CosListener{}, op)
+	//}
 }
 
 func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, localPath string,

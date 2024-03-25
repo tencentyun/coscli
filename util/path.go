@@ -2,6 +2,8 @@ package util
 
 import (
 	"github.com/mitchellh/go-homedir"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -33,4 +35,18 @@ func ParsePath(url string) (bucketName string, path string) {
 		}
 		return "", path
 	}
+}
+
+func UploadPathFixed(file fileInfoType, cosPath string) (string, string) {
+	// cos路径不全则补充文件名
+	if cosPath == "" || strings.HasSuffix(cosPath, "/") {
+		filePath := file.filePath
+		filePath = strings.Replace(file.filePath, string(os.PathSeparator), "/", -1)
+		filePath = strings.Replace(file.filePath, "\\", "/", -1)
+		cosPath += filePath
+	}
+
+	localFilePath := filepath.Join(file.dir, file.filePath)
+
+	return localFilePath, cosPath
 }

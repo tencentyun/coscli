@@ -35,3 +35,8 @@ type UploadInfo struct {
 	UploadID  string `xml:"UploadId,omitempty"`
 	Initiated string `xml:"Initiated,omitempty"`
 }
+
+type fileInfoType struct {
+	filePath string
+	dir      string
+}

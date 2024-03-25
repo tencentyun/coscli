@@ -8,20 +8,6 @@ import (
 	"time"
 )
 
-type Meta struct {
-	CacheControl       string
-	ContentDisposition string
-	ContentEncoding    string
-	ContentType        string
-	ContentMD5         string
-	ContentLength      int64
-	ContentLanguage    string
-	Expires            string
-	// 自定义的 x-cos-meta-* header
-	XCosMetaXXX *http.Header
-	MetaChange  bool
-}
-
 func MetaStringToHeader(meta string) (result Meta, err error) {
 	if meta == "" {
 		return

@@ -12,3 +12,17 @@ const (
 	MAZIntelligentTiering = "MAZ_INTELLIGENT_TIERING"
 	MAZArchive            = "MAZ_ARCHIVE"
 )
+
+const (
+	Package       string = "coscli"
+	ChannelSize   int    = 1000
+	IncludePrompt        = "--include"
+	ExcludePrompt        = "--exclude"
+	CheckpointDir        = ".coscli_checkpoint"
+)
+
+const (
+	CpTypeUpload CpType = iota
+	CpTypeDownload
+	CpTypeCopy
+)
