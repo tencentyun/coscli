@@ -72,8 +72,8 @@ Example:
 
 		_, filters := util.GetFilter(include, exclude)
 
-		cc := &util.CopyCommand{
-			CpParams: util.CpParams{
+		fo := &util.FileOperations{
+			Operation: util.Operation{
 				Recursive:         recursive,
 				Filters:           filters,
 				StorageClass:      storageClass,
@@ -91,7 +91,7 @@ Example:
 				CheckpointDir:     checkpointDir,
 				DisableCrc64:      disableCrc64,
 			},
-			Monitor:   &util.CpProcessMonitor{},
+			Monitor:   &util.FileProcessMonitor{},
 			Config:    &config,
 			Param:     &param,
 			ErrOutput: &util.ErrOutput{},
@@ -114,7 +114,7 @@ Example:
 		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
 			// 上传
-			util.Upload(srcUrl, destUrl, cc, getCommandType(srcUrl, destUrl))
+			util.Upload(srcUrl, destUrl, fo, getCommandType(srcUrl, destUrl))
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
 			// 下载
 			op := &util.DownloadOptions{
@@ -130,7 +130,7 @@ Example:
 			logger.Fatalf("cospath needs to contain %s", util.SchemePrefix)
 		}
 		endT := time.Now().UnixNano() / 1000 / 1000
-		util.PrintCpStats(startT, endT, cc)
+		util.PrintCpStats(startT, endT, fo)
 	},
 }
 

@@ -5,15 +5,15 @@ import (
 	"path/filepath"
 )
 
-func PrintCpStats(startT, endT int64, cc *CopyCommand) {
-	if cc.Monitor.errNum > 0 && cc.CpParams.FailOutput {
-		absErrOutputPath, _ := filepath.Abs(cc.ErrOutput.Path)
+func PrintCpStats(startT, endT int64, fo *FileOperations) {
+	if fo.Monitor.errNum > 0 && fo.Operation.FailOutput {
+		absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
 		fmt.Printf("Some file upload failed, please check the detailed information in dir %s.\n", absErrOutputPath)
 	}
 
 	// 计算上传速度
 	if endT-startT > 0 {
-		averSpeed := (float64(cc.Monitor.TransferSize) / float64(endT-startT)) * 1000
+		averSpeed := (float64(fo.Monitor.TransferSize) / float64(endT-startT)) * 1000
 		formattedSpeed := formatBytes(averSpeed)
 		fmt.Printf("\nAvgSpeed: %s/s\n", formattedSpeed)
 	}

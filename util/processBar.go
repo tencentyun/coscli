@@ -21,9 +21,9 @@ func freshProgress() {
 	}
 }
 
-func progressBar(cc *CopyCommand) {
+func progressBar(fo *FileOperations) {
 	for signal := range chProgressSignal {
-		fmt.Printf(cc.Monitor.progressBar(signal.finish, signal.exitStat))
+		fmt.Printf(fo.Monitor.progressBar(signal.finish, signal.exitStat))
 	}
 }
 

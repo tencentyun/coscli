@@ -28,7 +28,7 @@ var processTickInterval int64 = 5
 var clearStrLen int = 0
 var clearStr string = strings.Repeat(" ", clearStrLen)
 
-type CpProcessMonitor struct {
+type FileProcessMonitor struct {
 	TotalSize      int64
 	totalNum       int64
 	TransferSize   int64
@@ -49,7 +49,7 @@ type CpProcessMonitor struct {
 	lastSnapTime   time.Time
 }
 
-type CpProcessMonitorSnap struct {
+type FileProcessMonitorSnap struct {
 	transferSize  int64
 	skipSize      int64
 	dealSize      int64
@@ -64,169 +64,169 @@ type CpProcessMonitorSnap struct {
 	incrementSize int64
 }
 
-func (cppm *CpProcessMonitor) init(op CpType) {
-	cppm.op = op
-	cppm.TotalSize = 0
-	cppm.totalNum = 0
-	cppm.seekAheadEnd = false
-	cppm.seekAheadError = nil
-	cppm.TransferSize = 0
-	cppm.skipSize = 0
-	cppm.dealSize = 0
-	cppm.fileNum = 0
-	cppm.dirNum = 0
-	cppm.skipNum = 0
-	cppm.errNum = 0
-	cppm.finish = false
-	cppm.lastSnapSize = 0
-	cppm.lastSnapTime = time.Now()
-	cppm.tickDuration = processTickInterval * int64(time.Second)
+func (fpm *FileProcessMonitor) init(op CpType) {
+	fpm.op = op
+	fpm.TotalSize = 0
+	fpm.totalNum = 0
+	fpm.seekAheadEnd = false
+	fpm.seekAheadError = nil
+	fpm.TransferSize = 0
+	fpm.skipSize = 0
+	fpm.dealSize = 0
+	fpm.fileNum = 0
+	fpm.dirNum = 0
+	fpm.skipNum = 0
+	fpm.errNum = 0
+	fpm.finish = false
+	fpm.lastSnapSize = 0
+	fpm.lastSnapTime = time.Now()
+	fpm.tickDuration = processTickInterval * int64(time.Second)
 }
 
-func (cppm *CpProcessMonitor) setScanError(err error) {
-	cppm.seekAheadError = err
-	cppm.seekAheadEnd = true
+func (fpm *FileProcessMonitor) setScanError(err error) {
+	fpm.seekAheadError = err
+	fpm.seekAheadEnd = true
 }
-func (cppm *CpProcessMonitor) updateScanNum(num int64) {
-	cppm.totalNum = cppm.totalNum + num
+func (fpm *FileProcessMonitor) updateScanNum(num int64) {
+	fpm.totalNum = fpm.totalNum + num
 }
-func (cppm *CpProcessMonitor) updateScanSizeNum(size, num int64) {
-	cppm.TotalSize = cppm.TotalSize + size
-	cppm.totalNum = cppm.totalNum + num
-}
-
-func (cppm *CpProcessMonitor) updateTransferSize(size int64) {
-	atomic.AddInt64(&cppm.TransferSize, size)
+func (fpm *FileProcessMonitor) updateScanSizeNum(size, num int64) {
+	fpm.TotalSize = fpm.TotalSize + size
+	fpm.totalNum = fpm.totalNum + num
 }
 
-func (cppm *CpProcessMonitor) updateDealSize(size int64) {
-	atomic.AddInt64(&cppm.dealSize, size)
+func (fpm *FileProcessMonitor) updateTransferSize(size int64) {
+	atomic.AddInt64(&fpm.TransferSize, size)
 }
 
-func (cppm *CpProcessMonitor) updateFile(size, num int64) {
-	atomic.AddInt64(&cppm.fileNum, num)
-	//atomic.AddInt64(&cppm.TransferSize, size)
-	atomic.AddInt64(&cppm.dealSize, size)
+func (fpm *FileProcessMonitor) updateDealSize(size int64) {
+	atomic.AddInt64(&fpm.dealSize, size)
 }
 
-func (cppm *CpProcessMonitor) updateDir(size, num int64) {
-	atomic.AddInt64(&cppm.dirNum, num)
-	//atomic.AddInt64(&cppm.TransferSize, size)
-	atomic.AddInt64(&cppm.dealSize, size)
+func (fpm *FileProcessMonitor) updateFile(size, num int64) {
+	atomic.AddInt64(&fpm.fileNum, num)
+	//atomic.AddInt64(&fpm.TransferSize, size)
+	atomic.AddInt64(&fpm.dealSize, size)
 }
 
-func (cppm *CpProcessMonitor) updateSkip(size, num int64) {
-	atomic.AddInt64(&cppm.skipNum, num)
-	atomic.AddInt64(&cppm.skipSize, size)
+func (fpm *FileProcessMonitor) updateDir(size, num int64) {
+	atomic.AddInt64(&fpm.dirNum, num)
+	//atomic.AddInt64(&fpm.TransferSize, size)
+	atomic.AddInt64(&fpm.dealSize, size)
 }
 
-func (cppm *CpProcessMonitor) updateSkipDir(num int64) {
-	atomic.AddInt64(&cppm.skipNumDir, num)
+func (fpm *FileProcessMonitor) updateSkip(size, num int64) {
+	atomic.AddInt64(&fpm.skipNum, num)
+	atomic.AddInt64(&fpm.skipSize, size)
 }
 
-func (cppm *CpProcessMonitor) updateErr(size, num int64) {
-	atomic.AddInt64(&cppm.errNum, num)
-	//atomic.AddInt64(&cppm.TransferSize, size)
+func (fpm *FileProcessMonitor) updateSkipDir(num int64) {
+	atomic.AddInt64(&fpm.skipNumDir, num)
 }
 
-func (cppm *CpProcessMonitor) updateMonitor(skip bool, err error, isDir bool, size int64) {
+func (fpm *FileProcessMonitor) updateErr(size, num int64) {
+	atomic.AddInt64(&fpm.errNum, num)
+	//atomic.AddInt64(&fpm.TransferSize, size)
+}
+
+func (fpm *FileProcessMonitor) updateMonitor(skip bool, err error, isDir bool, size int64) {
 	if err != nil {
-		cppm.updateErr(0, 1)
+		fpm.updateErr(0, 1)
 	} else if skip {
 		if !isDir {
-			cppm.updateSkip(size, 1)
+			fpm.updateSkip(size, 1)
 		} else {
-			cppm.updateSkipDir(1)
+			fpm.updateSkipDir(1)
 		}
 	} else if isDir {
-		cppm.updateDir(size, 1)
+		fpm.updateDir(size, 1)
 	} else {
-		cppm.updateFile(size, 1)
+		fpm.updateFile(size, 1)
 	}
 	freshProgress()
 }
 
-func (cppm *CpProcessMonitor) setScanEnd() {
-	cppm.seekAheadEnd = true
+func (fpm *FileProcessMonitor) setScanEnd() {
+	fpm.seekAheadEnd = true
 }
 
-func (cppm *CpProcessMonitor) progressBar(finish bool, exitStat int) string {
-	if cppm.finish {
+func (fpm *FileProcessMonitor) progressBar(finish bool, exitStat int) string {
+	if fpm.finish {
 		return ""
 	}
-	cppm.finish = cppm.finish || finish
+	fpm.finish = fpm.finish || finish
 	if !finish {
-		return cppm.getProgressBar()
+		return fpm.getProgressBar()
 	}
-	return cppm.getFinishBar(exitStat)
+	return fpm.getFinishBar(exitStat)
 }
 
-func (cppm *CpProcessMonitor) getProgressBar() string {
+func (fpm *FileProcessMonitor) getProgressBar() string {
 	pmMu.RLock()
 	defer pmMu.RUnlock()
 
-	snap := cppm.getSnapshot()
-	if snap.duration < cppm.tickDuration {
+	snap := fpm.getSnapshot()
+	if snap.duration < fpm.tickDuration {
 		return ""
 	} else {
-		cppm.lastSnapTime = time.Now()
-		snap.incrementSize = cppm.TransferSize - cppm.lastSnapSize
-		cppm.lastSnapSize = snap.transferSize
+		fpm.lastSnapTime = time.Now()
+		snap.incrementSize = fpm.TransferSize - fpm.lastSnapSize
+		fpm.lastSnapSize = snap.transferSize
 	}
 
-	if cppm.seekAheadEnd && cppm.seekAheadError == nil {
-		return getClearStr(fmt.Sprintf("Total num: %d, size: %s. Processed num: %d%s%s, Progress: %.3f%s, Speed: %s/s", cppm.totalNum, getSizeString(cppm.TotalSize), snap.dealNum, cppm.getDealNumDetail(snap), cppm.getDealSizeDetail(snap), cppm.getPrecent(snap), "%%", cppm.getSpeed(snap)))
+	if fpm.seekAheadEnd && fpm.seekAheadError == nil {
+		return getClearStr(fmt.Sprintf("Total num: %d, size: %s. Processed num: %d%s%s, Progress: %.3f%s, Speed: %s/s", fpm.totalNum, getSizeString(fpm.TotalSize), snap.dealNum, fpm.getDealNumDetail(snap), fpm.getDealSizeDetail(snap), fpm.getPrecent(snap), "%%", fpm.getSpeed(snap)))
 	}
-	scanNum := max(cppm.totalNum, snap.dealNum)
-	scanSize := max(cppm.TotalSize, snap.dealSize)
-	return getClearStr(fmt.Sprintf("Scanned num: %d, size: %s. Processed num: %d%s%s, Speed: %s/s.", scanNum, getSizeString(scanSize), snap.dealNum, cppm.getDealNumDetail(snap), cppm.getDealSizeDetail(snap), cppm.getSpeed(snap)))
+	scanNum := max(fpm.totalNum, snap.dealNum)
+	scanSize := max(fpm.TotalSize, snap.dealSize)
+	return getClearStr(fmt.Sprintf("Scanned num: %d, size: %s. Processed num: %d%s%s, Speed: %s/s.", scanNum, getSizeString(scanSize), snap.dealNum, fpm.getDealNumDetail(snap), fpm.getDealSizeDetail(snap), fpm.getSpeed(snap)))
 }
 
-func (cppm *CpProcessMonitor) getFinishBar(exitStat int) string {
+func (fpm *FileProcessMonitor) getFinishBar(exitStat int) string {
 	if exitStat == normalExit {
-		return cppm.getWholeFinishBar()
+		return fpm.getWholeFinishBar()
 	}
-	return cppm.getDefeatBar()
+	return fpm.getDefeatBar()
 }
 
-func (cppm *CpProcessMonitor) getWholeFinishBar() string {
-	snap := cppm.getSnapshot()
-	if cppm.seekAheadEnd && cppm.seekAheadError == nil {
+func (fpm *FileProcessMonitor) getWholeFinishBar() string {
+	snap := fpm.getSnapshot()
+	if fpm.seekAheadEnd && fpm.seekAheadError == nil {
 		if snap.errNum == 0 {
-			return getClearStr(fmt.Sprintf("Succeed: Total num: %d, size: %s. OK num: %d%s%s.\n", cppm.totalNum, getSizeString(cppm.TotalSize), snap.okNum, cppm.getDealNumDetail(snap), cppm.getSkipSize(snap)))
+			return getClearStr(fmt.Sprintf("Succeed: Total num: %d, size: %s. OK num: %d%s%s.\n", fpm.totalNum, getSizeString(fpm.TotalSize), snap.okNum, fpm.getDealNumDetail(snap), fpm.getSkipSize(snap)))
 		}
-		return getClearStr(fmt.Sprintf("FinishWithError: Total num: %d, size: %s. Error num: %d. OK num: %d%s%s.\n", cppm.totalNum, getSizeString(cppm.TotalSize), snap.errNum, snap.okNum, cppm.getOKNumDetail(snap), cppm.getSizeDetail(snap)))
+		return getClearStr(fmt.Sprintf("FinishWithError: Total num: %d, size: %s. Error num: %d. OK num: %d%s%s.\n", fpm.totalNum, getSizeString(fpm.TotalSize), snap.errNum, snap.okNum, fpm.getOKNumDetail(snap), fpm.getSizeDetail(snap)))
 	}
-	scanNum := max(cppm.totalNum, snap.dealNum)
+	scanNum := max(fpm.totalNum, snap.dealNum)
 	if snap.errNum == 0 {
-		return getClearStr(fmt.Sprintf("Succeed: Total num: %d, size: %s. OK num: %d%s%s.\n", scanNum, getSizeString(snap.dealSize), snap.okNum, cppm.getDealNumDetail(snap), cppm.getSkipSize(snap)))
+		return getClearStr(fmt.Sprintf("Succeed: Total num: %d, size: %s. OK num: %d%s%s.\n", scanNum, getSizeString(snap.dealSize), snap.okNum, fpm.getDealNumDetail(snap), fpm.getSkipSize(snap)))
 	}
-	return getClearStr(fmt.Sprintf("FinishWithError: Scanned %d %s. Error num: %d. OK num: %d%s%s.\n", scanNum, cppm.getSubject(), snap.errNum, snap.okNum, cppm.getOKNumDetail(snap), cppm.getSizeDetail(snap)))
+	return getClearStr(fmt.Sprintf("FinishWithError: Scanned %d %s. Error num: %d. OK num: %d%s%s.\n", scanNum, fpm.getSubject(), snap.errNum, snap.okNum, fpm.getOKNumDetail(snap), fpm.getSizeDetail(snap)))
 }
 
-func (cppm *CpProcessMonitor) getDefeatBar() string {
-	snap := cppm.getSnapshot()
-	if cppm.seekAheadEnd && cppm.seekAheadError == nil {
-		return getClearStr(fmt.Sprintf("Total num: %d, size: %s. Processed num: %d%s%s. When error happens.\n", cppm.totalNum, getSizeString(cppm.TotalSize), snap.okNum, cppm.getOKNumDetail(snap), cppm.getSizeDetail(snap)))
+func (fpm *FileProcessMonitor) getDefeatBar() string {
+	snap := fpm.getSnapshot()
+	if fpm.seekAheadEnd && fpm.seekAheadError == nil {
+		return getClearStr(fmt.Sprintf("Total num: %d, size: %s. Processed num: %d%s%s. When error happens.\n", fpm.totalNum, getSizeString(fpm.TotalSize), snap.okNum, fpm.getOKNumDetail(snap), fpm.getSizeDetail(snap)))
 	}
-	scanNum := max(cppm.totalNum, snap.dealNum)
-	return getClearStr(fmt.Sprintf("Scanned %d %s. Processed num: %d%s%s. When error happens.\n", scanNum, cppm.getSubject(), snap.okNum, cppm.getOKNumDetail(snap), cppm.getSizeDetail(snap)))
+	scanNum := max(fpm.totalNum, snap.dealNum)
+	return getClearStr(fmt.Sprintf("Scanned %d %s. Processed num: %d%s%s. When error happens.\n", scanNum, fpm.getSubject(), snap.okNum, fpm.getOKNumDetail(snap), fpm.getSizeDetail(snap)))
 }
 
-func (cppm *CpProcessMonitor) getSnapshot() *CpProcessMonitorSnap {
-	var snap CpProcessMonitorSnap
-	snap.transferSize = cppm.TransferSize
-	snap.skipSize = cppm.skipSize
-	snap.dealSize = cppm.dealSize + snap.skipSize
-	snap.fileNum = cppm.fileNum
-	snap.dirNum = cppm.dirNum
-	snap.skipNum = cppm.skipNum
-	snap.errNum = cppm.errNum
+func (fpm *FileProcessMonitor) getSnapshot() *FileProcessMonitorSnap {
+	var snap FileProcessMonitorSnap
+	snap.transferSize = fpm.TransferSize
+	snap.skipSize = fpm.skipSize
+	snap.dealSize = fpm.dealSize + snap.skipSize
+	snap.fileNum = fpm.fileNum
+	snap.dirNum = fpm.dirNum
+	snap.skipNum = fpm.skipNum
+	snap.errNum = fpm.errNum
 	snap.okNum = snap.fileNum + snap.dirNum + snap.skipNum
 	snap.dealNum = snap.okNum + snap.errNum
-	snap.skipNumDir = cppm.skipNumDir
+	snap.skipNumDir = fpm.skipNumDir
 	now := time.Now()
-	snap.duration = now.Sub(cppm.lastSnapTime).Nanoseconds()
+	snap.duration = now.Sub(fpm.lastSnapTime).Nanoseconds()
 
 	return &snap
 }
@@ -240,34 +240,34 @@ func getClearStr(str string) string {
 	return fmt.Sprintf("\r%s\r%s", clearStr, str)
 }
 
-func (cppm *CpProcessMonitor) getDealNumDetail(snap *CpProcessMonitorSnap) string {
-	return cppm.getNumDetail(snap, true)
+func (fpm *FileProcessMonitor) getDealNumDetail(snap *FileProcessMonitorSnap) string {
+	return fpm.getNumDetail(snap, true)
 }
 
-func (cppm *CpProcessMonitor) getOKNumDetail(snap *CpProcessMonitorSnap) string {
-	return cppm.getNumDetail(snap, false)
+func (fpm *FileProcessMonitor) getOKNumDetail(snap *FileProcessMonitorSnap) string {
+	return fpm.getNumDetail(snap, false)
 }
 
-func (cppm *CpProcessMonitor) getNumDetail(snap *CpProcessMonitorSnap, hasErr bool) string {
+func (fpm *FileProcessMonitor) getNumDetail(snap *FileProcessMonitorSnap, hasErr bool) string {
 	if !hasErr && snap.okNum == 0 {
 		return ""
 	}
 	strList := []string{}
 	if hasErr && snap.errNum != 0 {
-		strList = append(strList, fmt.Sprintf("Error %d %s", snap.errNum, cppm.getSubject()))
+		strList = append(strList, fmt.Sprintf("Error %d %s", snap.errNum, fpm.getSubject()))
 	}
 	if snap.fileNum != 0 {
-		strList = append(strList, fmt.Sprintf("%s %d %s", cppm.getOPStr(), snap.fileNum, cppm.getSubject()))
+		strList = append(strList, fmt.Sprintf("%s %d %s", fpm.getOPStr(), snap.fileNum, fpm.getSubject()))
 	}
 	if snap.dirNum != 0 {
 		str := fmt.Sprintf("%d directories", snap.dirNum)
 		if snap.fileNum == 0 {
-			str = fmt.Sprintf("%s %d directories", cppm.getOPStr(), snap.dirNum)
+			str = fmt.Sprintf("%s %d directories", fpm.getOPStr(), snap.dirNum)
 		}
 		strList = append(strList, str)
 	}
 	if snap.skipNum != 0 {
-		strList = append(strList, fmt.Sprintf("skip %d %s", snap.skipNum, cppm.getSubject()))
+		strList = append(strList, fmt.Sprintf("skip %d %s", snap.skipNum, fpm.getSubject()))
 	}
 	if snap.skipNumDir != 0 {
 		strList = append(strList, fmt.Sprintf("skip %d directory", snap.skipNumDir))
@@ -279,7 +279,7 @@ func (cppm *CpProcessMonitor) getNumDetail(snap *CpProcessMonitorSnap, hasErr bo
 	return fmt.Sprintf("(%s)", strings.Join(strList, ", "))
 }
 
-func (cppm *CpProcessMonitor) getSizeDetail(snap *CpProcessMonitorSnap) string {
+func (fpm *FileProcessMonitor) getSizeDetail(snap *FileProcessMonitorSnap) string {
 	if snap.skipSize == 0 {
 		return fmt.Sprintf(", Transfer size: %s", getSizeString(snap.transferSize))
 	}
@@ -289,37 +289,37 @@ func (cppm *CpProcessMonitor) getSizeDetail(snap *CpProcessMonitorSnap) string {
 	return fmt.Sprintf(", OK size: %s(transfer: %s, skip: %s)", getSizeString(snap.transferSize+snap.skipSize), getSizeString(snap.transferSize), getSizeString(snap.skipSize))
 }
 
-func (cppm *CpProcessMonitor) getSkipSize(snap *CpProcessMonitorSnap) string {
+func (fpm *FileProcessMonitor) getSkipSize(snap *FileProcessMonitorSnap) string {
 	if snap.skipSize != 0 {
 		return fmt.Sprintf(", Skip size: %s", getSizeString(snap.skipSize))
 	}
 	return ""
 }
 
-func (cppm *CpProcessMonitor) getDealSizeDetail(snap *CpProcessMonitorSnap) string {
+func (fpm *FileProcessMonitor) getDealSizeDetail(snap *FileProcessMonitorSnap) string {
 	return fmt.Sprintf(", OK size: %s", getSizeString(snap.dealSize))
 }
 
-func (cppm *CpProcessMonitor) getSpeed(snap *CpProcessMonitorSnap) string {
+func (fpm *FileProcessMonitor) getSpeed(snap *FileProcessMonitorSnap) string {
 	speed := (float64(snap.incrementSize)) / (float64(snap.duration) * 1e-9)
 	return formatBytes(speed)
 }
 
-func (cppm *CpProcessMonitor) getPrecent(snap *CpProcessMonitorSnap) float64 {
-	if cppm.seekAheadEnd && cppm.seekAheadError == nil {
-		if cppm.TotalSize != 0 {
-			return float64((snap.dealSize)*100.0) / float64(cppm.TotalSize)
+func (fpm *FileProcessMonitor) getPrecent(snap *FileProcessMonitorSnap) float64 {
+	if fpm.seekAheadEnd && fpm.seekAheadError == nil {
+		if fpm.TotalSize != 0 {
+			return float64((snap.dealSize)*100.0) / float64(fpm.TotalSize)
 		}
-		if cppm.totalNum != 0 {
-			return float64((snap.dealNum)*100.0) / float64(cppm.totalNum)
+		if fpm.totalNum != 0 {
+			return float64((snap.dealNum)*100.0) / float64(fpm.totalNum)
 		}
 		return 100
 	}
 	return 0
 }
 
-func (cppm *CpProcessMonitor) getOPStr() string {
-	switch cppm.op {
+func (fpm *FileProcessMonitor) getOPStr() string {
+	switch fpm.op {
 	case CpTypeUpload:
 		return "upload"
 	case CpTypeDownload:
@@ -329,8 +329,8 @@ func (cppm *CpProcessMonitor) getOPStr() string {
 	}
 }
 
-func (cppm *CpProcessMonitor) getSubject() string {
-	switch cppm.op {
+func (fpm *FileProcessMonitor) getSubject() string {
+	switch fpm.op {
 	case CpTypeUpload:
 		return "files"
 	default:

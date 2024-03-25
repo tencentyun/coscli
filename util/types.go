@@ -5,17 +5,58 @@ import (
 	"os"
 )
 
+type Config struct {
+	Base    BaseCfg  `yaml:"base"`
+	Buckets []Bucket `yaml:"buckets"`
+}
+
+type BaseCfg struct {
+	SecretID            string `yaml:"secretid"`
+	SecretKey           string `yaml:"secretkey"`
+	SessionToken        string `yaml:"sessiontoken"`
+	Protocol            string `yaml:"protocol"`
+	Mode                string `yaml:"mode"`
+	CvmRoleName         string `yaml:"cvmrolename"`
+	CloseAutoSwitchHost string `yaml:"closeautoswitchhost"`
+}
+
+type Bucket struct {
+	Name     string `yaml:"name"`
+	Alias    string `yaml:"alias"`
+	Region   string `yaml:"region"`
+	Endpoint string `yaml:"endpoint"`
+	Ofs      bool   `yaml:"ofs"`
+}
+type Param struct {
+	SecretID     string
+	SecretKey    string
+	SessionToken string
+	Endpoint     string
+	Protocol     string
+}
+
+type UploadInfo struct {
+	Key       string `xml:"Key,omitempty"`
+	UploadID  string `xml:"UploadId,omitempty"`
+	Initiated string `xml:"Initiated,omitempty"`
+}
+
+type fileInfoType struct {
+	filePath string
+	dir      string
+}
+
 type CpType int
 
-type CopyCommand struct {
-	CpParams  CpParams
-	Monitor   *CpProcessMonitor
+type FileOperations struct {
+	Operation Operation
+	Monitor   *FileProcessMonitor
 	ErrOutput *ErrOutput
 	Config    *Config
 	Param     *Param
 }
 
-type CpParams struct {
+type Operation struct {
 	Recursive         bool
 	Filters           []FilterOptionType
 	StorageClass      string
@@ -32,6 +73,8 @@ type CpParams struct {
 	EnableSymlinkDir  bool
 	CheckpointDir     string
 	DisableCrc64      bool
+	SnapshotPath      string
+	Delete            bool
 }
 
 type ErrOutput struct {

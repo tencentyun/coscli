@@ -6,7 +6,7 @@ import (
 )
 
 type CosListener struct {
-	cc *CopyCommand
+	fo *FileOperations
 }
 
 //type SingleCosListener struct {
@@ -32,11 +32,11 @@ func (l *CosListener) ProgressChangedCallback(event *cos.ProgressEvent) {
 	switch event.EventType {
 	case cos.ProgressStartedEvent:
 	case cos.ProgressDataEvent:
-		l.cc.Monitor.updateTransferSize(event.RWBytes)
-		l.cc.Monitor.updateDealSize(event.RWBytes)
+		l.fo.Monitor.updateTransferSize(event.RWBytes)
+		l.fo.Monitor.updateDealSize(event.RWBytes)
 	case cos.ProgressCompletedEvent:
 	case cos.ProgressFailedEvent:
-		l.cc.Monitor.updateDealSize(-event.ConsumedBytes)
+		l.fo.Monitor.updateDealSize(-event.ConsumedBytes)
 	default:
 		fmt.Printf("Progress Changed Error: unknown progress event type\n")
 	}

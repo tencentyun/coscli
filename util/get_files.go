@@ -8,10 +8,10 @@ import (
 	"strings"
 )
 
-func fileStatistic(localPath string, cc *CopyCommand) {
+func fileStatistic(localPath string, fo *FileOperations) {
 	f, err := os.Stat(localPath)
 	if err != nil {
-		cc.Monitor.setScanError(err)
+		fo.Monitor.setScanError(err)
 		return
 	}
 	if f.IsDir() {
@@ -19,24 +19,24 @@ func fileStatistic(localPath string, cc *CopyCommand) {
 			localPath += string(os.PathSeparator)
 		}
 
-		err := getFileListStatistic(localPath, cc)
+		err := getFileListStatistic(localPath, fo)
 		if err != nil {
-			cc.Monitor.setScanError(err)
+			fo.Monitor.setScanError(err)
 			return
 		}
 	} else {
-		if filterCheckpointDir(localPath, cc.CpParams.CheckpointDir) {
-			cc.Monitor.updateScanSizeNum(f.Size(), 1)
+		if filterCheckpointDir(localPath, fo.Operation.CheckpointDir) {
+			fo.Monitor.updateScanSizeNum(f.Size(), 1)
 		}
 	}
 
-	cc.Monitor.setScanEnd()
+	fo.Monitor.setScanEnd()
 	freshProgress()
 }
 
-func getFileListStatistic(dpath string, cc *CopyCommand) error {
-	if cc.CpParams.OnlyCurrentDir {
-		return getCurrentDirFilesStatistic(dpath, cc)
+func getFileListStatistic(dpath string, fo *FileOperations) error {
+	if fo.Operation.OnlyCurrentDir {
+		return getCurrentDirFilesStatistic(dpath, fo)
 	}
 
 	name := dpath
@@ -46,7 +46,7 @@ func getFileListStatistic(dpath string, cc *CopyCommand) error {
 			return err
 		}
 
-		if !filterCheckpointDir(fpath, cc.CpParams.CheckpointDir) {
+		if !filterCheckpointDir(fpath, fo.Operation.CheckpointDir) {
 			return nil
 		}
 
@@ -60,12 +60,12 @@ func getFileListStatistic(dpath string, cc *CopyCommand) error {
 
 		if f.IsDir() {
 			if fpath != dpath {
-				cc.Monitor.updateScanNum(1)
+				fo.Monitor.updateScanNum(1)
 			}
 			return nil
 		}
 
-		if cc.CpParams.DisableAllSymlink && (f.Mode()&os.ModeSymlink) != 0 {
+		if fo.Operation.DisableAllSymlink && (f.Mode()&os.ModeSymlink) != 0 {
 			return nil
 		}
 
@@ -83,7 +83,7 @@ func getFileListStatistic(dpath string, cc *CopyCommand) error {
 				realFileSize = realInfo.Size()
 			}
 
-			if cc.CpParams.EnableSymlinkDir && realInfo.IsDir() {
+			if fo.Operation.EnableSymlinkDir && realInfo.IsDir() {
 				// 软链文件夹，如果有"/"后缀，os.Lstat 将判断它是一个目录
 				if !strings.HasSuffix(name, string(os.PathSeparator)) {
 					name += string(os.PathSeparator)
@@ -93,8 +93,8 @@ func getFileListStatistic(dpath string, cc *CopyCommand) error {
 				return nil
 			}
 		}
-		if fileMatchPatterns(f.Name(), cc.CpParams.Filters) {
-			cc.Monitor.updateScanSizeNum(realFileSize, 1)
+		if fileMatchPatterns(f.Name(), fo.Operation.Filters) {
+			fo.Monitor.updateScanSizeNum(realFileSize, 1)
 		}
 		return nil
 	}
@@ -116,7 +116,7 @@ func getFileListStatistic(dpath string, cc *CopyCommand) error {
 	return err
 }
 
-func getCurrentDirFilesStatistic(dpath string, cc *CopyCommand) error {
+func getCurrentDirFilesStatistic(dpath string, fo *FileOperations) error {
 	if !strings.HasSuffix(dpath, string(os.PathSeparator)) {
 		dpath += string(os.PathSeparator)
 	}
@@ -134,15 +134,15 @@ func getCurrentDirFilesStatistic(dpath string, cc *CopyCommand) error {
 				continue
 			}
 
-			if fileMatchPatterns(fileInfo.Name(), cc.CpParams.Filters) {
-				cc.Monitor.updateScanSizeNum(fileInfo.Size(), 1)
+			if fileMatchPatterns(fileInfo.Name(), fo.Operation.Filters) {
+				fo.Monitor.updateScanSizeNum(fileInfo.Size(), 1)
 			}
 		}
 	}
 	return nil
 }
 
-func generateFileList(localPath string, chFiles chan<- fileInfoType, chListError chan<- error, cc *CopyCommand) {
+func generateFileList(localPath string, chFiles chan<- fileInfoType, chListError chan<- error, fo *FileOperations) {
 	defer close(chFiles)
 	f, err := os.Stat(localPath)
 	if err != nil {
@@ -154,7 +154,7 @@ func generateFileList(localPath string, chFiles chan<- fileInfoType, chListError
 			localPath += string(os.PathSeparator)
 		}
 
-		err := getFileList(localPath, chFiles, cc)
+		err := getFileList(localPath, chFiles, fo)
 		if err != nil {
 			chListError <- err
 			return
@@ -166,9 +166,9 @@ func generateFileList(localPath string, chFiles chan<- fileInfoType, chListError
 	chListError <- nil
 }
 
-func getFileList(dpath string, chFiles chan<- fileInfoType, cc *CopyCommand) error {
-	if cc.CpParams.OnlyCurrentDir {
-		return getCurrentDirFileList(dpath, chFiles, cc)
+func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) error {
+	if fo.Operation.OnlyCurrentDir {
+		return getCurrentDirFileList(dpath, chFiles, fo)
 	}
 
 	name := dpath
@@ -197,11 +197,11 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, cc *CopyCommand) err
 			return nil
 		}
 
-		if cc.CpParams.DisableAllSymlink && (f.Mode()&os.ModeSymlink) != 0 {
+		if fo.Operation.DisableAllSymlink && (f.Mode()&os.ModeSymlink) != 0 {
 			return nil
 		}
 
-		if cc.CpParams.EnableSymlinkDir && (f.Mode()&os.ModeSymlink) != 0 {
+		if fo.Operation.EnableSymlinkDir && (f.Mode()&os.ModeSymlink) != 0 {
 			// there is difference between os.Stat and os.Lstat in filepath.Walk
 			realInfo, err := os.Stat(fpath)
 			if err != nil {
@@ -220,7 +220,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, cc *CopyCommand) err
 			}
 		}
 
-		if fileMatchPatterns(fileName, cc.CpParams.Filters) {
+		if fileMatchPatterns(fileName, fo.Operation.Filters) {
 			chFiles <- fileInfoType{fileName, name}
 		}
 		return nil
@@ -243,7 +243,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, cc *CopyCommand) err
 	return err
 }
 
-func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, cc *CopyCommand) error {
+func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) error {
 	if !strings.HasSuffix(dpath, string(os.PathSeparator)) {
 		dpath += string(os.PathSeparator)
 	}
@@ -261,7 +261,7 @@ func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, cc *CopyCo
 				continue
 			}
 
-			if fileMatchPatterns(fileInfo.Name(), cc.CpParams.Filters) {
+			if fileMatchPatterns(fileInfo.Name(), fo.Operation.Filters) {
 				chFiles <- fileInfoType{fileInfo.Name(), dpath}
 			}
 		}

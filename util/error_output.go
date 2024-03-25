@@ -18,44 +18,44 @@ var (
 	outputMu sync.Mutex
 )
 
-func writeError(errorType, errString string, cc *CopyCommand) {
+func writeError(errorType, errString string, fo *FileOperations) {
 	var err error
-	if cc.ErrOutput.Path == "" {
-		cc.ErrOutput.Path = filepath.Join(cc.CpParams.FailOutputPath, time.Now().Format("20060102_150405"))
-		_, err := os.Stat(cc.ErrOutput.Path)
+	if fo.ErrOutput.Path == "" {
+		fo.ErrOutput.Path = filepath.Join(fo.Operation.FailOutputPath, time.Now().Format("20060102_150405"))
+		_, err := os.Stat(fo.ErrOutput.Path)
 		if os.IsNotExist(err) {
-			err := os.MkdirAll(cc.ErrOutput.Path, 0755)
+			err := os.MkdirAll(fo.ErrOutput.Path, 0755)
 			if err != nil {
 				logger.Fatalf("Failed to create error output dir: %v", err)
 			}
 		}
 	}
 
-	if errorType == ErrTypeList && cc.ErrOutput.ListOutput == nil {
+	if errorType == ErrTypeList && fo.ErrOutput.ListOutput == nil {
 		// 创建错误日志文件
-		listFailOutputFilePath := filepath.Join(cc.ErrOutput.Path, "list_err.report")
-		cc.ErrOutput.ListOutput, err = os.OpenFile(listFailOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		listFailOutputFilePath := filepath.Join(fo.ErrOutput.Path, "list_err.report")
+		fo.ErrOutput.ListOutput, err = os.OpenFile(listFailOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
 			logger.Fatal("Failed to create error list output file:", err)
 		}
-		defer cc.ErrOutput.ListOutput.Close()
+		defer fo.ErrOutput.ListOutput.Close()
 	}
 
-	if errorType == ErrTypeUpload && cc.ErrOutput.UploadOutput == nil {
-		uploadFailOutputFilePath := filepath.Join(cc.ErrOutput.Path, "upload_err.report")
-		cc.ErrOutput.UploadOutput, err = os.OpenFile(uploadFailOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if errorType == ErrTypeUpload && fo.ErrOutput.UploadOutput == nil {
+		uploadFailOutputFilePath := filepath.Join(fo.ErrOutput.Path, "upload_err.report")
+		fo.ErrOutput.UploadOutput, err = os.OpenFile(uploadFailOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
 			logger.Fatal("Failed to create error upload output file:", err)
 		}
-		defer cc.ErrOutput.UploadOutput.Close()
+		defer fo.ErrOutput.UploadOutput.Close()
 	}
 
 	outputMu.Lock()
 	var writeErr error
 	if errorType == ErrTypeList {
-		_, writeErr = cc.ErrOutput.ListOutput.WriteString(errString)
+		_, writeErr = fo.ErrOutput.ListOutput.WriteString(errString)
 	} else {
-		_, writeErr = cc.ErrOutput.UploadOutput.WriteString(errString)
+		_, writeErr = fo.ErrOutput.UploadOutput.WriteString(errString)
 	}
 
 	if writeErr != nil {
