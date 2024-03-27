@@ -6,10 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"coscli/util"
-
-	"github.com/syndtr/goleveldb/leveldb"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -53,15 +52,16 @@ Example:
 		metaString, _ := cmd.Flags().GetString("meta")
 		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		snapshotPath, _ := cmd.Flags().GetString("snapshot-path")
-		//delete, _ := cmd.Flags().GetBool("delete")
-		//routines, _ := cmd.Flags().GetInt("routines")
-		//failOutput, _ := cmd.Flags().GetBool("fail-output")
-		//failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
-		//onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
-		//disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
-		//enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
-		//checkpointDir, _ := cmd.Flags().GetString("checkpoint-dir")
-		//disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
+		delete, _ := cmd.Flags().GetBool("delete")
+		routines, _ := cmd.Flags().GetInt("routines")
+		failOutput, _ := cmd.Flags().GetBool("fail-output")
+		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+		onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
+		disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
+		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
+		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
+		backupDir, _ := cmd.Flags().GetString("backup-dir")
+		force, _ := cmd.Flags().GetBool("force")
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
@@ -72,35 +72,6 @@ Example:
 			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
 			return
 		}
-
-		//_, filters := util.GetFilter(include, exclude)
-
-		//fo := &util.FileOperations{
-		//	Operation: util.Operation{
-		//		Recursive:         recursive,
-		//		Filters:           filters,
-		//		StorageClass:      storageClass,
-		//		RateLimiting:      rateLimiting,
-		//		PartSize:          partSize,
-		//		ThreadNum:         threadNum,
-		//		Routines:          routines,
-		//		FailOutput:        failOutput,
-		//		FailOutputPath:    failOutputPath,
-		//		Meta:              meta,
-		//		RetryNum:          retryNum,
-		//		OnlyCurrentDir:    onlyCurrentDir,
-		//		DisableAllSymlink: disableAllSymlink,
-		//		EnableSymlinkDir:  enableSymlinkDir,
-		//		CheckpointDir:     checkpointDir,
-		//		DisableCrc64:      disableCrc64,
-		//		SnapshotPath:      snapshotPath,
-		//		Delete:            delete,
-		//	},
-		//	Monitor:   &util.FileProcessMonitor{},
-		//	Config:    &config,
-		//	Param:     &param,
-		//	ErrOutput: &util.ErrOutput{},
-		//}
 
 		srcUrl, err := util.FormatUrl(args[0])
 		if err != nil {
@@ -116,43 +87,80 @@ Example:
 			logger.Fatalln("not support cp between local directory")
 		}
 
-		// args[0]: 源地址
-		// args[1]: 目标地址
-		var snapshotDb *leveldb.DB
-		if snapshotPath != "" {
-			if snapshotDb, err = leveldb.OpenFile(snapshotPath, nil); err != nil {
-				logger.Fatalln("Sync load snapshot error, reason: " + err.Error())
-			}
-			defer snapshotDb.Close()
+		_, filters := util.GetFilter(include, exclude)
+
+		fo := &util.FileOperations{
+			Operation: util.Operation{
+				Recursive:         recursive,
+				Filters:           filters,
+				StorageClass:      storageClass,
+				RateLimiting:      rateLimiting,
+				PartSize:          partSize,
+				ThreadNum:         threadNum,
+				Routines:          routines,
+				FailOutput:        failOutput,
+				FailOutputPath:    failOutputPath,
+				Meta:              meta,
+				RetryNum:          retryNum,
+				OnlyCurrentDir:    onlyCurrentDir,
+				DisableAllSymlink: disableAllSymlink,
+				EnableSymlinkDir:  enableSymlinkDir,
+				DisableCrc64:      disableCrc64,
+				SnapshotPath:      snapshotPath,
+				Delete:            delete,
+				BackupDir:         backupDir,
+				Force:             force,
+			},
+			Monitor:   &util.FileProcessMonitor{},
+			Config:    &config,
+			Param:     &param,
+			ErrOutput: &util.ErrOutput{},
+			CpType:    getCommandType(srcUrl, destUrl),
+			Command:   util.CommandSync,
 		}
-		if !util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
-			// 上传
-			op := &util.UploadOptions{
-				StorageClass: storageClass,
-				RateLimiting: rateLimiting,
-				PartSize:     partSize,
-				ThreadNum:    threadNum,
-				Meta:         meta,
-				SnapshotPath: snapshotPath,
-				SnapshotDb:   snapshotDb,
+
+		// 快照db实例化
+		util.InitSnapshotDb(srcUrl, destUrl, fo)
+		startT := time.Now().UnixNano() / 1000 / 1000
+		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
+			// 检查错误输出日志是否是本地路径的子集
+			err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
+			if err != nil {
+				logger.Fatalln(err)
 			}
-			syncUpload(args, recursive, include, exclude, op, snapshotPath)
-		} else if util.IsCosPath(args[0]) && !util.IsCosPath(args[1]) {
+			// 格式化上传路径
+			util.FormatUploadPath(srcUrl, destUrl, fo)
+			// 实例化cos client
+			bucketName := destUrl.(*util.CosUrl).Bucket
+			c := util.NewClient(fo.Config, fo.Param, bucketName)
+			// crc64校验开关
+			c.Conf.EnableCRC = fo.Operation.DisableCrc64
+			// 上传
+			util.SyncUpload(c, srcUrl, destUrl, fo)
+		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
+			// 检查错误输出日志是否是本地路径的子集
+			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
+			if err != nil {
+				logger.Fatalln(err)
+			}
 			// 下载
 			op := &util.DownloadOptions{
 				RateLimiting: rateLimiting,
 				PartSize:     partSize,
 				ThreadNum:    threadNum,
 				SnapshotPath: snapshotPath,
-				SnapshotDb:   snapshotDb,
+				SnapshotDb:   fo.SnapshotDb,
 			}
 			syncDownload(args, recursive, include, exclude, retryNum, op)
-		} else if util.IsCosPath(args[0]) && util.IsCosPath(args[1]) {
+		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
 			// 拷贝
 			syncCopy(args, recursive, include, exclude, meta, storageClass)
 		} else {
 			logger.Fatalln("cospath needs to contain cos://")
 		}
+
+		endT := time.Now().UnixNano() / 1000 / 1000
+		util.PrintCostTime(startT, endT)
 	},
 }
 
@@ -197,21 +205,9 @@ func init() {
 	syncCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
 	syncCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	syncCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
-	syncCmd.Flags().String("checkpoint-dir", util.CheckpointDir, "Specify the directory where the checkpoint information for resuming uploads is stored. When the resume upload operation fails, coscli will automatically create a directory named .coscli_checkpoint and record the checkpoint information in that directory. After the resume upload is successful, the directory will be deleted. If this option is specified, make sure the specified directory can be deleted.")
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
-}
-
-func syncUpload(args []string, recursive bool, include string, exclude string, op *util.UploadOptions,
-	snapshotPath string) {
-	_, localPath := util.ParsePath(args[0])
-	bucketName, cosPath := util.ParsePath(args[1])
-	c := util.NewClient(&config, &param, bucketName)
-
-	if recursive {
-		util.SyncMultiUpload(c, localPath, bucketName, cosPath, include, exclude, op)
-	} else {
-		util.SyncSingleUpload(c, localPath, bucketName, cosPath, op)
-	}
+	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
+	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
 }
 
 func syncDownload(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {

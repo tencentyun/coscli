@@ -6,7 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
+
+var once sync.Once
 
 func fileStatistic(localPath string, fo *FileOperations) {
 	f, err := os.Stat(localPath)
@@ -25,9 +28,7 @@ func fileStatistic(localPath string, fo *FileOperations) {
 			return
 		}
 	} else {
-		if filterCheckpointDir(localPath, fo.Operation.CheckpointDir) {
-			fo.Monitor.updateScanSizeNum(f.Size(), 1)
-		}
+		fo.Monitor.updateScanSizeNum(f.Size(), 1)
 	}
 
 	fo.Monitor.setScanEnd()
@@ -44,10 +45,6 @@ func getFileListStatistic(dpath string, fo *FileOperations) error {
 	walkFunc := func(fpath string, f os.FileInfo, err error) error {
 		if f == nil {
 			return err
-		}
-
-		if !filterCheckpointDir(fpath, fo.Operation.CheckpointDir) {
-			return nil
 		}
 
 		realFileSize := f.Size()
@@ -93,7 +90,7 @@ func getFileListStatistic(dpath string, fo *FileOperations) error {
 				return nil
 			}
 		}
-		if fileMatchPatterns(f.Name(), fo.Operation.Filters) {
+		if matchPatterns(f.Name(), fo.Operation.Filters) {
 			fo.Monitor.updateScanSizeNum(realFileSize, 1)
 		}
 		return nil
@@ -134,7 +131,7 @@ func getCurrentDirFilesStatistic(dpath string, fo *FileOperations) error {
 				continue
 			}
 
-			if fileMatchPatterns(fileInfo.Name(), fo.Operation.Filters) {
+			if matchPatterns(fileInfo.Name(), fo.Operation.Filters) {
 				fo.Monitor.updateScanSizeNum(fileInfo.Size(), 1)
 			}
 		}
@@ -202,15 +199,12 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 		}
 
 		if fo.Operation.EnableSymlinkDir && (f.Mode()&os.ModeSymlink) != 0 {
-			// there is difference between os.Stat and os.Lstat in filepath.Walk
 			realInfo, err := os.Stat(fpath)
 			if err != nil {
 				return err
 			}
 
 			if realInfo.IsDir() {
-				// it's symlink dir
-				// if linkDir has suffix os.PathSeparator,os.Lstat determine it is a dir
 				if !strings.HasSuffix(name, string(os.PathSeparator)) {
 					name += string(os.PathSeparator)
 				}
@@ -220,7 +214,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 			}
 		}
 
-		if fileMatchPatterns(fileName, fo.Operation.Filters) {
+		if matchPatterns(fileName, fo.Operation.Filters) {
 			chFiles <- fileInfoType{fileName, name}
 		}
 		return nil
@@ -261,10 +255,54 @@ func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOp
 				continue
 			}
 
-			if fileMatchPatterns(fileInfo.Name(), fo.Operation.Filters) {
+			if matchPatterns(fileInfo.Name(), fo.Operation.Filters) {
 				chFiles <- fileInfoType{fileInfo.Name(), dpath}
 			}
 		}
 	}
 	return nil
+}
+
+func getLocalFileKeys(fileUrl StorageUrl, keys map[string]string, fo *FileOperations) error {
+	strPath := fileUrl.ToString()
+	if !strings.HasSuffix(strPath, string(os.PathSeparator)) {
+		strPath += string(os.PathSeparator)
+	}
+
+	chFiles := make(chan fileInfoType, ChannelSize)
+	chFinish := make(chan error, 2)
+	go ReadLocalFileKeys(chFiles, chFinish, keys, fo)
+	go GetFileList(strPath, chFiles, chFinish, fo)
+	select {
+	case err := <-chFinish:
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ReadLocalFileKeys(chFiles <-chan fileInfoType, chFinish chan<- error, keys map[string]string, fo *FileOperations) {
+	totalCount := 0
+	fmt.Printf("\n")
+	for fileInfo := range chFiles {
+		totalCount++
+		fmt.Printf("\rtotal file(directory) count:%d", totalCount)
+		keys[fileInfo.filePath] = ""
+		if len(keys) > MaxSyncNumbers {
+			fmt.Printf("\n")
+			chFinish <- fmt.Errorf("over max sync numbers %d", MaxSyncNumbers)
+			break
+		}
+	}
+	fmt.Printf("\rtotal file(directory) count:%d", totalCount)
+	chFinish <- nil
+}
+
+func GetFileList(strPath string, chFiles chan<- fileInfoType, chFinish chan<- error, fo *FileOperations) {
+	defer close(chFiles)
+	err := getFileList(strPath, chFiles, fo)
+	if err != nil {
+		chFinish <- err
+	}
 }

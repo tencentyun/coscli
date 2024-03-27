@@ -57,7 +57,6 @@ Example:
 		onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
 		disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
 		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
-		checkpointDir, _ := cmd.Flags().GetString("checkpoint-dir")
 		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
 
 		meta, err := util.MetaStringToHeader(metaString)
@@ -68,6 +67,20 @@ Example:
 		if retryNum < 0 || retryNum > 10 {
 			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
 			return
+		}
+
+		srcUrl, err := util.FormatUrl(args[0])
+		if err != nil {
+			logger.Fatalf("format srcURL error,%v", err)
+		}
+
+		destUrl, err := util.FormatUrl(args[1])
+		if err != nil {
+			logger.Fatalf("format destURL error,%v", err)
+		}
+
+		if srcUrl.IsFileUrl() && destUrl.IsFileUrl() {
+			logger.Fatalln("not support cp between local directory")
 		}
 
 		_, filters := util.GetFilter(include, exclude)
@@ -88,34 +101,40 @@ Example:
 				OnlyCurrentDir:    onlyCurrentDir,
 				DisableAllSymlink: disableAllSymlink,
 				EnableSymlinkDir:  enableSymlinkDir,
-				CheckpointDir:     checkpointDir,
 				DisableCrc64:      disableCrc64,
 			},
 			Monitor:   &util.FileProcessMonitor{},
 			Config:    &config,
 			Param:     &param,
 			ErrOutput: &util.ErrOutput{},
-		}
-
-		srcUrl, err := util.FormatUrl(args[0])
-		if err != nil {
-			logger.Fatalf("format srcURL error,%v", err)
-		}
-
-		destUrl, err := util.FormatUrl(args[1])
-		if err != nil {
-			logger.Fatalf("format destURL error,%v", err)
-		}
-
-		if srcUrl.IsFileUrl() && destUrl.IsFileUrl() {
-			logger.Fatalln("not support cp between local directory")
+			CpType:    getCommandType(srcUrl, destUrl),
+			Command:   util.CommandCP,
 		}
 
 		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
+			// 检查错误输出日志是否是本地路径的子集
+			err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
+			if err != nil {
+				logger.Fatalln(err)
+			}
+			// 格式化上传路径
+			util.FormatUploadPath(srcUrl, destUrl, fo)
+			// 实例化cos client
+			bucketName := destUrl.(*util.CosUrl).Bucket
+			c := util.NewClient(fo.Config, fo.Param, bucketName)
+			// crc64校验开关
+			c.Conf.EnableCRC = fo.Operation.DisableCrc64
 			// 上传
-			util.Upload(srcUrl, destUrl, fo, getCommandType(srcUrl, destUrl))
+			util.Upload(c, srcUrl, destUrl, fo)
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
+			// 检查错误输出日志是否是本地路径的子集
+			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
+
+			if err != nil {
+				logger.Fatalln(err)
+			}
+
 			// 下载
 			op := &util.DownloadOptions{
 				RateLimiting: rateLimiting,
@@ -130,7 +149,7 @@ Example:
 			logger.Fatalf("cospath needs to contain %s", util.SchemePrefix)
 		}
 		endT := time.Now().UnixNano() / 1000 / 1000
-		util.PrintCpStats(startT, endT, fo)
+		util.PrintCostTime(startT, endT)
 	},
 }
 
@@ -154,7 +173,6 @@ func init() {
 	cpCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
 	cpCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	cpCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
-	cpCmd.Flags().String("checkpoint-dir", util.CheckpointDir, "Specify the directory where the checkpoint information for resuming uploads is stored. When the resume upload operation fails, coscli will automatically create a directory named .coscli_checkpoint and record the checkpoint information in that directory. After the resume upload is successful, the directory will be deleted. If this option is specified, make sure the specified directory can be deleted.")
 	cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 }
 

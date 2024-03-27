@@ -14,11 +14,25 @@ const (
 )
 
 const (
-	Package       string = "coscli"
-	ChannelSize   int    = 1000
-	IncludePrompt        = "--include"
-	ExcludePrompt        = "--exclude"
-	CheckpointDir        = ".coscli_checkpoint"
+	CommandCP   = "cp"
+	CommandSync = "sync"
+)
+
+const (
+	TypeSnapshotPath   = "snapshotPath"
+	TypeFailOutputPath = "failOutputPath"
+)
+
+const (
+	Package             string = "coscli"
+	SchemePrefix        string = "cos://"
+	CosSeparator        string = "/"
+	IncludePrompt              = "--include"
+	ExcludePrompt              = "--exclude"
+	ChannelSize         int    = 1000
+	MaxSyncNumbers             = 1000000
+	MaxDeleteBatchCount int    = 100
+	SnapshotConnector          = "==>"
 )
 
 const (

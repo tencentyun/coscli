@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 )
 
-func PrintCpStats(startT, endT int64, fo *FileOperations) {
+func PrintTransferStats(startT, endT int64, fo *FileOperations) {
 	if fo.Monitor.errNum > 0 && fo.Operation.FailOutput {
 		absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
 		fmt.Printf("Some file upload failed, please check the detailed information in dir %s.\n", absErrOutputPath)
@@ -17,9 +17,10 @@ func PrintCpStats(startT, endT int64, fo *FileOperations) {
 		formattedSpeed := formatBytes(averSpeed)
 		fmt.Printf("\nAvgSpeed: %s/s\n", formattedSpeed)
 	}
+}
 
+func PrintCostTime(startT, endT int64) {
 	// 计算并输出花费时间
 	elapsedTime := float64(endT-startT) / 1000
 	fmt.Printf("\ncost %.6f(s)\n", elapsedTime)
-
 }

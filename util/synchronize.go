@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -14,51 +13,41 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func SyncSingleUpload(c *cos.Client, localPath, bucketName, cosPath string, op *UploadOptions) {
-	//localPath, cosPath, err := UploadPathFixed(localPath, cosPath)
-	//skip, err := skipUpload(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath)
-	//if err != nil {
-	//	logger.Errorf("Sync LocalPath:%s, err:%s", localPath, err.Error())
-	//	return
-	//}
-	//
-	//if skip {
-	//	logger.Infof("Sync upload file localPath skip, %s", localPath)
-	//} else {
-	//	SingleUpload(c, localPath, bucketName, cosPath, &CosListener{}, op)
-	//}
+func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
+	var err error
+	keysToDelete := make(map[string]string)
+	if fo.Operation.Delete {
+		keysToDelete, err = getDeleteKeys(c, fileUrl, cosUrl, fo)
+		if err != nil {
+			logger.Fatalf("get delete keys error : %v", err)
+		}
+	}
+
+	// 上传
+	Upload(c, fileUrl, cosUrl, fo)
+	if len(keysToDelete) > 0 {
+		// 删除源位置没有而目标位置有的cos对象或本地文件
+		err = deleteKeys(c, keysToDelete, cosUrl, fo)
+	}
+
+	if err != nil {
+		logger.Fatalf("delete keys error : %v", err)
+	}
 }
 
-func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, localPath string,
-	cosPath string) (skip bool, err error) {
+func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFileModifiedTime int64, cosPath string, localPath string) (bool, error) {
 
-	var localPathInfo os.FileInfo
-	localPathInfo, err = os.Stat(localPath)
-	// 直接和本地的snapshot作对比
-	if snapshotPath != "" {
-		if err != nil {
-			return
-		}
-		var info []byte
-		info, err = snapshotDb.Get([]byte(localPath), nil)
+	if fo.Operation.SnapshotPath != "" {
+		timeStr, err := fo.SnapshotDb.Get([]byte(snapshotKey), nil)
 		if err == nil {
-			t, _ := strconv.ParseInt(string(info), 10, 64)
-			if t == localPathInfo.ModTime().Unix() {
+			modifiedTime, _ := strconv.ParseInt(string(timeStr), 10, 64)
+			if modifiedTime == localFileModifiedTime {
 				return true, nil
-			} else {
-				return false, nil
 			}
 		}
 	}
 
-	headOpt := &cos.ObjectHeadOptions{
-		IfModifiedSince:       "",
-		XCosSSECustomerAglo:   "",
-		XCosSSECustomerKey:    "",
-		XCosSSECustomerKeyMD5: "",
-		XOptionHeader:         nil,
-	}
-	resp, err := c.Object.Head(context.Background(), cosPath, headOpt)
+	resp, err := getHead(c, cosPath)
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
 			// 文件不在cos上，上传
@@ -72,8 +61,8 @@ func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, loca
 			localCrc, _ := CalculateHash(localPath, "crc64")
 			if cosCrc == localCrc {
 				// 本地校验通过后，若未记录快照。则添加
-				if snapshotPath != "" {
-					snapshotDb.Put([]byte(localPath), []byte(strconv.FormatInt(localPathInfo.ModTime().Unix(), 10)), nil)
+				if fo.Operation.SnapshotPath != "" {
+					fo.SnapshotDb.Put([]byte(localPath), []byte(strconv.FormatInt(localFileModifiedTime, 10)), nil)
 				}
 				return true, nil
 			} else {
@@ -83,94 +72,32 @@ func skipUpload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, loca
 			return false, nil
 		}
 	}
+	return false, nil
 }
 
-func SyncMultiUpload(c *cos.Client, localDir, bucketName, cosDir, include, exclude string, op *UploadOptions) {
-	if localDir == "" {
-		logger.Fatalln("localDir is empty")
-		os.Exit(1)
+func getSnapshotKey(absLocalFilePath string, bucket string, object string) string {
+	return absLocalFilePath + SnapshotConnector + getCosUrl(bucket, object)
+}
+
+func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) {
+	if fo.Operation.SnapshotPath == "" {
+		return
 	}
 
-	// 格式化本地路径
-	localDir = strings.TrimPrefix(localDir, "./")
-
-	// 判断local路径是文件还是文件夹
-	localDirInfo, err := os.Stat(localDir)
+	var err error
+	if fo.CpType == CpTypeUpload {
+		err = CheckPath(srcUrl, fo, TypeSnapshotPath)
+	} else if fo.CpType == CpTypeDownload {
+		err = CheckPath(destUrl, fo, TypeSnapshotPath)
+	} else {
+		logger.Fatalln("copy object doesn't support option --snapshot-path")
+	}
 	if err != nil {
 		logger.Fatalln(err)
-		os.Exit(1)
 	}
-	var files []string
-	if localDirInfo.IsDir() {
-		if cosDir != "" {
-			if strings.HasSuffix(cosDir, "/") {
-				// cos路径若以路径分隔符结尾，且 local路径若不以路径分隔符结尾，则需将local路径的最终文件拼接至cos路径最后
-				if !strings.HasSuffix(localDir, string(filepath.Separator)) {
-					fileName := filepath.Base(localDir)
-					cosDir += fileName
-				}
-			} else {
-				// cos路径若不以路径分隔符结尾，则添加路径分隔符
-				cosDir += "/"
-			}
-		} else {
-			// cos路径为空，且 local路径若不以路径分隔符结尾，则需将local路径的最终文件拼接至cos路径最后
-			if !strings.HasSuffix(localDir, string(filepath.Separator)) {
-				fileName := filepath.Base(localDir)
-				cosDir += fileName
-			}
-		}
 
-		// local路径若不以路径分隔符结尾，则添加
-		if !strings.HasSuffix(localDir, string(filepath.Separator)) {
-			localDir += string(filepath.Separator)
-		}
-		files = GetLocalFilesListRecursive(localDir, include, exclude)
-		for _, f := range files {
-			localPath := filepath.Join(localDir, f)
-			// 兼容windows，将windows的路径分隔符 "\" 转换为 "/"
-			f = strings.ReplaceAll(f, string(filepath.Separator), "/")
-			// 格式化cos路径
-			cosPath := f
-			if cosDir != "" {
-				if !strings.HasSuffix(cosDir, "/") {
-					cosPath = cosDir + "/" + f
-				} else {
-					cosPath = cosDir + f
-				}
-			}
-			SyncSingleUpload(c, localPath, bucketName, cosPath, op)
-		}
-	} else {
-		// 若是文件直接取出文件名
-		fileName := filepath.Base(localDir)
-		// 匹配规则
-		if len(include) > 0 {
-			re := regexp.MustCompile(include)
-			match := re.MatchString(fileName)
-			if !match {
-				logger.Warningf("skip file %s due to not matching \"%s\" pattern ", localDir, include)
-				os.Exit(1)
-			}
-		}
-
-		if len(exclude) > 0 {
-			re := regexp.MustCompile(exclude)
-			match := re.MatchString(fileName)
-			if match {
-				logger.Warningf("skip file %s due to matching \"%s\" pattern ", localDir, exclude)
-				os.Exit(1)
-			}
-		}
-
-		// 若cos路径为空或以路径分隔符结尾，则需拼接文件名
-		cosPath := cosDir
-		if cosDir == "" || strings.HasSuffix(cosDir, "/") {
-			cosPath = cosDir + fileName
-		}
-		localPath := localDir
-
-		SyncSingleUpload(c, localPath, bucketName, cosPath, op)
+	if fo.SnapshotDb, err = leveldb.OpenFile(fo.Operation.SnapshotPath, nil); err != nil {
+		logger.Fatalln("Sync load snapshot error, reason: " + err.Error())
 	}
 }
 

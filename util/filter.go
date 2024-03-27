@@ -1,33 +1,11 @@
 package util
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 )
 
-func filterFile(file fileInfoType, checkpointDir string) bool {
-	filePath := file.filePath
-	if file.dir != "" {
-		if strings.HasSuffix(file.dir, string(os.PathSeparator)) {
-			filePath = file.dir + file.filePath
-		} else {
-			filePath = file.dir + string(os.PathSeparator) + file.filePath
-		}
-	}
-	return filterCheckpointDir(filePath, checkpointDir)
-}
-
-func filterCheckpointDir(filePath string, checkpointDir string) bool {
-	if !strings.Contains(filePath, checkpointDir) {
-		return true
-	}
-	absFile, _ := filepath.Abs(filePath)
-	absCheckpointDir, _ := filepath.Abs(checkpointDir)
-	return !strings.Contains(absFile, absCheckpointDir)
-}
-
-func fileMatchPatterns(filename string, filters []FilterOptionType) bool {
+func matchPatterns(filename string, filters []FilterOptionType) bool {
 	if len(filters) == 0 {
 		return true
 	}
@@ -122,4 +100,12 @@ func createFilter(name, pattern string) (bool, FilterOptionType) {
 		return false, filter
 	}
 	return true, filter
+}
+
+func cosObjectMatchPatterns(object string, filters []FilterOptionType) bool {
+	if len(filters) == 0 {
+		return true
+	}
+
+	return matchPatterns(object, filters)
 }

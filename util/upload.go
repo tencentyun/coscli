@@ -3,73 +3,24 @@ package util
 import (
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
-	leveldb "github.com/syndtr/goleveldb/leveldb"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
-
-type ProgressInfo struct {
-	Info       string
-	Percent    int
-	Consumed   int64
-	Total      int64
-	IsFinished bool
-	Index      int
-}
 
 var (
 	mu sync.Mutex
 )
 
-type UploadOptions struct {
-	StorageClass string
-	RateLimiting float32
-	PartSize     int64
-	ThreadNum    int
-	Meta         Meta
-	SnapshotDb   *leveldb.DB
-	SnapshotPath string
-}
-
-type Message struct {
-	message string
-	args    []interface{}
-}
-
-func Upload(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations, cpType CpType) {
+func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
+	startT := time.Now().UnixNano() / 1000 / 1000
 	localPath := fileUrl.ToString()
-	bucketName := cosUrl.(CosUrl).Bucket
-	cosPath := cosUrl.(CosUrl).Object
 
-	c := NewClient(fo.Config, fo.Param, bucketName)
-	// crc64校验开关
-	c.Conf.EnableCRC = fo.Operation.DisableCrc64
-
-	if localPath == "" {
-		logger.Fatalln("localPath is empty")
-	}
-
-	// 格式化本地路径
-	localPath = strings.TrimPrefix(localPath, "./")
-	// 获取本地文件/文件夹信息
-	localPathInfo, err := os.Stat(localPath)
-	if err != nil {
-		logger.Fatalln(err)
-	}
-
-	if localPathInfo.IsDir() && !fo.Operation.Recursive {
-		logger.Fatalf("localPath:%v is dir, please use --recursive option", localPath)
-	}
-
-	// 格式化路径
-	if fo.Operation.Recursive {
-		cosPath, localPath = formatPath(cosPath, localPath)
-	}
-
-	fo.Monitor.init(cpType)
+	fo.Monitor.init(fo.CpType)
 	chProgressSignal = make(chan chProgressSignalType, 10)
 	go progressBar(fo)
 
@@ -82,7 +33,7 @@ func Upload(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations, cpType Cp
 	go generateFileList(localPath, chFiles, chListError, fo)
 
 	for i := 0; i < fo.Operation.Routines; i++ {
-		go uploadFiles(c, cosPath, fo, chFiles, chError)
+		go uploadFiles(c, cosUrl, fo, chFiles, chError)
 	}
 
 	completed := 0
@@ -108,32 +59,31 @@ func Upload(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations, cpType Cp
 
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
 }
 
-func uploadFiles(c *cos.Client, cosPath string, fo *FileOperations, chFiles <-chan fileInfoType, chError chan<- error) {
+func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <-chan fileInfoType, chError chan<- error) {
 	for file := range chFiles {
-		if filterFile(file, fo.Operation.CheckpointDir) {
-			skip, err, isDir, size, msg := SingleUpload(c, fo, file, cosPath)
-			fo.Monitor.updateMonitor(skip, err, isDir, size)
-			if err != nil {
-				chError <- fmt.Errorf("%s failed: %w", msg, err)
-				continue
-			}
+		skip, err, isDir, size, msg := SingleUpload(c, fo, file, cosUrl)
+		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		if err != nil {
+			chError <- fmt.Errorf("%s failed: %w", msg, err)
+			continue
 		}
 	}
 
 	chError <- nil
 }
 
-func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosPath string) (skip bool, rErr error, isDir bool, size int64, msg string) {
+func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl StorageUrl) (skip bool, rErr error, isDir bool, size int64, msg string) {
 	skip = false
 	rErr = nil
 	isDir = false
 	size = 0
 
-	localFilePath, cosPath := UploadPathFixed(file, cosPath)
-
-	msg = fmt.Sprintf("Upload %s to %s", localFilePath, SchemePrefix+cosPath)
+	localFilePath, cosPath := UploadPathFixed(file, cosUrl.(*CosUrl).Object)
 
 	fileInfo, err := os.Stat(localFilePath)
 	if err != nil {
@@ -141,8 +91,11 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosPath 
 		return
 	}
 
-	size = fileInfo.Size()
+	var snapshotKey string
 
+	msg = fmt.Sprintf("Upload %s to %s", localFilePath, SchemePrefix+cosPath)
+
+	size = fileInfo.Size()
 	if fileInfo.IsDir() {
 		isDir = true
 		// 在cos创建文件夹
@@ -152,6 +105,17 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosPath 
 			return
 		}
 	} else {
+		// 仅sync命令执行skip
+		if fo.Command == CommandSync {
+			absLocalFilePath, _ := filepath.Abs(localFilePath)
+			snapshotKey = getSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+			skip, err = skipUpload(snapshotKey, c, fo, fileInfo.ModTime().Unix(), cosPath, localFilePath)
+		}
+
+		if skip {
+			return
+		}
+
 		opt := &cos.MultiUploadOptions{
 			OptIni: &cos.InitiateMultipartUploadOptions{
 				ACLHeaderOptions: &cos.ACLHeaderOptions{
@@ -193,11 +157,11 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosPath 
 			rErr = err
 			return
 		}
+	}
 
-		//if fo.Operation.SnapshotPath != "" {
-		//	fo.Operation.SnapshotDb.Put([]byte(localPath), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 10)), nil)
-		//}
-
+	if snapshotKey != "" && fo.Operation.SnapshotPath != "" {
+		// 上传成功后添加快照
+		fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 10)), nil)
 	}
 
 	return

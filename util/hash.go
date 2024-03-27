@@ -15,7 +15,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func ShowHash(c *cos.Client, path string, hashType string) (h string, b string,resp *cos.Response) {
+func ShowHash(c *cos.Client, path string, hashType string) (h string, b string, resp *cos.Response) {
 	opt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",
 		XCosSSECustomerAglo:   "",
@@ -80,4 +80,15 @@ func CalculateHash(path string, hashType string) (h string, b string) {
 		return "", ""
 	}
 	return h, b
+}
+
+func getHead(c *cos.Client, cosPath string) (*cos.Response, error) {
+	headOpt := &cos.ObjectHeadOptions{
+		IfModifiedSince:       "",
+		XCosSSECustomerAglo:   "",
+		XCosSSECustomerKey:    "",
+		XCosSSECustomerKeyMD5: "",
+		XOptionHeader:         nil,
+	}
+	return c.Object.Head(context.Background(), cosPath, headOpt)
 }

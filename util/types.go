@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
 	"net/http"
 	"os"
 )
@@ -46,14 +47,24 @@ type fileInfoType struct {
 	dir      string
 }
 
+type objectInfoType struct {
+	prefix       string
+	relativeKey  string
+	size         int64
+	lastModified string
+}
+
 type CpType int
 
 type FileOperations struct {
-	Operation Operation
-	Monitor   *FileProcessMonitor
-	ErrOutput *ErrOutput
-	Config    *Config
-	Param     *Param
+	Operation  Operation
+	Monitor    *FileProcessMonitor
+	ErrOutput  *ErrOutput
+	Config     *Config
+	Param      *Param
+	SnapshotDb *leveldb.DB
+	CpType     CpType
+	Command    string
 }
 
 type Operation struct {
@@ -71,10 +82,11 @@ type Operation struct {
 	OnlyCurrentDir    bool
 	DisableAllSymlink bool
 	EnableSymlinkDir  bool
-	CheckpointDir     string
 	DisableCrc64      bool
 	SnapshotPath      string
 	Delete            bool
+	BackupDir         string
+	Force             bool
 }
 
 type ErrOutput struct {

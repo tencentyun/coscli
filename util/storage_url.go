@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -9,17 +10,15 @@ import (
 	"strings"
 )
 
-const SchemePrefix string = "cos://"
-const CosSeparator string = "/"
-
 type StorageUrl interface {
 	IsCosUrl() bool
 	IsFileUrl() bool
 	ToString() string
+	UpdateUrlStr(newUrlStr string)
 }
 
 type CosUrl struct {
-	UrlStr string
+	urlStr string
 	Bucket string
 	Object string
 }
@@ -43,6 +42,11 @@ func (cu CosUrl) ToString() string {
 	return fmt.Sprintf("%s%s/%s", SchemePrefix, cu.Bucket, cu.Object)
 }
 
+func (cu *CosUrl) UpdateUrlStr(urlStr string) {
+	cu.urlStr = urlStr
+	cu.parseBucketObject()
+}
+
 func (fu FileUrl) IsCosUrl() bool {
 	return false
 }
@@ -55,8 +59,12 @@ func (fu FileUrl) ToString() string {
 	return fu.urlStr
 }
 
+func (fu *FileUrl) UpdateUrlStr(urlStr string) {
+	fu.urlStr = urlStr
+}
+
 func (cu *CosUrl) Init(urlStr string) error {
-	cu.UrlStr = urlStr
+	cu.urlStr = urlStr
 	if err := cu.parseBucketObject(); err != nil {
 		return err
 	}
@@ -67,7 +75,7 @@ func (cu *CosUrl) Init(urlStr string) error {
 }
 
 func (cu *CosUrl) parseBucketObject() error {
-	path := cu.UrlStr
+	path := cu.urlStr
 	if strings.HasPrefix(strings.ToLower(path), SchemePrefix) {
 		path = string(path[len(SchemePrefix):])
 	} else {
@@ -85,7 +93,7 @@ func (cu *CosUrl) parseBucketObject() error {
 
 func (cu *CosUrl) checkBucketObject() error {
 	if cu.Bucket == "" && cu.Object != "" {
-		return fmt.Errorf("invalid cos url: %s, miss bucket", cu.UrlStr)
+		return fmt.Errorf("invalid cos url: %s, miss bucket", cu.urlStr)
 	}
 	return nil
 }
@@ -130,29 +138,54 @@ func FormatUrl(urlStr string) (StorageUrl, error) {
 		if err := CosUrl.Init(urlStr); err != nil {
 			return nil, err
 		}
-		return CosUrl, nil
+		return &CosUrl, nil
 	}
 	var FileUrl FileUrl
 	if err := FileUrl.Init(urlStr); err != nil {
 		return nil, err
 	}
-	return FileUrl, nil
+	return &FileUrl, nil
 }
 
-// 格式化cos路径及local路径
-func formatPath(cosPath string, localPath string) (string, string) {
-	fileName := ""
-	// 若local路径若不以路径分隔符结尾，则需将local路径的最终文件夹拼接至cos路径最后，并给local路径补充路径分隔符
-	if !strings.HasSuffix(localPath, string(filepath.Separator)) {
-		fileName = filepath.Base(localPath)
-		localPath += string(filepath.Separator)
+func getCosUrl(bucket string, object string) string {
+	cosUrl := CosUrl{
+		Bucket: bucket,
+		Object: object,
 	}
-	// cos路径格式化
-	if cosPath != "" && !strings.HasSuffix(cosPath, CosSeparator) {
-		cosPath += CosSeparator
-	}
-	// cos路径拼接文件夹名
-	cosPath += fileName + CosSeparator
+	return cosUrl.ToString()
+}
 
-	return cosPath, localPath
+// 格式化上传操作cos路径及local路径
+func FormatUploadPath(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
+	localPath := fileUrl.ToString()
+	if localPath == "" {
+		logger.Fatalln("localPath is empty")
+	}
+
+	// 获取本地文件/文件夹信息
+	localPathInfo, err := os.Stat(localPath)
+	if err != nil {
+		logger.Fatalln(err)
+	}
+
+	if localPathInfo.IsDir() && !fo.Operation.Recursive {
+		logger.Fatalf("localPath:%v is dir, please use --recursive option", localPath)
+	}
+
+	cosPath := cosUrl.ToString()
+	// 若local路径若不以路径分隔符结尾 且 cos路径以路径分隔符结尾，则需将local路径的最终文件夹拼接至cos路径最后，并给local路径补充路径分隔符
+	if !strings.HasSuffix(localPath, string(filepath.Separator)) && strings.HasSuffix(cosPath, "/") {
+		fileName := filepath.Base(localPath)
+		localPath += string(filepath.Separator)
+		// cos路径拼接文件夹名
+		cosPath += fileName + CosSeparator
+	} else {
+		// cos路径格式化
+		if cosPath != "" && !strings.HasSuffix(cosPath, CosSeparator) {
+			cosPath += CosSeparator
+		}
+	}
+
+	fileUrl.UpdateUrlStr(localPath)
+	cosUrl.UpdateUrlStr(cosPath)
 }

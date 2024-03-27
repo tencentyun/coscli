@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"github.com/mitchellh/go-homedir"
 	"os"
 	"path/filepath"
@@ -49,4 +50,57 @@ func UploadPathFixed(file fileInfoType, cosPath string) (string, string) {
 	localFilePath := filepath.Join(file.dir, file.filePath)
 
 	return localFilePath, cosPath
+}
+
+func getAbsPath(strPath string) (string, error) {
+	if filepath.IsAbs(strPath) {
+		return strPath, nil
+	}
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.HasSuffix(strPath, string(os.PathSeparator)) {
+		strPath += string(os.PathSeparator)
+	}
+
+	strPath = currentDir + string(os.PathSeparator) + strPath
+	absPath, err := filepath.Abs(strPath)
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.HasSuffix(absPath, string(os.PathSeparator)) {
+		absPath += string(os.PathSeparator)
+	}
+	return absPath, err
+}
+
+// 检查路径是否是本地文件路径的子路径
+func CheckPath(fileUrl StorageUrl, fo *FileOperations, pathType string) error {
+	absFileDir, err := getAbsPath(fileUrl.ToString())
+	if err != nil {
+		return err
+	}
+
+	var path string
+	if pathType == TypeSnapshotPath {
+		path = fo.Operation.SnapshotPath
+	} else if pathType == TypeFailOutputPath {
+		path = fo.Operation.FailOutputPath
+	} else {
+		return fmt.Errorf("check path failed , invalid pathType %s", pathType)
+	}
+
+	absPath, err := getAbsPath(path)
+	if err != nil {
+		return err
+	}
+
+	if strings.Index(absPath, absFileDir) >= 0 {
+		return fmt.Errorf("%s %s is subdirectory of %s", pathType, fo.Operation.SnapshotPath, fileUrl.ToString())
+	}
+	return nil
 }
