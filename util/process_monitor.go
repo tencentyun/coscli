@@ -106,13 +106,13 @@ func (fpm *FileProcessMonitor) updateDealSize(size int64) {
 func (fpm *FileProcessMonitor) updateFile(size, num int64) {
 	atomic.AddInt64(&fpm.fileNum, num)
 	//atomic.AddInt64(&fpm.TransferSize, size)
-	atomic.AddInt64(&fpm.dealSize, size)
+	//atomic.AddInt64(&fpm.dealSize, size)
 }
 
 func (fpm *FileProcessMonitor) updateDir(size, num int64) {
 	atomic.AddInt64(&fpm.dirNum, num)
 	//atomic.AddInt64(&fpm.TransferSize, size)
-	atomic.AddInt64(&fpm.dealSize, size)
+	//atomic.AddInt64(&fpm.dealSize, size)
 }
 
 func (fpm *FileProcessMonitor) updateSkip(size, num int64) {
