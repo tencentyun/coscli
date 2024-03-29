@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
@@ -98,4 +99,53 @@ func getObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfo
 	}
 
 	return nil
+}
+
+func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
+	if prefix == "" {
+		return true
+	}
+
+	// cos路径若不以路径分隔符结尾，则添加
+	if !strings.HasSuffix(prefix, "/") && prefix != "" {
+		prefix += "/"
+	}
+
+	retries := 0
+	if len(retryCount) > 0 {
+		retries = retryCount[0]
+	}
+
+	opt := &cos.BucketGetOptions{
+		Prefix:       prefix,
+		Delimiter:    "",
+		EncodingType: "url",
+		Marker:       "",
+		MaxKeys:      limit,
+	}
+
+	res, err := tryGetBucket(c, opt, retries)
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+
+	isDir = true
+	if len(res.Contents) == 0 {
+		isDir = false
+	}
+	return isDir
+}
+
+func CheckCosObjectExist(c *cos.Client, prefix string) (exist bool) {
+	if prefix == "" {
+		return true
+	}
+
+	exist, err := c.Object.IsExist(context.Background(), prefix)
+	if err != nil {
+		logger.Fatalln(err)
+	}
+
+	return exist
 }

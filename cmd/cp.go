@@ -111,6 +111,10 @@ Example:
 			Command:   util.CommandCP,
 		}
 
+		if !fo.Operation.Recursive && len(fo.Operation.Filters) > 0 {
+			logger.Fatalln("--include or --exclude only work with --recursive")
+		}
+
 		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
 			// 检查错误输出日志是否是本地路径的子集
@@ -130,11 +134,14 @@ Example:
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
-
 			if err != nil {
 				logger.Fatalln(err)
 			}
 
+			bucketName := srcUrl.(*util.CosUrl).Bucket
+			c := util.NewClient(fo.Config, fo.Param, bucketName)
+			// 格式化下载路径
+			util.FormatDownloadPath(srcUrl, destUrl, fo, c)
 			// 下载
 			op := &util.DownloadOptions{
 				RateLimiting: rateLimiting,

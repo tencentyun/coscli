@@ -237,36 +237,41 @@ func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string
 	return dirs, objects, isTruncated, nextMarker
 }
 
-func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
-	if prefix == "" {
-		return true
-	}
-
-	retries := 0
-	if len(retryCount) > 0 {
-		retries = retryCount[0]
-	}
-
-	opt := &cos.BucketGetOptions{
-		Prefix:       prefix,
-		Delimiter:    "",
-		EncodingType: "url",
-		Marker:       "",
-		MaxKeys:      limit,
-	}
-
-	res, err := tryGetBucket(c, opt, retries)
-	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
-
-	isDir = true
-	if len(res.Contents) == 0 {
-		isDir = false
-	}
-	return isDir
-}
+//func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
+//	if prefix == "" {
+//		return true
+//	}
+//
+//	// cos路径若不以路径分隔符结尾，则添加
+//	if !strings.HasSuffix(prefix, "/") && prefix != "" {
+//		prefix += "/"
+//	}
+//
+//	retries := 0
+//	if len(retryCount) > 0 {
+//		retries = retryCount[0]
+//	}
+//
+//	opt := &cos.BucketGetOptions{
+//		Prefix:       prefix,
+//		Delimiter:    "",
+//		EncodingType: "url",
+//		Marker:       "",
+//		MaxKeys:      limit,
+//	}
+//
+//	res, err := tryGetBucket(c, opt, retries)
+//	if err != nil {
+//		logger.Fatalln(err)
+//		os.Exit(1)
+//	}
+//
+//	isDir = true
+//	if len(res.Contents) == 0 {
+//		isDir = false
+//	}
+//	return isDir
+//}
 
 func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object,
 	commonPrefixes []string) {

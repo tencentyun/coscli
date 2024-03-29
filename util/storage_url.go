@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -172,20 +173,79 @@ func FormatUploadPath(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations)
 		logger.Fatalf("localPath:%v is dir, please use --recursive option", localPath)
 	}
 
-	cosPath := cosUrl.ToString()
+	cosPath := cosUrl.(*CosUrl).Object
 	// 若local路径若不以路径分隔符结尾 且 cos路径以路径分隔符结尾，则需将local路径的最终文件夹拼接至cos路径最后，并给local路径补充路径分隔符
 	if !strings.HasSuffix(localPath, string(filepath.Separator)) && strings.HasSuffix(cosPath, "/") {
 		fileName := filepath.Base(localPath)
-		localPath += string(filepath.Separator)
 		// cos路径拼接文件夹名
-		cosPath += fileName + CosSeparator
-	} else {
-		// cos路径格式化
-		if cosPath != "" && !strings.HasSuffix(cosPath, CosSeparator) {
-			cosPath += CosSeparator
-		}
+		cosPath += fileName
+	}
+
+	// 格式化本地文件夹
+	if fo.Operation.Recursive && localPathInfo.IsDir() && !strings.HasSuffix(localPath, string(filepath.Separator)) {
+		localPath += string(filepath.Separator)
+	}
+
+	// cos路径格式化
+	if fo.Operation.Recursive && localPathInfo.IsDir() && !strings.HasSuffix(cosPath, CosSeparator) && cosPath != "" {
+		cosPath += CosSeparator
 	}
 
 	fileUrl.UpdateUrlStr(localPath)
-	cosUrl.UpdateUrlStr(cosPath)
+	cosUrl.UpdateUrlStr(SchemePrefix + cosUrl.(*CosUrl).Bucket + CosSeparator + cosPath)
+}
+
+// 格式化下载操作cos路径及local路径
+func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations, c *cos.Client) {
+	localPath := fileUrl.ToString()
+	if localPath == "" {
+		logger.Fatalln("localPath is empty")
+	}
+
+	cosPath := cosUrl.(*CosUrl).Object
+	isDir := false
+	if fo.Operation.Recursive {
+		// 判断cosPath是否是文件夹
+		isDir = CheckCosPathType(c, cosPath, 1, fo.Operation.RetryNum)
+
+		if !isDir && strings.HasSuffix(cosPath, "/") {
+			logger.Fatalf("cos dir not found:%s", cosPath)
+		}
+	}
+
+	if !isDir {
+		fileExist := CheckCosObjectExist(c, cosPath)
+		if !fileExist {
+			logger.Fatalf("cos object not found:%s", cosPath)
+		}
+	}
+
+	// cos路径不以路径分隔符结尾，且local路径以路径分隔符结尾，则需将cos最后一位 文件/文件夹名 拼接至local路径后
+	if cosPath != "" && !strings.HasSuffix(cosPath, "/") && strings.HasSuffix(localPath, string(filepath.Separator)) {
+		objectName := filepath.Base(cosPath)
+		localPath += objectName
+	}
+
+	// 格式化本地文件夹
+	if fo.Operation.Recursive && isDir && !strings.HasSuffix(localPath, string(filepath.Separator)) {
+		localPath += string(filepath.Separator)
+	}
+
+	// 创建本地文件夹
+	if strings.HasSuffix(localPath, string(filepath.Separator)) {
+		if err := os.MkdirAll(localPath, 0755); err != nil {
+			logger.Fatalf("mkdir %s failed:%v", localPath, err)
+		}
+	}
+
+	// 格式化cos路径
+	if fo.Operation.Recursive && isDir && !strings.HasSuffix(cosPath, CosSeparator) && cosPath != "" {
+		cosPath += CosSeparator
+	}
+
+	fmt.Println(localPath, cosPath)
+	os.Exit(1)
+
+	fileUrl.UpdateUrlStr(localPath)
+	cosUrl.UpdateUrlStr(SchemePrefix + cosUrl.(*CosUrl).Bucket + CosSeparator + cosPath)
 }
