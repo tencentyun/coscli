@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -36,7 +37,6 @@ func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOp
 }
 
 func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFileModifiedTime int64, cosPath string, localPath string) (bool, error) {
-
 	if fo.Operation.SnapshotPath != "" {
 		timeStr, err := fo.SnapshotDb.Get([]byte(snapshotKey), nil)
 		if err == nil {
@@ -62,7 +62,7 @@ func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFile
 			if cosCrc == localCrc {
 				// 本地校验通过后，若未记录快照。则添加
 				if fo.Operation.SnapshotPath != "" {
-					fo.SnapshotDb.Put([]byte(localPath), []byte(strconv.FormatInt(localFileModifiedTime, 10)), nil)
+					fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(localFileModifiedTime, 10)), nil)
 				}
 				return true, nil
 			} else {
@@ -75,8 +75,45 @@ func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFile
 	return false, nil
 }
 
-func getSnapshotKey(absLocalFilePath string, bucket string, object string) string {
+func getUploadSnapshotKey(absLocalFilePath string, bucket string, object string) string {
 	return absLocalFilePath + SnapshotConnector + getCosUrl(bucket, object)
+}
+
+func skipDownload(c *cos.Client, fo *FileOperations, localPath string, objectModifiedTimeStr string, object string) (bool, error) {
+	objectModifiedTime, _ := strconv.ParseInt(objectModifiedTimeStr, 10, 64)
+	if fo.Operation.SnapshotPath != "" {
+		timeStr, err := fo.SnapshotDb.Get([]byte(object), nil)
+		if err == nil {
+			modifiedTime, _ := strconv.ParseInt(string(timeStr), 10, 64)
+			if modifiedTime == objectModifiedTime {
+				return true, nil
+			}
+		}
+	}
+
+	localCrc, _ := CalculateHash(localPath, "crc64")
+	resp, err := getHead(c, object)
+	if err != nil {
+		if resp != nil && resp.StatusCode == 404 {
+			// 文件不在cos上
+			return false, fmt.Errorf("Object not found")
+		} else {
+			return false, err
+		}
+	} else {
+		cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
+		if cosCrc == localCrc {
+			// 本地校验通过后，添加快照记录
+			if fo.Operation.SnapshotPath != "" {
+				fo.SnapshotDb.Put([]byte(object), []byte(strconv.FormatInt(objectModifiedTime, 10)), nil)
+			}
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+
+	return false, nil
 }
 
 func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) {
@@ -103,7 +140,7 @@ func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) {
 
 func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions,
 	cosLastModified string, isRecursive bool) error {
-	localPath, cosPath, err := DownloadPathFixed(localPath, cosPath, isRecursive)
+	localPath, cosPath, err := DownloadPathFixedOld(localPath, cosPath, isRecursive)
 	if err != nil {
 		return err
 	}
@@ -111,14 +148,14 @@ func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op
 	if err != nil {
 		if os.IsNotExist(err) {
 			// 文件不在本地，下载
-			err = SingleDownload(c, bucketName, cosPath, localPath, op, isRecursive)
+			err = SingleDownloadOld(c, bucketName, cosPath, localPath, op, isRecursive)
 		} else {
 			logger.Fatalln(err)
 			return err
 		}
 	} else {
 		var skip bool
-		skip, err = skipDownload(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath, cosLastModified)
+		skip, err = skipDownloadOld(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath, cosLastModified)
 		if err != nil {
 			logger.Errorf("Sync cosPath, err:%s", err.Error())
 			return err
@@ -128,12 +165,12 @@ func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op
 			logger.Infof("Sync skip download, localPath:%s, cosPath:%s", localPath, cosPath)
 			return nil
 		}
-		err = SingleDownload(c, bucketName, cosPath, localPath, op, isRecursive)
+		err = SingleDownloadOld(c, bucketName, cosPath, localPath, op, isRecursive)
 	}
 	return err
 }
 
-func skipDownload(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, localPath string,
+func skipDownloadOld(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, localPath string,
 	cosPath string, cosLastModified string) (skip bool, err error) {
 	// 直接和本地的snapshot作对比
 	if snapshotPath != "" {

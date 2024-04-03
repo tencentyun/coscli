@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,7 +25,7 @@ type DownloadOptions struct {
 	SnapshotPath string
 }
 
-func DownloadPathFixed(localPath string, cosPath string, isRecursive bool) (string, string, error) {
+func DownloadPathFixedOld(localPath string, cosPath string, isRecursive bool) (string, string, error) {
 	if len(cosPath) == 0 {
 		logger.Warningln("Invalid cosPath")
 		logger.Errorln(errors.New("invalid cosPath"))
@@ -73,7 +74,7 @@ func DownloadPathFixed(localPath string, cosPath string, isRecursive bool) (stri
 	return localPath, cosPath, err
 }
 
-func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions, isRecursive bool) error {
+func SingleDownloadOld(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions, isRecursive bool) error {
 	opt := &cos.MultiDownloadOptions{
 		Opt: &cos.ObjectGetOptions{
 			ResponseContentType:        "",
@@ -96,7 +97,7 @@ func SingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *Do
 		CheckPoint:     true,
 		CheckPointFile: "",
 	}
-	localPath, cosPath, err := DownloadPathFixed(localPath, cosPath, isRecursive)
+	localPath, cosPath, err := DownloadPathFixedOld(localPath, cosPath, isRecursive)
 	if err != nil {
 		return err
 	}
@@ -196,11 +197,160 @@ func listObjects(c *cos.Client, bucketName string, objects []cos.Object, cosDir 
 			localPath = localPath + fileName
 		}
 
-		err := SingleDownload(c, bucketName, o.Key, localPath, op, true)
+		err := SingleDownloadOld(c, bucketName, o.Key, localPath, op, true)
 		if err != nil {
 			failNum += 1
 		} else {
 			successNum += 1
 		}
 	}
+}
+
+func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
+	startT := time.Now().UnixNano() / 1000 / 1000
+
+	fo.Monitor.init(fo.CpType)
+	chProgressSignal = make(chan chProgressSignalType, 10)
+	go progressBar(fo)
+
+	chObjects := make(chan objectInfoType, ChannelSize)
+	chError := make(chan error, fo.Operation.Routines)
+	chListError := make(chan error, 1)
+
+	// 扫描cos对象大小及数量
+	go getCosObjectList(c, cosUrl, nil, nil, fo, true)
+	// 获取cos对象列表
+	go getCosObjectList(c, cosUrl, chObjects, chListError, fo, false)
+
+	for i := 0; i < fo.Operation.Routines; i++ {
+		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError)
+	}
+
+	completed := 0
+	for completed <= fo.Operation.Routines {
+		select {
+		case err := <-chListError:
+			if err != nil {
+				if fo.Operation.FailOutput {
+					writeError(ErrTypeList, err.Error(), fo)
+				}
+			}
+			completed++
+		case err := <-chError:
+			if err == nil {
+				completed++
+			} else {
+				if fo.Operation.FailOutput {
+					writeError(ErrTypeDownload, err.Error(), fo)
+				}
+			}
+		}
+	}
+
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
+}
+
+func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {
+	for object := range chObjects {
+		skip, err, isDir, size, msg := singleDownload(c, fo, object, cosUrl, fileUrl)
+		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		if err != nil {
+			chError <- fmt.Errorf("%s failed: %w", msg, err)
+			continue
+		}
+	}
+
+	chError <- nil
+}
+
+func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType, cosUrl, fileUrl StorageUrl) (skip bool, rErr error, isDir bool, size int64, msg string) {
+	skip = false
+	rErr = nil
+	isDir = false
+	size = objectInfo.size
+	object := objectInfo.prefix + objectInfo.relativeKey
+
+	localFilePath := DownloadPathFixed(objectInfo.relativeKey, fileUrl.ToString())
+	msg = fmt.Sprintf("Download %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
+
+	_, err := os.Stat(localFilePath)
+	if err == nil {
+		// 文件存在再判断是否需要跳过
+		// 仅sync命令执行skip
+		if fo.Command == CommandSync {
+			skip, err = skipDownload(c, fo, localFilePath, objectInfo.lastModified, object)
+			if err != nil {
+				rErr = err
+				return
+			}
+		}
+	}
+
+	// 是文件夹则直接创建并退出
+	if size == 0 && strings.HasSuffix(object, "/") {
+		rErr = os.MkdirAll(localFilePath, 0755)
+		isDir = true
+		return
+	}
+
+	// 不是文件夹则创建父目录
+	err = createParentDirectory(localFilePath)
+	if err != nil {
+		rErr = err
+		return
+	}
+
+	// 未跳过则通过监听更新size
+	size = 0
+
+	// 开始下载文件
+	opt := &cos.MultiDownloadOptions{
+		Opt: &cos.ObjectGetOptions{
+			ResponseContentType:        "",
+			ResponseContentLanguage:    "",
+			ResponseExpires:            "",
+			ResponseCacheControl:       "",
+			ResponseContentDisposition: "",
+			ResponseContentEncoding:    "",
+			Range:                      "",
+			IfModifiedSince:            "",
+			XCosSSECustomerAglo:        "",
+			XCosSSECustomerKey:         "",
+			XCosSSECustomerKeyMD5:      "",
+			XOptionHeader:              nil,
+			XCosTrafficLimit:           (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
+			Listener:                   &CosListener{fo},
+		},
+		PartSize:       fo.Operation.PartSize,
+		ThreadPoolSize: fo.Operation.ThreadNum,
+		CheckPoint:     true,
+		CheckPointFile: "",
+	}
+
+	resp, err := c.Object.Download(context.Background(), object, localFilePath, opt)
+	if err != nil {
+		rErr = err
+		return
+	}
+
+	// 下载完成记录快照信息
+	if fo.Operation.SnapshotPath != "" {
+		lastModified := resp.Header.Get("Last-Modified")
+		if lastModified == "" {
+			return
+		}
+		objectModifiedTime, _ := strconv.ParseInt(lastModified, 10, 64)
+
+		if err != nil {
+			rErr = err
+			return
+		}
+		fo.SnapshotDb.Put([]byte(object), []byte(strconv.FormatInt(objectModifiedTime, 10)), nil)
+	}
+
+	return
 }

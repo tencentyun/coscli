@@ -232,9 +232,18 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 	}
 
 	// 创建本地文件夹
-	if strings.HasSuffix(localPath, string(filepath.Separator)) {
-		if err := os.MkdirAll(localPath, 0755); err != nil {
+	if !isDir {
+		// cos路径不是dir，则local路径只创建文件前面的路径
+		localDir := filepath.Dir(localPath)
+		if err := os.MkdirAll(localDir, 0755); err != nil {
 			logger.Fatalf("mkdir %s failed:%v", localPath, err)
+		}
+	} else {
+		// cos路径是dir，则local路径创建全路径
+		if strings.HasSuffix(localPath, string(filepath.Separator)) {
+			if err := os.MkdirAll(localPath, 0755); err != nil {
+				logger.Fatalf("mkdir %s failed:%v", localPath, err)
+			}
 		}
 	}
 
@@ -242,9 +251,6 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 	if fo.Operation.Recursive && isDir && !strings.HasSuffix(cosPath, CosSeparator) && cosPath != "" {
 		cosPath += CosSeparator
 	}
-
-	fmt.Println(localPath, cosPath)
-	os.Exit(1)
 
 	fileUrl.UpdateUrlStr(localPath)
 	cosUrl.UpdateUrlStr(SchemePrefix + cosUrl.(*CosUrl).Bucket + CosSeparator + cosPath)

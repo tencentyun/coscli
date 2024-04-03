@@ -93,9 +93,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 
 	var snapshotKey string
 
-	msg = fmt.Sprintf("Upload %s to %s", localFilePath, SchemePrefix+cosPath)
-
-	size = fileInfo.Size()
+	msg = fmt.Sprintf("Upload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
 	if fileInfo.IsDir() {
 		isDir = true
 		// 在cos创建文件夹
@@ -105,16 +103,25 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			return
 		}
 	} else {
+		size = fileInfo.Size()
+
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
 			absLocalFilePath, _ := filepath.Abs(localFilePath)
-			snapshotKey = getSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+			snapshotKey = getUploadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
 			skip, err = skipUpload(snapshotKey, c, fo, fileInfo.ModTime().Unix(), cosPath, localFilePath)
+			if err != nil {
+				rErr = err
+				return
+			}
 		}
 
 		if skip {
 			return
 		}
+
+		// 未跳过则通过监听更新size
+		size = 0
 
 		opt := &cos.MultiUploadOptions{
 			OptIni: &cos.InitiateMultipartUploadOptions{

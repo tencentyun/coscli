@@ -52,6 +52,14 @@ func UploadPathFixed(file fileInfoType, cosPath string) (string, string) {
 	return localFilePath, cosPath
 }
 
+func DownloadPathFixed(relativeObject, filePath string) string {
+	if strings.HasSuffix(filePath, "/") || strings.HasSuffix(filePath, "\\") {
+		return filePath + relativeObject
+	}
+
+	return filePath
+}
+
 func getAbsPath(strPath string) (string, error) {
 	if filepath.IsAbs(strPath) {
 		return strPath, nil
@@ -103,4 +111,13 @@ func CheckPath(fileUrl StorageUrl, fo *FileOperations, pathType string) error {
 		return fmt.Errorf("%s %s is subdirectory of %s", pathType, fo.Operation.SnapshotPath, fileUrl.ToString())
 	}
 	return nil
+}
+
+func createParentDirectory(localFilePath string) error {
+	dir, err := filepath.Abs(filepath.Dir(localFilePath))
+	if err != nil {
+		return err
+	}
+	dir = strings.Replace(dir, "\\", "/", -1)
+	return os.MkdirAll(dir, 0755)
 }

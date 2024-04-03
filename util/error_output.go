@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	ErrTypeUpload string = "upload"
-	ErrTypeList   string = "list"
+	ErrTypeUpload   string = "upload"
+	ErrTypeDownload string = "download"
+	ErrTypeList     string = "list"
 )
 
 // 开启错误输出
@@ -50,12 +51,24 @@ func writeError(errorType, errString string, fo *FileOperations) {
 		defer fo.ErrOutput.UploadOutput.Close()
 	}
 
+	if errorType == ErrTypeDownload && fo.ErrOutput.DownloadOutput == nil {
+		uploadFailOutputFilePath := filepath.Join(fo.ErrOutput.Path, "download_err.report")
+		fo.ErrOutput.DownloadOutput, err = os.OpenFile(uploadFailOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			logger.Fatal("Failed to create error download output file:", err)
+		}
+		defer fo.ErrOutput.DownloadOutput.Close()
+	}
+
 	outputMu.Lock()
 	var writeErr error
-	if errorType == ErrTypeList {
+	switch errorType {
+	case ErrTypeList:
 		_, writeErr = fo.ErrOutput.ListOutput.WriteString(errString)
-	} else {
+	case ErrTypeUpload:
 		_, writeErr = fo.ErrOutput.UploadOutput.WriteString(errString)
+	case ErrTypeDownload:
+		_, writeErr = fo.ErrOutput.DownloadOutput.WriteString(errString)
 	}
 
 	if writeErr != nil {

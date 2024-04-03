@@ -31,7 +31,6 @@ func ReadCosKeys(keys map[string]string, cosUrl StorageUrl, chObjects <-chan obj
 	fmt.Printf("\n")
 	for objectInfo := range chObjects {
 		totalCount++
-		//fmt.Printf("\r%s,total cos object count:%d", cosUrl.ToString(), totalCount)
 		keys[objectInfo.relativeKey] = objectInfo.prefix
 		if len(keys) > MaxSyncNumbers {
 			fmt.Printf("\n")
@@ -45,62 +44,8 @@ func ReadCosKeys(keys map[string]string, cosUrl StorageUrl, chObjects <-chan obj
 
 func GetCosKeyList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chFinish chan<- error, fo *FileOperations) {
 	cosPath := cosUrl.(*CosUrl)
-	err := getObjectList(c, cosPath, chObjects, fo)
-	if err != nil {
-		chFinish <- err
-	}
+	getCosObjectList(c, cosPath, chObjects, chFinish, fo, false)
 }
-
-func getObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, fo *FileOperations) error {
-	defer close(chObjects)
-	// 列表参数
-	prefix := cosUrl.(*CosUrl).Object
-	marker := ""
-	limit := 1000
-	retries := fo.Operation.RetryNum
-	delimiter := ""
-	if fo.Operation.OnlyCurrentDir {
-		delimiter = "/"
-	}
-
-	// 实例化请求参数
-	opt := &cos.BucketGetOptions{
-		Prefix:       prefix,
-		Delimiter:    delimiter,
-		EncodingType: "url",
-		Marker:       marker,
-		MaxKeys:      limit,
-	}
-
-	isTruncated := true
-	for isTruncated {
-		res, err := tryGetBucket(c, opt, retries)
-		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
-		}
-
-		for _, object := range res.Contents {
-			objPrefix := ""
-			objKey := object.Key
-			index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
-			if index > 0 {
-				objPrefix = object.Key[:index+1]
-				objKey = object.Key[index+1:]
-			}
-
-			if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
-				chObjects <- objectInfoType{objPrefix, objKey, int64(object.Size), object.LastModified}
-			}
-		}
-
-		isTruncated = res.IsTruncated
-		marker, _ = url.QueryUnescape(res.NextMarker)
-	}
-
-	return nil
-}
-
 func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
 	if prefix == "" {
 		return true
@@ -148,4 +93,69 @@ func CheckCosObjectExist(c *cos.Client, prefix string) (exist bool) {
 	}
 
 	return exist
+}
+
+func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool) {
+	if chObjects != nil {
+		defer close(chObjects)
+	}
+
+	prefix := cosUrl.(*CosUrl).Object
+	marker := ""
+	limit := 1000
+	retries := fo.Operation.RetryNum
+	delimiter := ""
+	if fo.Operation.OnlyCurrentDir {
+		delimiter = "/"
+	}
+
+	// 实例化请求参数
+	opt := &cos.BucketGetOptions{
+		Prefix:       prefix,
+		Delimiter:    delimiter,
+		EncodingType: "url",
+		Marker:       marker,
+		MaxKeys:      limit,
+	}
+
+	isTruncated := true
+	for isTruncated {
+		res, err := tryGetBucket(c, opt, retries)
+		if err != nil {
+			if scanSizeNum {
+				fo.Monitor.setScanError(err)
+				return
+			} else {
+				chError <- err
+				return
+			}
+
+		}
+		for _, object := range res.Contents {
+			if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
+				if scanSizeNum {
+					fo.Monitor.updateScanSizeNum(object.Size, 1)
+				} else {
+					objPrefix := ""
+					objKey := object.Key
+					index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
+					if index > 0 {
+						objPrefix = object.Key[:index+1]
+						objKey = object.Key[index+1:]
+					}
+					chObjects <- objectInfoType{objPrefix, objKey, int64(object.Size), object.LastModified}
+				}
+			}
+		}
+
+		isTruncated = res.IsTruncated
+		marker, _ = url.QueryUnescape(res.NextMarker)
+	}
+
+	if scanSizeNum {
+		fo.Monitor.setScanEnd()
+		freshProgress()
+	} else {
+		chError <- nil
+	}
 }

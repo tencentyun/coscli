@@ -122,13 +122,13 @@ Example:
 			if err != nil {
 				logger.Fatalln(err)
 			}
-			// 格式化上传路径
-			util.FormatUploadPath(srcUrl, destUrl, fo)
 			// 实例化cos client
 			bucketName := destUrl.(*util.CosUrl).Bucket
 			c := util.NewClient(fo.Config, fo.Param, bucketName)
 			// crc64校验开关
 			c.Conf.EnableCRC = fo.Operation.DisableCrc64
+			// 格式化上传路径
+			util.FormatUploadPath(srcUrl, destUrl, fo)
 			// 上传
 			util.Upload(c, srcUrl, destUrl, fo)
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
@@ -137,18 +137,14 @@ Example:
 			if err != nil {
 				logger.Fatalln(err)
 			}
-
 			bucketName := srcUrl.(*util.CosUrl).Bucket
 			c := util.NewClient(fo.Config, fo.Param, bucketName)
+			// crc64校验开关
+			c.Conf.EnableCRC = fo.Operation.DisableCrc64
 			// 格式化下载路径
 			util.FormatDownloadPath(srcUrl, destUrl, fo, c)
 			// 下载
-			op := &util.DownloadOptions{
-				RateLimiting: rateLimiting,
-				PartSize:     partSize,
-				ThreadNum:    threadNum,
-			}
-			download(args, recursive, include, exclude, retryNum, op)
+			util.Download(c, srcUrl, destUrl, fo)
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
 			// 拷贝
 			cosCopy(args, recursive, include, exclude, meta, storageClass)
@@ -183,17 +179,17 @@ func init() {
 	cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 }
 
-func download(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {
-	bucketName, cosPath := util.ParsePath(args[0])
-	_, localPath := util.ParsePath(args[1])
-	c := util.NewClient(&config, &param, bucketName)
-
-	if recursive {
-		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, retryNum, op)
-	} else {
-		util.SingleDownload(c, bucketName, cosPath, localPath, op, false)
-	}
-}
+//func download(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {
+//	bucketName, cosPath := util.ParsePath(args[0])
+//	_, localPath := util.ParsePath(args[1])
+//	c := util.NewClient(&config, &param, bucketName)
+//
+//	if recursive {
+//		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, retryNum, op)
+//	} else {
+//		util.SingleDownload(c, bucketName, cosPath, localPath, op, false)
+//	}
+//}
 
 func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) {
 	bucketName1, cosPath1 := util.ParsePath(args[0])
