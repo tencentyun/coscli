@@ -102,7 +102,7 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 
 	prefix := cosUrl.(*CosUrl).Object
 	marker := ""
-	limit := 1000
+	limit := 0
 	retries := fo.Operation.RetryNum
 	delimiter := ""
 	if fo.Operation.OnlyCurrentDir {

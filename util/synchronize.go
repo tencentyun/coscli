@@ -1,17 +1,12 @@
 package util
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
-
 	logger "github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"strconv"
+	"time"
 )
 
 func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
@@ -80,12 +75,16 @@ func getUploadSnapshotKey(absLocalFilePath string, bucket string, object string)
 }
 
 func skipDownload(c *cos.Client, fo *FileOperations, localPath string, objectModifiedTimeStr string, object string) (bool, error) {
-	objectModifiedTime, _ := strconv.ParseInt(objectModifiedTimeStr, 10, 64)
+	// 解析时间字符串
+	objectModifiedTime, err := time.Parse(time.RFC3339, objectModifiedTimeStr)
+	if err != nil {
+		return false, err
+	}
 	if fo.Operation.SnapshotPath != "" {
 		timeStr, err := fo.SnapshotDb.Get([]byte(object), nil)
 		if err == nil {
 			modifiedTime, _ := strconv.ParseInt(string(timeStr), 10, 64)
-			if modifiedTime == objectModifiedTime {
+			if modifiedTime == objectModifiedTime.Unix() {
 				return true, nil
 			}
 		}
@@ -105,7 +104,7 @@ func skipDownload(c *cos.Client, fo *FileOperations, localPath string, objectMod
 		if cosCrc == localCrc {
 			// 本地校验通过后，添加快照记录
 			if fo.Operation.SnapshotPath != "" {
-				fo.SnapshotDb.Put([]byte(object), []byte(strconv.FormatInt(objectModifiedTime, 10)), nil)
+				fo.SnapshotDb.Put([]byte(object), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
 			}
 			return true, nil
 		} else {
@@ -138,154 +137,25 @@ func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	}
 }
 
-func SyncSingleDownload(c *cos.Client, bucketName, cosPath, localPath string, op *DownloadOptions,
-	cosLastModified string, isRecursive bool) error {
-	localPath, cosPath, err := DownloadPathFixedOld(localPath, cosPath, isRecursive)
-	if err != nil {
-		return err
-	}
-	_, err = os.Stat(localPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// 文件不在本地，下载
-			err = SingleDownloadOld(c, bucketName, cosPath, localPath, op, isRecursive)
-		} else {
-			logger.Fatalln(err)
-			return err
-		}
-	} else {
-		var skip bool
-		skip, err = skipDownloadOld(c, op.SnapshotPath, op.SnapshotDb, localPath, cosPath, cosLastModified)
+func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
+	var err error
+	keysToDelete := make(map[string]string)
+	if fo.Operation.Delete {
+		keysToDelete, err = getDeleteKeys(c, cosUrl, fileUrl, fo)
 		if err != nil {
-			logger.Errorf("Sync cosPath, err:%s", err.Error())
-			return err
-		}
-
-		if skip {
-			logger.Infof("Sync skip download, localPath:%s, cosPath:%s", localPath, cosPath)
-			return nil
-		}
-		err = SingleDownloadOld(c, bucketName, cosPath, localPath, op, isRecursive)
-	}
-	return err
-}
-
-func skipDownloadOld(c *cos.Client, snapshotPath string, snapshotDb *leveldb.DB, localPath string,
-	cosPath string, cosLastModified string) (skip bool, err error) {
-	// 直接和本地的snapshot作对比
-	if snapshotPath != "" {
-		if cosLastModified == "" {
-			cosLastModified, err = getCosLastModified(c, cosPath)
-			if err != nil {
-				return
-			}
-		}
-		var cosLastModifiedTime time.Time
-		cosLastModifiedTime, err = time.Parse(time.RFC3339, cosLastModified)
-		if err != nil {
-			cosLastModifiedTime, err = time.Parse(time.RFC1123, cosLastModified)
-			if err != nil {
-				return
-			}
-		}
-		var info []byte
-		info, err = snapshotDb.Get([]byte(cosPath), nil)
-		if err == nil {
-			t, _ := strconv.ParseInt(string(info), 10, 64)
-			if t == cosLastModifiedTime.Unix() {
-				return true, nil
-			} else {
-				return false, nil
-			}
+			logger.Fatalf("get delete keys error : %v", err)
 		}
 	}
 
-	localCrc, _ := CalculateHash(localPath, "crc64")
-	cosCrc, _, resp := ShowHash(c, cosPath, "crc64")
-	if cosCrc == localCrc {
-		// 本地校验通过后，若未记录快照。则添加
-		if snapshotPath != "" {
-			lastModified := resp.Header.Get("Last-Modified")
-			if lastModified == "" {
-				return false, nil
-			}
-			var cosLastModifiedTime time.Time
-			cosLastModifiedTime, err = time.Parse(time.RFC1123, lastModified)
-			if err != nil {
-				return false, nil
-			}
-			snapshotDb.Put([]byte(cosPath), []byte(strconv.FormatInt(cosLastModifiedTime.Unix(), 10)), nil)
-		}
-		return true, nil
-	} else {
-		return false, nil
-	}
-}
+	// 下载
+	Download(c, cosUrl, fileUrl, fo)
 
-func getCosLastModified(c *cos.Client, cosPath string) (lmt string, err error) {
-	headOpt := &cos.ObjectHeadOptions{
-		IfModifiedSince:       "",
-		XCosSSECustomerAglo:   "",
-		XCosSSECustomerKey:    "",
-		XCosSSECustomerKeyMD5: "",
-		XOptionHeader:         nil,
+	if len(keysToDelete) > 0 {
+		// 删除源位置没有而目标位置有的cos对象或本地文件
+		err = deleteKeys(c, keysToDelete, fileUrl, fo)
 	}
-	resp, err := c.Object.Head(context.Background(), cosPath, headOpt)
+
 	if err != nil {
-		return "", err
-	} else {
-		return resp.Header.Get("Last-Modified"), nil
-	}
-}
-
-func SyncMultiDownload(c *cos.Client, bucketName, cosDir, localDir, include, exclude string, retryNum int, op *DownloadOptions) {
-	if localDir == "" {
-		logger.Fatalln("localDir is empty")
-		os.Exit(1)
-	}
-	// 记录是否是代码添加的路径分隔符
-	isCosAddSeparator := false
-	// cos路径若不以路径分隔符结尾，则添加
-	if !strings.HasSuffix(cosDir, "/") && cosDir != "" {
-		isCosAddSeparator = true
-		cosDir += "/"
-	}
-	// 判断cosDir是否是文件夹
-	isDir := CheckCosPathType(c, cosDir, 0, retryNum)
-
-	if isDir {
-		// cosDir是文件夹
-		if !strings.HasSuffix(localDir, string(filepath.Separator)) {
-			// 若localDir不以路径分隔符结尾，则添加
-			localDir += string(filepath.Separator)
-		} else {
-			// 若localDir以路径分隔符结尾，且cosDir传入时不以路径分隔符结尾，则需将cos路径的最终文件拼接至local路径最后
-			if isCosAddSeparator {
-				fileName := filepath.Base(cosDir)
-				localDir += fileName
-				localDir += string(filepath.Separator)
-			}
-		}
-	} else {
-		// cosDir不是文件夹且路径分隔符为代码添加,则去掉路径分隔符
-		if isCosAddSeparator {
-			cosDir = strings.TrimSuffix(cosDir, "/")
-		}
-	}
-
-	objects, _ := GetObjectsListRecursive(c, cosDir, 0, include, exclude, retryNum)
-	if len(objects) == 0 {
-		logger.Warningf("cosDir: cos://%s is empty\n", cosDir)
-		return
-	}
-	for _, o := range objects {
-		// 跳过输入路径
-		if o.Key == cosDir && strings.HasSuffix(cosDir, "/") {
-			continue
-		}
-		objName := o.Key[len(cosDir):]
-		localPath := localDir + objName
-		SyncSingleDownload(c, bucketName, o.Key, localPath, op, o.LastModified, true)
-
+		logger.Fatalf("delete keys error : %v", err)
 	}
 }

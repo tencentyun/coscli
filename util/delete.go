@@ -139,7 +139,6 @@ func DeleteLocalFiles(keysToDelete map[string]string, fileUrl StorageUrl, fo *Fi
 	if err != nil {
 		return err
 	}
-
 	var sortList []string
 	for key, _ := range keysToDelete {
 		sortList = append(sortList, key)

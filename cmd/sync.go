@@ -143,15 +143,15 @@ Example:
 			if err != nil {
 				logger.Fatalln(err)
 			}
+			bucketName := srcUrl.(*util.CosUrl).Bucket
+			c := util.NewClient(fo.Config, fo.Param, bucketName)
+			// crc64校验开关
+			c.Conf.EnableCRC = fo.Operation.DisableCrc64
+			// 格式化下载路径
+			util.FormatDownloadPath(srcUrl, destUrl, fo, c)
+
 			// 下载
-			op := &util.DownloadOptions{
-				RateLimiting: rateLimiting,
-				PartSize:     partSize,
-				ThreadNum:    threadNum,
-				SnapshotPath: snapshotPath,
-				SnapshotDb:   fo.SnapshotDb,
-			}
-			syncDownload(args, recursive, include, exclude, retryNum, op)
+			util.SyncDownload(c, srcUrl, destUrl, fo)
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
 			// 拷贝
 			syncCopy(args, recursive, include, exclude, meta, storageClass)
@@ -208,18 +208,6 @@ func init() {
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
-}
-
-func syncDownload(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {
-	bucketName, cosPath := util.ParsePath(args[0])
-	_, localPath := util.ParsePath(args[1])
-	c := util.NewClient(&config, &param, bucketName)
-
-	if recursive {
-		util.SyncMultiDownload(c, bucketName, cosPath, localPath, include, exclude, retryNum, op)
-	} else {
-		util.SyncSingleDownload(c, bucketName, cosPath, localPath, op, "", recursive)
-	}
 }
 
 func syncCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) {
