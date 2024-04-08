@@ -109,17 +109,16 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 		delimiter = "/"
 	}
 
-	// 实例化请求参数
-	opt := &cos.BucketGetOptions{
-		Prefix:       prefix,
-		Delimiter:    delimiter,
-		EncodingType: "url",
-		Marker:       marker,
-		MaxKeys:      limit,
-	}
-
 	isTruncated := true
 	for isTruncated {
+		// 实例化请求参数
+		opt := &cos.BucketGetOptions{
+			Prefix:       prefix,
+			Delimiter:    delimiter,
+			EncodingType: "url",
+			Marker:       marker,
+			MaxKeys:      limit,
+		}
 		res, err := tryGetBucket(c, opt, retries)
 		if err != nil {
 			if scanSizeNum {
