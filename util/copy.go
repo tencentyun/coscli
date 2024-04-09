@@ -98,8 +98,8 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		return
 	}
 
-	// 未跳过则通过监听更新size
-	size = 0
+	// copy不支持监听进度
+	// size = 0
 
 	// 开始copy cos文件
 	opt := &cos.ObjectCopyOptions{

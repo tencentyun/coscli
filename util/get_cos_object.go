@@ -128,6 +128,7 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 
 		}
 		for _, object := range res.Contents {
+			object.Key, _ = url.QueryUnescape(object.Key)
 			if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
 				if scanSizeNum {
 					fo.Monitor.updateScanSizeNum(object.Size, 1)
