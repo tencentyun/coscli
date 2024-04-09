@@ -74,14 +74,23 @@ func getUploadSnapshotKey(absLocalFilePath string, bucket string, object string)
 	return absLocalFilePath + SnapshotConnector + getCosUrl(bucket, object)
 }
 
-func skipDownload(c *cos.Client, fo *FileOperations, localPath string, objectModifiedTimeStr string, object string) (bool, error) {
+func getDownloadSnapshotKey(absLocalFilePath string, bucket string, object string) string {
+	return getCosUrl(bucket, object) + SnapshotConnector + absLocalFilePath
+}
+
+func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPath string, objectModifiedTimeStr string, object string) (bool, error) {
 	// 解析时间字符串
 	objectModifiedTime, err := time.Parse(time.RFC3339, objectModifiedTimeStr)
 	if err != nil {
-		return false, err
+		objectModifiedTime, err = time.Parse(time.RFC1123, objectModifiedTimeStr)
+		if err != nil {
+			return false, err
+		}
+
 	}
+
 	if fo.Operation.SnapshotPath != "" {
-		timeStr, err := fo.SnapshotDb.Get([]byte(object), nil)
+		timeStr, err := fo.SnapshotDb.Get([]byte(snapshotKey), nil)
 		if err == nil {
 			modifiedTime, _ := strconv.ParseInt(string(timeStr), 10, 64)
 			if modifiedTime == objectModifiedTime.Unix() {
@@ -104,7 +113,7 @@ func skipDownload(c *cos.Client, fo *FileOperations, localPath string, objectMod
 		if cosCrc == localCrc {
 			// 本地校验通过后，添加快照记录
 			if fo.Operation.SnapshotPath != "" {
-				fo.SnapshotDb.Put([]byte(object), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
+				fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
 			}
 			return true, nil
 		} else {

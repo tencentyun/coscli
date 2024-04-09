@@ -19,7 +19,7 @@ var (
 	outputMu sync.Mutex
 )
 
-func writeError(errorType, errString string, fo *FileOperations) {
+func writeError(errString string, fo *FileOperations) {
 	var err error
 	if fo.ErrOutput.Path == "" {
 		fo.ErrOutput.Path = filepath.Join(fo.Operation.FailOutputPath, time.Now().Format("20060102_150405"))
@@ -32,47 +32,26 @@ func writeError(errorType, errString string, fo *FileOperations) {
 		}
 	}
 
-	if errorType == ErrTypeList && fo.ErrOutput.ListOutput == nil {
+	if fo.ErrOutput.outputFile == nil {
 		// 创建错误日志文件
-		listFailOutputFilePath := filepath.Join(fo.ErrOutput.Path, "list_err.report")
-		fo.ErrOutput.ListOutput, err = os.OpenFile(listFailOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		failOutputFilePath := filepath.Join(fo.ErrOutput.Path, "error.report")
+		fo.ErrOutput.outputFile, err = os.OpenFile(failOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
-			logger.Fatal("Failed to create error list output file:", err)
+			logger.Fatal("Failed to create error error output file:", err)
 		}
-		defer fo.ErrOutput.ListOutput.Close()
-	}
-
-	if errorType == ErrTypeUpload && fo.ErrOutput.UploadOutput == nil {
-		uploadFailOutputFilePath := filepath.Join(fo.ErrOutput.Path, "upload_err.report")
-		fo.ErrOutput.UploadOutput, err = os.OpenFile(uploadFailOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			logger.Fatal("Failed to create error upload output file:", err)
-		}
-		defer fo.ErrOutput.UploadOutput.Close()
-	}
-
-	if errorType == ErrTypeDownload && fo.ErrOutput.DownloadOutput == nil {
-		uploadFailOutputFilePath := filepath.Join(fo.ErrOutput.Path, "download_err.report")
-		fo.ErrOutput.DownloadOutput, err = os.OpenFile(uploadFailOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			logger.Fatal("Failed to create error download output file:", err)
-		}
-		defer fo.ErrOutput.DownloadOutput.Close()
 	}
 
 	outputMu.Lock()
-	var writeErr error
-	switch errorType {
-	case ErrTypeList:
-		_, writeErr = fo.ErrOutput.ListOutput.WriteString(errString)
-	case ErrTypeUpload:
-		_, writeErr = fo.ErrOutput.UploadOutput.WriteString(errString)
-	case ErrTypeDownload:
-		_, writeErr = fo.ErrOutput.DownloadOutput.WriteString(errString)
-	}
+	_, writeErr := fo.ErrOutput.outputFile.WriteString(errString)
 
 	if writeErr != nil {
 		logger.Printf("Failed to write error output file : %v\n", writeErr)
 	}
 	outputMu.Unlock()
+}
+
+func CloseErrorOutputFile(fo *FileOperations) {
+	if fo.ErrOutput.outputFile != nil {
+		defer fo.ErrOutput.outputFile.Close()
+	}
 }

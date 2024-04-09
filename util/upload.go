@@ -42,7 +42,7 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 		case err := <-chListError:
 			if err != nil {
 				if fo.Operation.FailOutput {
-					writeError(ErrTypeList, err.Error(), fo)
+					writeError(err.Error(), fo)
 				}
 			}
 			completed++
@@ -51,7 +51,7 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 				completed++
 			} else {
 				if fo.Operation.FailOutput {
-					writeError(ErrTypeUpload, err.Error(), fo)
+					writeError(err.Error(), fo)
 				}
 			}
 		}
@@ -93,7 +93,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 
 	var snapshotKey string
 
-	msg = fmt.Sprintf("Upload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
+	msg = fmt.Sprintf("\nUpload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
 	if fileInfo.IsDir() {
 		isDir = true
 		// 在cos创建文件夹

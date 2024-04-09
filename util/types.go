@@ -90,10 +90,8 @@ type Operation struct {
 }
 
 type ErrOutput struct {
-	Path           string
-	ListOutput     *os.File
-	UploadOutput   *os.File
-	DownloadOutput *os.File
+	Path       string
+	outputFile *os.File
 }
 
 type FilterOptionType struct {

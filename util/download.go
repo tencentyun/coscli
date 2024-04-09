@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -47,7 +48,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 		case err := <-chListError:
 			if err != nil {
 				if fo.Operation.FailOutput {
-					writeError(ErrTypeList, err.Error(), fo)
+					writeError(err.Error(), fo)
 				}
 			}
 			completed++
@@ -56,7 +57,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 				completed++
 			} else {
 				if fo.Operation.FailOutput {
-					writeError(ErrTypeDownload, err.Error(), fo)
+					writeError(err.Error(), fo)
 				}
 			}
 		}
@@ -90,7 +91,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	object := objectInfo.prefix + objectInfo.relativeKey
 
 	localFilePath := DownloadPathFixed(objectInfo.relativeKey, fileUrl.ToString())
-	msg = fmt.Sprintf("Download %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
+	msg = fmt.Sprintf("\nDownload %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
 
 	_, err := os.Stat(localFilePath)
 
@@ -105,7 +106,9 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		// 文件存在再判断是否需要跳过
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
-			skip, err = skipDownload(c, fo, localFilePath, objectInfo.lastModified, object)
+			absLocalFilePath, _ := filepath.Abs(localFilePath)
+			snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+			skip, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
 			if err != nil {
 				rErr = err
 			}
@@ -167,10 +170,17 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		// 解析时间字符串
 		objectModifiedTime, err := time.Parse(time.RFC3339, lastModified)
 		if err != nil {
-			rErr = err
-			return
+			objectModifiedTime, err = time.Parse(time.RFC1123, lastModified)
+			if err != nil {
+				rErr = err
+				return
+			}
+
 		}
-		fo.SnapshotDb.Put([]byte(object), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
+
+		absLocalFilePath, _ := filepath.Abs(localFilePath)
+		snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+		fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
 	}
 
 	return

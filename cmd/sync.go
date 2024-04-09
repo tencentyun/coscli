@@ -170,7 +170,7 @@ Example:
 		} else {
 			logger.Fatalln("cospath needs to contain cos://")
 		}
-
+		util.CloseErrorOutputFile(fo)
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 	},

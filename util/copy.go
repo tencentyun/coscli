@@ -34,7 +34,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 		case err := <-chListError:
 			if err != nil {
 				if fo.Operation.FailOutput {
-					writeError(ErrTypeList, err.Error(), fo)
+					writeError(err.Error(), fo)
 				}
 			}
 			completed++
@@ -43,12 +43,12 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 				completed++
 			} else {
 				if fo.Operation.FailOutput {
-					writeError(ErrTypeDownload, err.Error(), fo)
+					writeError(err.Error(), fo)
 				}
 			}
 		}
 	}
-
+	CloseErrorOutputFile(fo)
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
 
@@ -77,7 +77,7 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	object := objectInfo.prefix + objectInfo.relativeKey
 
 	destPath := copyPathFixed(objectInfo.relativeKey, destUrl.(*CosUrl).Object)
-	msg = fmt.Sprintf("Copy %s to %s", getCosUrl(srcUrl.(*CosUrl).Bucket, object), getCosUrl(destUrl.(*CosUrl).Bucket, destPath))
+	msg = fmt.Sprintf("\nCopy %s to %s", getCosUrl(srcUrl.(*CosUrl).Bucket, object), getCosUrl(destUrl.(*CosUrl).Bucket, destPath))
 
 	var err error
 	// 是文件夹则直接创建并退出
