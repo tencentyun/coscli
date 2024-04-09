@@ -208,7 +208,7 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 		// 判断cosPath是否是文件夹
 		isDir = CheckCosPathType(c, cosPath, 1, fo.Operation.RetryNum)
 
-		if !isDir && strings.HasSuffix(cosPath, "/") {
+		if !isDir && strings.HasSuffix(cosPath, CosSeparator) {
 			logger.Fatalf("cos dir not found:%s", cosPath)
 		}
 	}
@@ -220,8 +220,12 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 		}
 	}
 
+	if isDir && !fo.Operation.Recursive {
+		logger.Fatalf("cosPath:%v is dir, please use --recursive option", cosPath)
+	}
+
 	// cos路径不以路径分隔符结尾，且local路径以路径分隔符结尾，则需将cos最后一位 文件/文件夹名 拼接至local路径后
-	if cosPath != "" && !strings.HasSuffix(cosPath, "/") && strings.HasSuffix(localPath, string(filepath.Separator)) {
+	if cosPath != "" && !strings.HasSuffix(cosPath, CosSeparator) && strings.HasSuffix(localPath, string(filepath.Separator)) {
 		objectName := filepath.Base(cosPath)
 		localPath += objectName
 	}
@@ -254,4 +258,50 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 
 	fileUrl.UpdateUrlStr(localPath)
 	cosUrl.UpdateUrlStr(SchemePrefix + cosUrl.(*CosUrl).Bucket + CosSeparator + cosPath)
+}
+
+// 格式化copy操作src路径及dest路径
+func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, srcClient *cos.Client, destClient *cos.Client) {
+	srcPath := srcUrl.(*CosUrl).Object
+	destPath := destUrl.(*CosUrl).Object
+	isDir := false
+	if fo.Operation.Recursive {
+		// 判断src路径是否是文件夹
+		isDir = CheckCosPathType(srcClient, srcPath, 1, fo.Operation.RetryNum)
+
+		if !isDir && strings.HasSuffix(srcPath, CosSeparator) {
+			logger.Fatalf("src cos dir not found:%s", srcPath)
+		}
+	}
+
+	if !isDir {
+		fileExist := CheckCosObjectExist(srcClient, srcPath)
+		if !fileExist {
+			logger.Fatalf("src cos object not found:%s", srcPath)
+		}
+	}
+
+	if isDir && !fo.Operation.Recursive {
+		logger.Fatalf("srcPath:%v is dir, please use --recursive option", srcPath)
+	}
+
+	// src路径不以路径分隔符结尾，且dest路径以路径分隔符结尾，则需将src最后一位 文件/文件夹名 拼接至dest路径后
+	if srcPath != "" && !strings.HasSuffix(srcPath, CosSeparator) && strings.HasSuffix(destPath, CosSeparator) {
+		objectName := filepath.Base(srcPath)
+		destPath += objectName
+	}
+
+	// 格式化dest路径
+	if fo.Operation.Recursive && isDir && !strings.HasSuffix(destPath, CosSeparator) {
+		destPath += CosSeparator
+	}
+
+	// 格式化src路径
+	if fo.Operation.Recursive && isDir && !strings.HasSuffix(srcPath, CosSeparator) && srcPath != "" {
+		srcPath += CosSeparator
+	}
+
+	// 更新路径
+	srcUrl.UpdateUrlStr(SchemePrefix + srcUrl.(*CosUrl).Bucket + CosSeparator + srcPath)
+	destUrl.UpdateUrlStr(SchemePrefix + destUrl.(*CosUrl).Bucket + CosSeparator + destPath)
 }

@@ -146,8 +146,20 @@ Example:
 			// 下载
 			util.Download(c, srcUrl, destUrl, fo)
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
+			// 实例化来源 cos client
+			srcBucketName := srcUrl.(*util.CosUrl).Bucket
+			srcClient := util.NewClient(fo.Config, fo.Param, srcBucketName)
+
+			// 实例化目标 cos client
+			destBucketName := destUrl.(*util.CosUrl).Bucket
+			destClient := util.NewClient(fo.Config, fo.Param, destBucketName)
+			// crc64校验开关
+			destClient.Conf.EnableCRC = fo.Operation.DisableCrc64
+
+			// 格式化copy路径
+			util.FormatCopyPath(srcUrl, destUrl, fo, srcClient, destClient)
 			// 拷贝
-			cosCopy(args, recursive, include, exclude, meta, storageClass)
+			util.CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
 		} else {
 			logger.Fatalf("cospath needs to contain %s", util.SchemePrefix)
 		}
@@ -178,18 +190,6 @@ func init() {
 	cpCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
 	cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 }
-
-//func download(args []string, recursive bool, include string, exclude string, retryNum int, op *util.DownloadOptions) {
-//	bucketName, cosPath := util.ParsePath(args[0])
-//	_, localPath := util.ParsePath(args[1])
-//	c := util.NewClient(&config, &param, bucketName)
-//
-//	if recursive {
-//		util.MultiDownload(c, bucketName, cosPath, localPath, include, exclude, retryNum, op)
-//	} else {
-//		util.SingleDownload(c, bucketName, cosPath, localPath, op, false)
-//	}
-//}
 
 func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) {
 	bucketName1, cosPath1 := util.ParsePath(args[0])

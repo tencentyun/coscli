@@ -153,8 +153,20 @@ Example:
 			// 下载
 			util.SyncDownload(c, srcUrl, destUrl, fo)
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
+			// 实例化来源 cos client
+			srcBucketName := srcUrl.(*util.CosUrl).Bucket
+			srcClient := util.NewClient(fo.Config, fo.Param, srcBucketName)
+
+			// 实例化目标 cos client
+			destBucketName := destUrl.(*util.CosUrl).Bucket
+			destClient := util.NewClient(fo.Config, fo.Param, destBucketName)
+			// crc64校验开关
+			destClient.Conf.EnableCRC = fo.Operation.DisableCrc64
+
+			// 格式化copy路径
+			util.FormatCopyPath(srcUrl, destUrl, fo, srcClient, destClient)
 			// 拷贝
-			syncCopy(args, recursive, include, exclude, meta, storageClass)
+			util.SyncCosCopy(srcClient, destClient, srcUrl, destUrl, fo)
 		} else {
 			logger.Fatalln("cospath needs to contain cos://")
 		}

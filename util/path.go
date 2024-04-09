@@ -60,6 +60,14 @@ func DownloadPathFixed(relativeObject, filePath string) string {
 	return filePath
 }
 
+func copyPathFixed(relativeObject, destPath string) string {
+	if destPath == "" || strings.HasSuffix(destPath, "/") {
+		return destPath + relativeObject
+	}
+
+	return destPath
+}
+
 func getAbsPath(strPath string) (string, error) {
 	if filepath.IsAbs(strPath) {
 		return strPath, nil

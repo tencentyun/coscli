@@ -13,7 +13,7 @@ func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOp
 	var err error
 	keysToDelete := make(map[string]string)
 	if fo.Operation.Delete {
-		keysToDelete, err = getDeleteKeys(c, fileUrl, cosUrl, fo)
+		keysToDelete, err = getDeleteKeys(nil, c, fileUrl, cosUrl, fo)
 		if err != nil {
 			logger.Fatalf("get delete keys error : %v", err)
 		}
@@ -115,6 +115,48 @@ func skipDownload(c *cos.Client, fo *FileOperations, localPath string, objectMod
 	return false, nil
 }
 
+func skipCopy(srcClient, destClient *cos.Client, object, destPath string) (bool, error) {
+	// 获取目标对象的crc64
+	resp, err := getHead(destClient, destPath)
+	if err != nil {
+		if resp != nil && resp.StatusCode == 404 {
+			// 文件不在目标cos上，直接copy
+			return false, nil
+		} else {
+			return false, err
+		}
+	} else {
+		if resp.StatusCode != 404 {
+			destCrc := resp.Header.Get("x-cos-hash-crc64ecma")
+
+			// 获取来源对象的crc64
+			resp, err = getHead(srcClient, object)
+			srcCrc := ""
+			if err != nil {
+				if resp != nil && resp.StatusCode == 404 {
+					// 文件不在来源cos上，报错
+					return false, fmt.Errorf("Object not found")
+				} else {
+					return false, err
+				}
+			} else {
+				srcCrc = resp.Header.Get("x-cos-hash-crc64ecma")
+			}
+
+			// 对比来源cos和目标cos的crc64，若一样则跳过
+			if destCrc == srcCrc {
+				return true, nil
+			} else {
+				return false, nil
+			}
+		} else {
+			return false, nil
+		}
+	}
+
+	return false, nil
+}
+
 func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	if fo.Operation.SnapshotPath == "" {
 		return
@@ -141,7 +183,7 @@ func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *File
 	var err error
 	keysToDelete := make(map[string]string)
 	if fo.Operation.Delete {
-		keysToDelete, err = getDeleteKeys(c, cosUrl, fileUrl, fo)
+		keysToDelete, err = getDeleteKeys(c, nil, cosUrl, fileUrl, fo)
 		if err != nil {
 			logger.Fatalf("get delete keys error : %v", err)
 		}
@@ -153,6 +195,29 @@ func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *File
 	if len(keysToDelete) > 0 {
 		// 删除源位置没有而目标位置有的cos对象或本地文件
 		err = deleteKeys(c, keysToDelete, fileUrl, fo)
+	}
+
+	if err != nil {
+		logger.Fatalf("delete keys error : %v", err)
+	}
+}
+
+func SyncCosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) {
+	var err error
+	keysToDelete := make(map[string]string)
+	if fo.Operation.Delete {
+		keysToDelete, err = getDeleteKeys(srcClient, destClient, srcUrl, destUrl, fo)
+		if err != nil {
+			logger.Fatalf("get delete keys error : %v", err)
+		}
+	}
+
+	// copy
+	CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
+
+	if len(keysToDelete) > 0 {
+		// 删除源位置没有而目标位置有的cos对象或本地文件
+		err = deleteKeys(destClient, keysToDelete, destUrl, fo)
 	}
 
 	if err != nil {

@@ -13,14 +13,14 @@ import (
 
 var fileRemoveCount int
 
-func getDeleteKeys(c *cos.Client, srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations) (map[string]string, error) {
+func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations) (map[string]string, error) {
 	var err error
 	srcKeys := make(map[string]string)
 	destKeys := make(map[string]string)
 	if srcUrl.IsFileUrl() {
 		err = getLocalFileKeys(srcUrl, srcKeys, fo)
 	} else {
-		err = GetCosKeys(c, srcUrl, srcKeys, fo)
+		err = GetCosKeys(srcClient, srcUrl, srcKeys, fo)
 	}
 
 	if err != nil {
@@ -30,7 +30,7 @@ func getDeleteKeys(c *cos.Client, srcUrl StorageUrl, destUrl StorageUrl, fo *Fil
 	if destUrl.IsFileUrl() {
 		err = getLocalFileKeys(destUrl, destKeys, fo)
 	} else {
-		err = GetCosKeys(c, destUrl, destKeys, fo)
+		err = GetCosKeys(destClient, destUrl, destKeys, fo)
 	}
 
 	if err != nil {

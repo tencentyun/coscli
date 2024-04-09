@@ -33,9 +33,9 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 	chListError := make(chan error, 1)
 
 	// 扫描cos对象大小及数量
-	go getCosObjectList(c, cosUrl, nil, nil, fo, true)
+	go getCosObjectList(c, cosUrl, nil, nil, fo, true, false)
 	// 获取cos对象列表
-	go getCosObjectList(c, cosUrl, chObjects, chListError, fo, false)
+	go getCosObjectList(c, cosUrl, chObjects, chListError, fo, false, true)
 
 	for i := 0; i < fo.Operation.Routines; i++ {
 		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError)

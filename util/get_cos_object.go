@@ -15,7 +15,7 @@ func GetCosKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]string, fo *Fi
 	chFiles := make(chan objectInfoType, ChannelSize)
 	chFinish := make(chan error, 2)
 	go ReadCosKeys(keys, cosUrl, chFiles, chFinish)
-	go GetCosKeyList(c, cosUrl, chFiles, chFinish, fo)
+	go getCosObjectList(c, cosUrl, chFiles, chFinish, fo, false, false)
 	select {
 	case err := <-chFinish:
 		if err != nil {
@@ -38,22 +38,19 @@ func ReadCosKeys(keys map[string]string, cosUrl StorageUrl, chObjects <-chan obj
 			break
 		}
 	}
+
 	fmt.Printf("\r%s,total cos object count:%d", cosUrl.ToString(), totalCount)
 	chFinish <- nil
 }
 
-func GetCosKeyList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chFinish chan<- error, fo *FileOperations) {
-	cosPath := cosUrl.(*CosUrl)
-	getCosObjectList(c, cosPath, chObjects, chFinish, fo, false)
-}
 func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
 	if prefix == "" {
 		return true
 	}
 
 	// cos路径若不以路径分隔符结尾，则添加
-	if !strings.HasSuffix(prefix, "/") && prefix != "" {
-		prefix += "/"
+	if !strings.HasSuffix(prefix, CosSeparator) && prefix != "" {
+		prefix += CosSeparator
 	}
 
 	retries := 0
@@ -95,7 +92,7 @@ func CheckCosObjectExist(c *cos.Client, prefix string) (exist bool) {
 	return exist
 }
 
-func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool) {
+func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool, withFinishSignal bool) {
 	if chObjects != nil {
 		defer close(chObjects)
 	}
@@ -154,7 +151,9 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	if scanSizeNum {
 		fo.Monitor.setScanEnd()
 		freshProgress()
-	} else {
+	}
+
+	if withFinishSignal {
 		chError <- nil
 	}
 }
