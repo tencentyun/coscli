@@ -325,7 +325,7 @@ func (fpm *FileProcessMonitor) getOPStr() string {
 	case CpTypeDownload:
 		return "download"
 	default:
-		return "cper"
+		return "copy"
 	}
 }
 
