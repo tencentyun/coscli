@@ -2,6 +2,7 @@ package util
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -59,8 +60,8 @@ func matchFiltersForStr(str string, filters []FilterOptionType) bool {
 }
 
 func filterSingleStr(v, p string, include bool) bool {
-	_, name := filepath.Split(v)
-	res, _ := filepath.Match(p, name)
+	//_, name := filepath.Split(v)
+	res, _ := regexp.MatchString(p, v)
 
 	if include {
 		return res

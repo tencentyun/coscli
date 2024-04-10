@@ -98,7 +98,7 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		return
 	}
 
-	// copy不支持监听进度
+	// copy暂不支持监听进度
 	// size = 0
 
 	// 开始copy cos文件

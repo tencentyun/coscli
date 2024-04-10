@@ -158,3 +158,31 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 		chError <- nil
 	}
 }
+
+func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, isTruncated bool, nextMarker string) {
+
+	prefix := cosUrl.(*CosUrl).Object
+	retries := 0
+	delimiter := ""
+	if !recursive {
+		delimiter = "/"
+	}
+
+	// 实例化请求参数
+	opt := &cos.BucketGetOptions{
+		Prefix:       prefix,
+		Delimiter:    delimiter,
+		EncodingType: "url",
+		Marker:       marker,
+		MaxKeys:      limit,
+	}
+	res, err := tryGetBucket(c, opt, retries)
+	if err != nil {
+		return
+	}
+
+	objects = res.Contents
+	isTruncated = res.IsTruncated
+	marker, _ = url.QueryUnescape(res.NextMarker)
+	return
+}

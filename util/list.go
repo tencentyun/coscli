@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"github.com/olekukonko/tablewriter"
 	"io/fs"
 	"io/ioutil"
 	"math/rand"
@@ -16,20 +17,6 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func MatchBucketPattern(buckets []cos.Bucket, pattern string, include bool) []cos.Bucket {
-	res := make([]cos.Bucket, 0)
-	for _, b := range buckets {
-		match, _ := regexp.Match(pattern, []byte(b.Name))
-		if !include {
-			match = !match
-		}
-		if match {
-			res = append(res, b)
-		}
-	}
-	return res
-}
-
 func UrlDecodeCosPattern(objects []cos.Object) []cos.Object {
 	res := make([]cos.Object, 0)
 	for _, o := range objects {
@@ -39,46 +26,9 @@ func UrlDecodeCosPattern(objects []cos.Object) []cos.Object {
 	return res
 }
 
-func UrlDecodePattern(strs []string) []string {
-	res := make([]string, 0)
-	for _, s := range strs {
-		s, _ = url.QueryUnescape(s)
-		res = append(res, s)
-	}
-	return res
-}
-
 func MatchCosPattern(objects []cos.Object, pattern string, include bool) []cos.Object {
 	res := make([]cos.Object, 0)
 	for _, o := range objects {
-		match, _ := regexp.Match(pattern, []byte(o.Key))
-		if !include {
-			match = !match
-		}
-		if match {
-			res = append(res, o)
-		}
-	}
-	return res
-}
-
-func MatchVersionPattern(versions []cos.ListVersionsResultVersion, pattern string, include bool) []cos.ListVersionsResultVersion {
-	res := make([]cos.ListVersionsResultVersion, 0)
-	for _, o := range versions {
-		match, _ := regexp.Match(pattern, []byte(o.Key))
-		if !include {
-			match = !match
-		}
-		if match {
-			res = append(res, o)
-		}
-	}
-	return res
-}
-
-func MatchDeleteMarkerPattern(deletemarkers []cos.ListVersionsResultDeleteMarker, pattern string, include bool) []cos.ListVersionsResultDeleteMarker {
-	res := make([]cos.ListVersionsResultDeleteMarker, 0)
-	for _, o := range deletemarkers {
 		match, _ := regexp.Match(pattern, []byte(o.Key))
 		if !include {
 			match = !match
@@ -118,160 +68,6 @@ func MatchPattern(strs []string, pattern string, include bool) []string {
 	}
 	return res
 }
-
-func GetBucketsList(c *cos.Client, limit int, include string, exclude string) (buckets []cos.Bucket) {
-	res, _, err := c.Service.Get(context.Background())
-	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
-
-	buckets = res.Buckets
-	if len(include) > 0 {
-		buckets = MatchBucketPattern(buckets, include, true)
-	}
-	if len(exclude) > 0 {
-		buckets = MatchBucketPattern(buckets, exclude, false)
-	}
-
-	if limit > 0 {
-		var l int
-		if limit > len(buckets) {
-			l = len(buckets)
-		} else {
-			l = limit
-		}
-		return buckets[:l]
-	} else {
-		return buckets
-	}
-}
-
-func GetObjectsList(c *cos.Client, prefix string, limit int, include string, exclude string) (dirs []string, objects []cos.Object) {
-	opt := &cos.BucketGetOptions{
-		Prefix:       prefix,
-		Delimiter:    "/",
-		EncodingType: "",
-		Marker:       "",
-		MaxKeys:      limit,
-	}
-
-	isTruncated := true
-	marker := ""
-	for isTruncated {
-		opt.Marker = marker
-
-		res, _, err := c.Bucket.Get(context.Background(), opt)
-		if err != nil {
-			logger.Infoln(err.Error())
-			logger.Fatalln(err)
-			os.Exit(1)
-		}
-
-		dirs = append(dirs, res.CommonPrefixes...)
-		objects = append(objects, res.Contents...)
-
-		if limit > 0 {
-			isTruncated = false
-		} else {
-			isTruncated = res.IsTruncated
-			marker, _ = url.QueryUnescape(res.NextMarker)
-		}
-	}
-
-	if len(include) > 0 {
-		objects = MatchCosPattern(objects, include, true)
-		dirs = MatchPattern(dirs, include, true)
-	}
-	if len(exclude) > 0 {
-		objects = MatchCosPattern(objects, exclude, false)
-		dirs = MatchPattern(dirs, exclude, false)
-	}
-
-	return dirs, objects
-}
-
-func GetObjectsListForLs(c *cos.Client, prefix string, limit int, include string, exclude string,
-	marker string) (dirs []string,
-	objects []cos.Object, isTruncated bool, nextMarker string) {
-	opt := &cos.BucketGetOptions{
-		Prefix:       prefix,
-		Delimiter:    "/",
-		EncodingType: "url",
-		Marker:       marker,
-		MaxKeys:      limit,
-	}
-
-	res, _, err := c.Bucket.Get(context.Background(), opt)
-	if err != nil {
-		logger.Infoln(err.Error())
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
-
-	dirs = append(dirs, res.CommonPrefixes...)
-	objects = append(objects, res.Contents...)
-
-	// 对key进行urlDecode解码
-	objects = UrlDecodeCosPattern(objects)
-
-	// 对dir进行urlDecode解码
-	dirs = UrlDecodePattern(dirs)
-
-	if limit > 0 {
-		isTruncated = false
-	} else {
-		isTruncated = res.IsTruncated
-		nextMarker, _ = url.QueryUnescape(res.NextMarker)
-	}
-
-	if len(include) > 0 {
-		objects = MatchCosPattern(objects, include, true)
-		dirs = MatchPattern(dirs, include, true)
-	}
-	if len(exclude) > 0 {
-		objects = MatchCosPattern(objects, exclude, false)
-		dirs = MatchPattern(dirs, exclude, false)
-	}
-
-	return dirs, objects, isTruncated, nextMarker
-}
-
-//func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
-//	if prefix == "" {
-//		return true
-//	}
-//
-//	// cos路径若不以路径分隔符结尾，则添加
-//	if !strings.HasSuffix(prefix, "/") && prefix != "" {
-//		prefix += "/"
-//	}
-//
-//	retries := 0
-//	if len(retryCount) > 0 {
-//		retries = retryCount[0]
-//	}
-//
-//	opt := &cos.BucketGetOptions{
-//		Prefix:       prefix,
-//		Delimiter:    "",
-//		EncodingType: "url",
-//		Marker:       "",
-//		MaxKeys:      limit,
-//	}
-//
-//	res, err := tryGetBucket(c, opt, retries)
-//	if err != nil {
-//		logger.Fatalln(err)
-//		os.Exit(1)
-//	}
-//
-//	isDir = true
-//	if len(res.Contents) == 0 {
-//		isDir = false
-//	}
-//	return isDir
-//}
 
 func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object,
 	commonPrefixes []string) {
@@ -347,115 +143,6 @@ func tryGetBucket(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*co
 	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
-func GetObjectsListRecursiveForLs(c *cos.Client, prefix string, limit int, include string, exclude string,
-	marker string) (objects []cos.Object, isTruncated bool, nextMarker string, commonPrefixes []string) {
-	opt := &cos.BucketGetOptions{
-		Prefix:       prefix,
-		Delimiter:    "",
-		EncodingType: "url",
-		Marker:       marker,
-		MaxKeys:      limit,
-	}
-
-	res, _, err := c.Bucket.Get(context.Background(), opt)
-	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
-
-	objects = append(objects, res.Contents...)
-	commonPrefixes = res.CommonPrefixes
-
-	// 对key进行urlDecode解码
-	objects = UrlDecodeCosPattern(objects)
-
-	if limit > 0 {
-		isTruncated = false
-	} else {
-		isTruncated = res.IsTruncated
-		nextMarker, _ = url.QueryUnescape(res.NextMarker)
-	}
-
-	if len(include) > 0 {
-		objects = MatchCosPattern(objects, include, true)
-	}
-	if len(exclude) > 0 {
-		objects = MatchCosPattern(objects, exclude, false)
-	}
-
-	return objects, isTruncated, nextMarker, commonPrefixes
-}
-
-func GetObjectsListVersionsRecursiveForLs(c *cos.Client, prefix string, limit int, include string, exclude string, key_marker string, verionid_marker string) (
-	versions []cos.ListVersionsResultVersion, deleteMarkers []cos.ListVersionsResultDeleteMarker, isTruncated bool, nextKeyMarker string, nextVersionIdMarker string, commonPrefixes []string) {
-	opt := &cos.BucketGetObjectVersionsOptions{
-		Prefix:          prefix,
-		Delimiter:       "",
-		EncodingType:    "",
-		KeyMarker:       key_marker,
-		VersionIdMarker: verionid_marker,
-		MaxKeys:         limit,
-	}
-
-	res, _, err := c.Bucket.GetObjectVersions(context.Background(), opt)
-	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
-
-	versions = append(versions, res.Version...)
-	deleteMarkers = append(deleteMarkers, res.DeleteMarker...)
-	commonPrefixes = res.CommonPrefixes
-
-	if limit > 0 {
-		isTruncated = false
-	} else {
-		isTruncated = res.IsTruncated
-		nextKeyMarker = res.NextKeyMarker
-		nextVersionIdMarker = res.NextVersionIdMarker
-	}
-
-	if len(include) > 0 {
-		versions = MatchVersionPattern(versions, include, true)
-		deleteMarkers = MatchDeleteMarkerPattern(deleteMarkers, include, true)
-	}
-	if len(exclude) > 0 {
-		versions = MatchVersionPattern(versions, include, false)
-		deleteMarkers = MatchDeleteMarkerPattern(deleteMarkers, include, false)
-	}
-
-	return versions, deleteMarkers, isTruncated, nextKeyMarker, nextVersionIdMarker, commonPrefixes
-}
-
-func GetLocalFilesList(localPath string, include string, exclude string) (dirs []string, files []string) {
-	fileInfos, err := ioutil.ReadDir(localPath)
-	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
-
-	for _, f := range fileInfos {
-		fileName := localPath + "/" + f.Name()
-		fileName = fileName[len(localPath)+1:]
-		if f.IsDir() {
-			dirs = append(dirs, fileName)
-		} else {
-			files = append(files, fileName)
-		}
-	}
-
-	if len(include) > 0 {
-		files = MatchPattern(files, include, true)
-		dirs = MatchPattern(dirs, include, true)
-	}
-	if len(exclude) > 0 {
-		files = MatchPattern(files, exclude, true)
-		dirs = MatchPattern(dirs, exclude, false)
-	}
-
-	return dirs, files
-}
-
 func GetLocalFilesListRecursive(localPath string, include string, exclude string) (files []string) {
 	// bfs遍历文件夹
 	var dirs []string
@@ -520,59 +207,6 @@ func GetLocalFilesListRecursive(localPath string, include string, exclude string
 	return files
 }
 
-// 疑似无法返回正确结果
-// res.CommonPrefix无法正确获得
-func GetUploadsList(c *cos.Client, prefix string, limit int, include string, exclude string) (dirs []string, uploads []UploadInfo) {
-	opt := &cos.ListMultipartUploadsOptions{
-		Delimiter:      "/",
-		EncodingType:   "",
-		Prefix:         prefix,
-		MaxUploads:     limit,
-		KeyMarker:      "",
-		UploadIDMarker: "",
-	}
-
-	isTruncated := true
-	keyMarker := ""
-	uploadIDMarker := ""
-	for isTruncated {
-		opt.KeyMarker = keyMarker
-		opt.UploadIDMarker = uploadIDMarker
-
-		res, _, err := c.Bucket.ListMultipartUploads(context.Background(), opt)
-		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
-		}
-
-		dirs = append(dirs, res.CommonPrefixes...)
-		for _, u := range res.Uploads {
-			uploads = append(uploads, UploadInfo{
-				Key:       u.Key,
-				UploadID:  u.UploadID,
-				Initiated: u.Initiated,
-			})
-		}
-
-		if limit > 0 {
-			isTruncated = false
-		} else {
-			isTruncated = res.IsTruncated
-			keyMarker = res.NextKeyMarker
-			uploadIDMarker = res.NextUploadIDMarker
-		}
-	}
-
-	if len(include) > 0 {
-		uploads = MatchUploadPattern(uploads, include, true)
-	}
-	if len(exclude) > 0 {
-		uploads = MatchUploadPattern(uploads, exclude, false)
-	}
-
-	return dirs, uploads
-}
-
 func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []UploadInfo) {
 	opt := &cos.ListMultipartUploadsOptions{
 		Delimiter:      "",
@@ -621,4 +255,84 @@ func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include st
 	}
 
 	return uploads
+}
+
+// =====new
+
+func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) {
+	var err error
+	var objects []cos.Object
+	total := 0
+	isTruncated := true
+	marker := ""
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Key", "Type", "Last Modified", "Etag", "Size"})
+	table.SetBorder(false)
+	table.SetAlignment(tablewriter.ALIGN_RIGHT)
+	table.SetAutoWrapText(false)
+
+	for isTruncated {
+		table.ClearRows()
+		err, objects, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, limit, recursive)
+
+		if err != nil {
+			logger.Fatalln("list objects error : %v", err)
+		}
+
+		for _, object := range objects {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, filters) {
+				table.Append([]string{object.Key, object.StorageClass, object.LastModified, object.ETag, formatBytes(float64(object.Size))})
+				total++
+			}
+		}
+	}
+
+	table.SetFooter([]string{"", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
+	table.Render()
+
+}
+
+func ListBuckets(c *cos.Client, limit int) {
+	var buckets []cos.Bucket
+	marker := ""
+	isTruncated := true
+	totalNum := 0
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Bucket Name", "Region", "Create Date"})
+	for isTruncated {
+		buckets, marker, isTruncated = GetBucketsList(c, limit, marker)
+		for _, b := range buckets {
+			table.Append([]string{b.Name, b.Region, b.CreationDate})
+			totalNum++
+		}
+		if limit > 0 {
+			isTruncated = false
+		}
+	}
+
+	table.SetFooter([]string{"", "Total Buckets: ", fmt.Sprintf("%d", totalNum)})
+	table.SetBorder(false)
+	table.Render()
+}
+
+func GetBucketsList(c *cos.Client, limit int, marker string) (buckets []cos.Bucket, nextMarker string, isTruncated bool) {
+	opt := &cos.ServiceGetOptions{
+		Marker:  marker,
+		MaxKeys: int64(limit),
+	}
+	res, _, err := c.Service.Get(context.Background(), opt)
+
+	if err != nil {
+		logger.Fatalln(err)
+		os.Exit(1)
+	}
+
+	buckets = res.Buckets
+	nextMarker = res.NextMarker
+	isTruncated = res.IsTruncated
+
+	return
 }
