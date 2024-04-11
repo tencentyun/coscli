@@ -203,6 +203,11 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 	}
 
 	cosPath := cosUrl.(*CosUrl).Object
+
+	if (cosPath == "" || strings.HasSuffix(cosPath, CosSeparator)) && !fo.Operation.Recursive {
+		logger.Fatalf("cosPath:%v is dir, please use --recursive option", cosPath)
+	}
+
 	isDir := false
 	if fo.Operation.Recursive {
 		// 判断cosPath是否是文件夹
@@ -218,10 +223,6 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 		if !fileExist {
 			logger.Fatalf("cos object not found:%s", cosPath)
 		}
-	}
-
-	if isDir && !fo.Operation.Recursive {
-		logger.Fatalf("cosPath:%v is dir, please use --recursive option", cosPath)
 	}
 
 	// cos路径不以路径分隔符结尾，且local路径以路径分隔符结尾，则需将cos最后一位 文件/文件夹名 拼接至local路径后
@@ -264,6 +265,11 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, srcClient *cos.Client, destClient *cos.Client) {
 	srcPath := srcUrl.(*CosUrl).Object
 	destPath := destUrl.(*CosUrl).Object
+
+	if (srcPath == "" || strings.HasSuffix(srcPath, CosSeparator)) && !fo.Operation.Recursive {
+		logger.Fatalf("srcPath:%v is dir, please use --recursive option", srcPath)
+	}
+
 	isDir := false
 	if fo.Operation.Recursive {
 		// 判断src路径是否是文件夹
@@ -279,10 +285,6 @@ func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, s
 		if !fileExist {
 			logger.Fatalf("src cos object not found:%s", srcPath)
 		}
-	}
-
-	if isDir && !fo.Operation.Recursive {
-		logger.Fatalf("srcPath:%v is dir, please use --recursive option", srcPath)
 	}
 
 	// src路径不以路径分隔符结尾，且dest路径以路径分隔符结尾，则需将src最后一位 文件/文件夹名 拼接至dest路径后

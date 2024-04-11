@@ -81,7 +81,7 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int
 
 func CheckCosObjectExist(c *cos.Client, prefix string) (exist bool) {
 	if prefix == "" {
-		return true
+		return false
 	}
 
 	exist, err := c.Object.IsExist(context.Background(), prefix)

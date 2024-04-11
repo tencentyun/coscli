@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"strings"
 	"time"
@@ -15,6 +16,46 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 	chProgressSignal = make(chan chProgressSignalType, 10)
 	go progressBar(fo)
 
+	if !strings.HasSuffix(srcUrl.(*CosUrl).Object, CosSeparator) {
+		// 单对象copy
+		index := strings.LastIndex(srcUrl.(*CosUrl).Object, "/")
+		prefix := ""
+		relativeKey := srcUrl.(*CosUrl).Object
+		if index > 0 {
+			prefix = srcUrl.(*CosUrl).Object[:index+1]
+			relativeKey = srcUrl.(*CosUrl).Object[index+1:]
+		}
+		// 获取文件信息
+		resp, err := getHead(srcClient, srcUrl.(*CosUrl).Object)
+		if err != nil {
+			if resp != nil && resp.StatusCode == 404 {
+				// 源文件不在cos上
+				logger.Fatalf("Object not found : %v", err)
+			}
+			logger.Fatalf("Head object err : %v", err)
+		}
+
+		// 下载文件
+		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, srcUrl, destUrl)
+		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		if err != nil && fo.Operation.FailOutput {
+			logger.Fatalf("%s failed: %v", msg, err)
+		}
+
+	} else {
+		// 多对象copy
+		batchCopyFiles(srcClient, destClient, srcUrl, destUrl, fo)
+	}
+
+	CloseErrorOutputFile(fo)
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
+}
+
+func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)
 	chListError := make(chan error, 1)
@@ -48,12 +89,6 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 			}
 		}
 	}
-	CloseErrorOutputFile(fo)
-	closeProgress()
-	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
-
-	endT := time.Now().UnixNano() / 1000 / 1000
-	PrintTransferStats(startT, endT, fo)
 }
 
 func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {

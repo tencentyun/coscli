@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -23,12 +24,50 @@ type DownloadOptions struct {
 }
 
 func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
+
 	startT := time.Now().UnixNano() / 1000 / 1000
 
 	fo.Monitor.init(fo.CpType)
 	chProgressSignal = make(chan chProgressSignalType, 10)
 	go progressBar(fo)
 
+	if !strings.HasSuffix(cosUrl.(*CosUrl).Object, CosSeparator) {
+		// 单对象下载
+		index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
+		prefix := ""
+		relativeKey := cosUrl.(*CosUrl).Object
+		if index > 0 {
+			prefix = cosUrl.(*CosUrl).Object[:index+1]
+			relativeKey = cosUrl.(*CosUrl).Object[index+1:]
+		}
+		// 获取文件信息
+		resp, err := getHead(c, cosUrl.(*CosUrl).Object)
+		if err != nil {
+			if resp != nil && resp.StatusCode == 404 {
+				// 文件不在cos上
+				logger.Fatalf("Object not found : %v", err)
+			}
+			logger.Fatalf("Head object err : %v", err)
+		}
+		// 下载文件
+		skip, err, isDir, size, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl)
+		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		if err != nil && fo.Operation.FailOutput {
+			logger.Fatalf("%s failed: %v", msg, err)
+		}
+	} else {
+		// 多对象下载
+		batchDownloadFiles(c, cosUrl, fileUrl, fo)
+	}
+
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
+}
+
+func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)
 	chListError := make(chan error, 1)
@@ -62,12 +101,6 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 			}
 		}
 	}
-
-	closeProgress()
-	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
-
-	endT := time.Now().UnixNano() / 1000 / 1000
-	PrintTransferStats(startT, endT, fo)
 }
 
 func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {
