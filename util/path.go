@@ -56,7 +56,8 @@ func DownloadPathFixed(relativeObject, filePath string) string {
 	if strings.HasSuffix(filePath, "/") || strings.HasSuffix(filePath, "\\") {
 		return filePath + relativeObject
 	}
-
+	// 兼容windows路径
+	filePath = strings.Replace(filePath, "/", string(os.PathSeparator), -1)
 	return filePath
 }
 
