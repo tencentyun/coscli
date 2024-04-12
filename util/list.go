@@ -283,7 +283,13 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		for _, object := range objects {
 			object.Key, _ = url.QueryUnescape(object.Key)
 			if cosObjectMatchPatterns(object.Key, filters) {
-				table.Append([]string{object.Key, object.StorageClass, object.LastModified, object.ETag, formatBytes(float64(object.Size))})
+
+				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
+				if err != nil {
+					fmt.Println("Error parsing time:", err)
+					return
+				}
+				table.Append([]string{object.Key, object.StorageClass, utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size))})
 				total++
 			}
 		}

@@ -16,7 +16,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 	chProgressSignal = make(chan chProgressSignalType, 10)
 	go progressBar(fo)
 
-	if !strings.HasSuffix(srcUrl.(*CosUrl).Object, CosSeparator) {
+	if srcUrl.(*CosUrl).Object != "" && !strings.HasSuffix(srcUrl.(*CosUrl).Object, CosSeparator) {
 		// 单对象copy
 		index := strings.LastIndex(srcUrl.(*CosUrl).Object, "/")
 		prefix := ""
@@ -35,7 +35,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 			logger.Fatalf("Head object err : %v", err)
 		}
 
-		// 下载文件
+		// copy文件
 		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, srcUrl, destUrl)
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil && fo.Operation.FailOutput {

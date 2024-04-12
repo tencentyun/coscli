@@ -1,14 +1,9 @@
 package cmd
 
 import (
-	"context"
-	"encoding/xml"
-	"fmt"
-	"os"
-
 	"coscli/util"
+	"fmt"
 
-	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -38,12 +33,31 @@ Example:
 	Run: func(cmd *cobra.Command, args []string) {
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		force, _ := cmd.Flags().GetBool("force")
+		onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
+		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
+
+		_, filters := util.GetFilter(include, exclude)
+
+		fo := &util.FileOperations{
+			Operation: util.Operation{
+				Recursive:      recursive,
+				Filters:        filters,
+				OnlyCurrentDir: onlyCurrentDir,
+				Force:          force,
+				RetryNum:       retryNum,
+			},
+			Monitor:   &util.FileProcessMonitor{},
+			Config:    &config,
+			Param:     &param,
+			ErrOutput: &util.ErrOutput{},
+		}
+
 		if recursive {
-			removeObjects1(args, include, exclude, force)
+			util.RemoveObjects(args, fo)
 		} else {
-			removeObject(args, force)
+			util.RemoveObject(args, fo)
 		}
 	},
 }
@@ -55,152 +69,6 @@ func init() {
 	rmCmd.Flags().BoolP("force", "f", false, "Force delete")
 	rmCmd.Flags().String("include", "", "List files that meet the specified criteria")
 	rmCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
-}
-
-func removeObjects1(args []string, include string, exclude string, force bool) {
-	for _, arg := range args {
-		bucketName, cosDir := util.ParsePath(arg)
-		c := util.NewClient(&config, &param, bucketName)
-
-		if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
-			cosDir += "/"
-		}
-
-		isTruncated := true
-		nextMarker := ""
-		deleteOrNot := false
-		errorOrNot := false
-		for isTruncated {
-			objects, t, m, commonPrefixes := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
-
-			if len(commonPrefixes) > 0 {
-				files := getFilesAndDirs(c, cosDir, nextMarker, include, exclude)
-
-				for _, v := range files {
-					recursiveRemoveObject(bucketName, v, force)
-				}
-				isTruncated = false
-			} else {
-				isTruncated = t
-				nextMarker = m
-				var oKeys []cos.Object
-				for _, o := range objects {
-					if !force {
-						logger.Infof("Do you want to delete %s? (y/n)", o.Key)
-						var choice string
-						_, _ = fmt.Scanf("%s\n", &choice)
-						if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
-							oKeys = append(oKeys, cos.Object{Key: o.Key})
-						}
-					} else {
-						oKeys = append(oKeys, cos.Object{Key: o.Key})
-					}
-				}
-				if len(oKeys) == 0 {
-					continue
-				}
-				deleteOrNot = true
-				opt := &cos.ObjectDeleteMultiOptions{
-					XMLName: xml.Name{},
-					Quiet:   false,
-					Objects: oKeys,
-				}
-				res, _, err := c.Object.DeleteMulti(context.Background(), opt)
-				if err != nil {
-					logger.Fatalln(err)
-					os.Exit(1)
-				}
-
-				for _, o := range res.DeletedObjects {
-					logger.Infoln("Delete ", o.Key)
-				}
-				if len(res.Errors) > 0 {
-					errorOrNot = true
-					logger.Infoln()
-					for _, e := range res.Errors {
-						logger.Infoln("Fail to delete", e.Key)
-						logger.Infoln("    Error Code: ", e.Code, " Message: ", e.Message)
-					}
-				}
-			}
-
-		}
-
-		if deleteOrNot == false {
-			logger.Infoln("No objects were deleted!")
-		}
-		if errorOrNot == false {
-			logger.Infof("\nAll deleted successfully!\n")
-		}
-	}
-}
-
-func removeObject(args []string, force bool) {
-	for _, arg := range args {
-		bucketName, cosPath := util.ParsePath(arg)
-		c := util.NewClient(&config, &param, bucketName)
-
-		opt := &cos.ObjectDeleteOptions{
-			XCosSSECustomerAglo:   "",
-			XCosSSECustomerKey:    "",
-			XCosSSECustomerKeyMD5: "",
-			XOptionHeader:         nil,
-			VersionId:             "",
-		}
-
-		if !force {
-			logger.Infof("Do you want to delete %s? (y/n)", cosPath)
-			var choice string
-			_, _ = fmt.Scanf("%s\n", &choice)
-			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
-				_, err := c.Object.Delete(context.Background(), cosPath, opt)
-				if err != nil {
-					logger.Fatalln(err)
-					os.Exit(1)
-				}
-				logger.Infoln("Delete", arg, "successfully!")
-			}
-		} else {
-			_, err := c.Object.Delete(context.Background(), cosPath, opt)
-			if err != nil {
-				logger.Fatalln(err)
-				os.Exit(1)
-			}
-			logger.Infoln("Delete", arg, "successfully!")
-		}
-	}
-}
-
-func recursiveRemoveObject(bucketName string, cosPath string, force bool) {
-	c := util.NewClient(&config, &param, bucketName)
-	opt := &cos.ObjectDeleteOptions{
-		XCosSSECustomerAglo:   "",
-		XCosSSECustomerKey:    "",
-		XCosSSECustomerKeyMD5: "",
-		XOptionHeader:         nil,
-		VersionId:             "",
-	}
-
-	if !force {
-		logger.Infof("Do you want to delete %s? (y/n)", cosPath)
-		var choice string
-		_, _ = fmt.Scanf("%s\n", &choice)
-		if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
-			_, err := c.Object.Delete(context.Background(), cosPath, opt)
-			if err != nil {
-				logger.Fatalln(err)
-				os.Exit(1)
-			}
-			logger.Infoln("Delete", "cos://"+bucketName+"/"+cosPath, "successfully!")
-		}
-	} else {
-		_, err := c.Object.Delete(context.Background(), cosPath, opt)
-		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
-		}
-		logger.Infoln("Delete", "cos://"+bucketName+"/"+cosPath, "successfully!")
-	}
 }
 
 // 获取所有文件和目录

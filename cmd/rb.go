@@ -42,7 +42,16 @@ Example:
 			logger.Infof("Do you want to clear all inside the bucket and delete bucket %s ? (y/n)", bucketIDName)
 			_, _ = fmt.Scanf("%s\n", &choice)
 			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
-				removeObjects1(args, "", "", true)
+				fo := &util.FileOperations{
+					Operation: util.Operation{
+						Force: true,
+					},
+					Monitor:   &util.FileProcessMonitor{},
+					Config:    &config,
+					Param:     &param,
+					ErrOutput: &util.ErrOutput{},
+				}
+				util.RemoveObjects(args, fo)
 				abortParts(args[0], "", "")
 				removeBucket(bucketIDName)
 			}

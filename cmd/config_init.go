@@ -54,16 +54,21 @@ func initConfigFile(cfgFlag bool) {
 	}
 	fmt.Println("The path of the configuration file: " + configFile)
 
-	fmt.Println("Input Your Secret ID:")
-	_, _ = fmt.Scanf("%s\n", &config.Base.SecretID)
-	fmt.Println("Input Your Secret Key:")
-	_, _ = fmt.Scanf("%s\n", &config.Base.SecretKey)
-	fmt.Println("Input Your Session Token:")
-	_, _ = fmt.Scanf("%s\n", &config.Base.SessionToken)
 	fmt.Println("Input Your Mode:")
 	_, _ = fmt.Scanf("%s\n", &config.Base.Mode)
-	fmt.Println("Input Your Cvm Role Name:")
-	_, _ = fmt.Scanf("%s\n", &config.Base.CvmRoleName)
+
+	if config.Base.Mode == "CvmRole" {
+		fmt.Println("Input Your Cvm Role Name:")
+		_, _ = fmt.Scanf("%s\n", &config.Base.CvmRoleName)
+	} else {
+		fmt.Println("Input Your Secret ID:")
+		_, _ = fmt.Scanf("%s\n", &config.Base.SecretID)
+		fmt.Println("Input Your Secret Key:")
+		_, _ = fmt.Scanf("%s\n", &config.Base.SecretKey)
+		fmt.Println("Input Your Session Token:")
+		_, _ = fmt.Scanf("%s\n", &config.Base.SessionToken)
+	}
+
 	fmt.Println("Input Auto Switch Host:")
 	_, _ = fmt.Scanf("%s\n", &config.Base.CloseAutoSwitchHost)
 	if len(config.Base.SessionToken) < 3 {

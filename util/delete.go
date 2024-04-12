@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"io"
 	"os"
@@ -123,7 +124,11 @@ func confirm(objects []cos.Object, fo *FileOperations, cosUrl StorageUrl) bool {
 	for _, v := range objects {
 		logBuffer.WriteString(fmt.Sprintf("%s\n", SchemePrefix+cosUrl.(*CosUrl).Bucket+CosSeparator+v.Key))
 	}
-	logBuffer.WriteString(fmt.Sprintf("sync:delete above objects(Y or N)? "))
+	if fo.Command == CommandSync {
+		logBuffer.WriteString(fmt.Sprintf("sync:delete above objects(Y or N)? "))
+	} else {
+		logBuffer.WriteString(fmt.Sprintf("delete above objects(Y or N)? "))
+	}
 	fmt.Printf(logBuffer.String())
 
 	var val string
@@ -292,5 +297,78 @@ func moveFileToPath(srcName, destName string) error {
 			return err
 		}
 		return nil
+	}
+}
+
+func RemoveObjects(args []string, fo *FileOperations) {
+	for _, arg := range args {
+		cosUrl, err := FormatUrl(arg)
+		if err != nil {
+			logger.Fatalf("format cosUrl error,%v", err)
+		}
+		bucketName := cosUrl.(*CosUrl).Bucket
+
+		c := NewClient(fo.Config, fo.Param, bucketName)
+		keysToDelete := make(map[string]string)
+		err = GetCosKeys(c, cosUrl, keysToDelete, fo)
+		if err != nil {
+			logger.Fatalf("get cos list error: %v", err)
+		}
+		// 打印一个空行
+		fmt.Println()
+		DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+	}
+	// 打印一个空行
+	fmt.Println()
+}
+
+func RemoveObject(args []string, fo *FileOperations) {
+	for _, arg := range args {
+
+		cosUrl, err := FormatUrl(arg)
+		if err != nil {
+			logger.Fatalf("format cosUrl error,%v", err)
+		}
+		bucketName := cosUrl.(*CosUrl).Bucket
+		cosPath := cosUrl.(*CosUrl).Object
+
+		if cosPath == "" || strings.HasSuffix(cosPath, CosSeparator) {
+			logger.Fatalf("cosPath:%v is dir, please use --recursive option", cosPath)
+		}
+
+		c := NewClient(fo.Config, fo.Param, bucketName)
+		// 查询对象是否存在
+		if !CheckCosObjectExist(c, cosPath) {
+			logger.Fatalf("cos object not found:%s", cosPath)
+		}
+
+		opt := &cos.ObjectDeleteOptions{
+			XCosSSECustomerAglo:   "",
+			XCosSSECustomerKey:    "",
+			XCosSSECustomerKeyMD5: "",
+			XOptionHeader:         nil,
+			VersionId:             "",
+		}
+
+		if !fo.Operation.Force {
+			logger.Infof("Do you want to delete %s? (y/n)", cosPath)
+			var choice string
+			_, _ = fmt.Scanf("%s\n", &choice)
+			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
+				_, err = c.Object.Delete(context.Background(), cosPath, opt)
+				if err != nil {
+					logger.Fatalln(err)
+					os.Exit(1)
+				}
+				logger.Infoln("Delete", arg, "successfully!")
+			}
+		} else {
+			_, err = c.Object.Delete(context.Background(), cosPath, opt)
+			if err != nil {
+				logger.Fatalln(err)
+				os.Exit(1)
+			}
+			logger.Infoln("Delete", arg, "successfully!")
+		}
 	}
 }

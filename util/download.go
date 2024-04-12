@@ -31,7 +31,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 	chProgressSignal = make(chan chProgressSignalType, 10)
 	go progressBar(fo)
 
-	if !strings.HasSuffix(cosUrl.(*CosUrl).Object, CosSeparator) {
+	if cosUrl.(*CosUrl).Object != "" && !strings.HasSuffix(cosUrl.(*CosUrl).Object, CosSeparator) {
 		// 单对象下载
 		index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
 		prefix := ""
