@@ -49,6 +49,11 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 			}
 			logger.Fatalf("Head object err : %v", err)
 		}
+
+		fo.Monitor.updateScanSizeNum(resp.ContentLength, 1)
+		fo.Monitor.setScanEnd()
+		freshProgress()
+
 		// 下载文件
 		skip, err, isDir, size, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl)
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
