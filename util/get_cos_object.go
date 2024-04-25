@@ -183,6 +183,6 @@ func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limi
 
 	objects = res.Contents
 	isTruncated = res.IsTruncated
-	marker, _ = url.QueryUnescape(res.NextMarker)
+	nextMarker, _ = url.QueryUnescape(res.NextMarker)
 	return
 }
