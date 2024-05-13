@@ -22,8 +22,11 @@ build() {
 # 定义计算哈希值的函数
 calc_hash() {
     cd $output
+    rm -f sha256sum.log # 删除现有的 sha256sum.log 文件（如果存在）
     for file in $(ls *); do
-        sha256sum $file >> sha256sum.log
+        if [ "$file" != "sha256sum.log" ]; then
+            sha256sum $file >> sha256sum.log
+        fi
     done
 }
 
