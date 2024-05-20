@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -110,7 +111,26 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 
 func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {
 	for object := range chObjects {
-		skip, err, isDir, size, msg := singleDownload(c, fo, object, cosUrl, fileUrl)
+		var skip, isDir bool
+		var err error
+		var size int64
+		var msg string
+		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
+			skip, err, isDir, size, msg = singleDownload(c, fo, object, cosUrl, fileUrl)
+			if err == nil {
+				break // Download succeeded, break the loop
+			} else {
+				if retry < fo.Operation.ErrRetryNum {
+					if fo.Operation.ErrRetryInterval == 0 {
+						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
+						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
+					} else {
+						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
+					}
+				}
+			}
+		}
+
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
 			chError <- fmt.Errorf("%s failed: %w", msg, err)

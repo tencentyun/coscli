@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -66,7 +67,26 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 
 func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <-chan fileInfoType, chError chan<- error) {
 	for file := range chFiles {
-		skip, err, isDir, size, msg := SingleUpload(c, fo, file, cosUrl)
+		var skip, isDir bool
+		var err error
+		var size int64
+		var msg string
+		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
+			skip, err, isDir, size, msg = SingleUpload(c, fo, file, cosUrl)
+			if err == nil {
+				break // Upload succeeded, break the loop
+			} else {
+				if retry < fo.Operation.ErrRetryNum {
+					if fo.Operation.ErrRetryInterval == 0 {
+						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
+						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
+					} else {
+						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
+					}
+				}
+			}
+		}
+
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
 			chError <- fmt.Errorf("%s failed: %w", msg, err)

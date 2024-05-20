@@ -54,6 +54,8 @@ Example:
 		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
 		metaString, _ := cmd.Flags().GetString("meta")
 		retryNum, _ := cmd.Flags().GetInt("retry-num")
+		errRetryNum, _ := cmd.Flags().GetInt("err-retry-num")
+		errRetryInterval, _ := cmd.Flags().GetInt("err-retry-interval")
 		onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
 		disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
 		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
@@ -66,6 +68,16 @@ Example:
 
 		if retryNum < 0 || retryNum > 10 {
 			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
+			return
+		}
+
+		if errRetryNum < 0 || errRetryNum > 10 {
+			logger.Fatalln("err-retry-num must be between 0 and 10 (inclusive)")
+			return
+		}
+
+		if errRetryInterval < 0 || errRetryInterval > 10 {
+			logger.Fatalln("err-retry-interval must be between 0 and 10 (inclusive)")
 			return
 		}
 
@@ -98,6 +110,8 @@ Example:
 				FailOutputPath:    failOutputPath,
 				Meta:              meta,
 				RetryNum:          retryNum,
+				ErrRetryNum:       errRetryNum,
+				ErrRetryInterval:  errRetryInterval,
 				OnlyCurrentDir:    onlyCurrentDir,
 				DisableAllSymlink: disableAllSymlink,
 				EnableSymlinkDir:  enableSymlinkDir,
@@ -185,7 +199,9 @@ func init() {
 	cpCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
-	cpCmd.Flags().Int("retry-num", 0, "Retry download")
+	cpCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-10 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
+	cpCmd.Flags().Int("err-retry-num", 0, "Error retry attempts. Specify 1-10 times, or 0 for no retry.")
+	cpCmd.Flags().Int("err-retry-interval", 0, "Retry interval (available only when specifying error retry attempts 1-10). Specify an interval of 1-10 seconds, or if not specified or set to 0, a random interval within 1-10 seconds will be used for each retry.")
 	cpCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
 	cpCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	cpCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")

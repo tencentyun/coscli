@@ -79,6 +79,8 @@ type Operation struct {
 	FailOutputPath    string
 	Meta              Meta
 	RetryNum          int
+	ErrRetryNum       int
+	ErrRetryInterval  int
 	OnlyCurrentDir    bool
 	DisableAllSymlink bool
 	EnableSymlinkDir  bool

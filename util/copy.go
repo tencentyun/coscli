@@ -5,6 +5,7 @@ import (
 	"fmt"
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"math/rand"
 	"strings"
 	"time"
 )
@@ -93,7 +94,26 @@ func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUr
 
 func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {
 	for object := range chObjects {
-		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, object, srcUrl, destUrl)
+		var skip, isDir bool
+		var err error
+		var size int64
+		var msg string
+		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
+			skip, err, isDir, size, msg = singleCopy(srcClient, destClient, fo, object, srcUrl, destUrl)
+			if err == nil {
+				break // Copy succeeded, break the loop
+			} else {
+				if retry < fo.Operation.ErrRetryNum {
+					if fo.Operation.ErrRetryInterval == 0 {
+						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
+						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
+					} else {
+						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
+					}
+				}
+			}
+		}
+
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
 			chError <- fmt.Errorf("%s failed: %w", msg, err)

@@ -124,7 +124,7 @@ func tryGetBucket(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*co
 	for i := 0; i <= retryCount; i++ {
 		res, resp, err := c.Bucket.Get(context.Background(), opt)
 		if err != nil {
-			if resp.StatusCode == 503 {
+			if resp != nil && resp.StatusCode == 503 {
 				if i == retryCount {
 					return res, err
 				} else {
