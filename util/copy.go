@@ -160,35 +160,9 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	url := GenURL(fo.Config, fo.Param, srcUrl.(*CosUrl).Bucket)
 	srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, object)
 
-	// copy 大于5g使用分块copy
-	if size > 5*1024*1024*1024 {
-		opt := &cos.MultiCopyOptions{
-			OptCopy: &cos.ObjectCopyOptions{
-				&cos.ObjectCopyHeaderOptions{
-					CacheControl:       fo.Operation.Meta.CacheControl,
-					ContentDisposition: fo.Operation.Meta.ContentDisposition,
-					ContentEncoding:    fo.Operation.Meta.ContentEncoding,
-					ContentType:        fo.Operation.Meta.ContentType,
-					Expires:            fo.Operation.Meta.Expires,
-					XCosStorageClass:   fo.Operation.StorageClass,
-					XCosMetaXXX:        fo.Operation.Meta.XCosMetaXXX,
-				},
-				nil,
-			},
-			PartSize:       fo.Operation.PartSize,
-			ThreadPoolSize: fo.Operation.ThreadNum,
-		}
-		if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
-			fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {
-		}
-		{
-			opt.OptCopy.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
-		}
-		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
-	} else {
-		// 开始copy cos文件
-		opt := &cos.ObjectCopyOptions{
-			ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{
+	opt := &cos.MultiCopyOptions{
+		OptCopy: &cos.ObjectCopyOptions{
+			&cos.ObjectCopyHeaderOptions{
 				CacheControl:       fo.Operation.Meta.CacheControl,
 				ContentDisposition: fo.Operation.Meta.ContentDisposition,
 				ContentEncoding:    fo.Operation.Meta.ContentEncoding,
@@ -197,17 +171,18 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 				XCosStorageClass:   fo.Operation.StorageClass,
 				XCosMetaXXX:        fo.Operation.Meta.XCosMetaXXX,
 			},
-		}
-
-		if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
-			fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {
-		}
-		{
-			opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
-		}
-
-		_, _, err = destClient.Object.Copy(context.Background(), destPath, srcURL, opt)
+			nil,
+		},
+		PartSize:       fo.Operation.PartSize,
+		ThreadPoolSize: fo.Operation.ThreadNum,
 	}
+	if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
+		fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {
+	}
+	{
+		opt.OptCopy.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
+	}
+	_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
 
 	if err != nil {
 		rErr = err
