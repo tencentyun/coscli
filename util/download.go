@@ -58,7 +58,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 		// 下载文件
 		skip, err, isDir, size, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl)
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
-		if err != nil && fo.Operation.FailOutput {
+		if err != nil {
 			logger.Fatalf("%s failed: %v", msg, err)
 		}
 	} else {

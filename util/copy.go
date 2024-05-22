@@ -38,8 +38,9 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 
 		// copy文件
 		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, srcUrl, destUrl)
+
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
-		if err != nil && fo.Operation.FailOutput {
+		if err != nil {
 			logger.Fatalf("%s failed: %v", msg, err)
 		}
 
@@ -156,30 +157,58 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	// copy暂不支持监听进度
 	// size = 0
 
-	// 开始copy cos文件
-	opt := &cos.ObjectCopyOptions{
-		ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{
-			CacheControl:       fo.Operation.Meta.CacheControl,
-			ContentDisposition: fo.Operation.Meta.ContentDisposition,
-			ContentEncoding:    fo.Operation.Meta.ContentEncoding,
-			ContentType:        fo.Operation.Meta.ContentType,
-			Expires:            fo.Operation.Meta.Expires,
-			XCosStorageClass:   fo.Operation.StorageClass,
-			XCosMetaXXX:        fo.Operation.Meta.XCosMetaXXX,
-		},
-	}
-
-	if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
-		fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {
-	}
-	{
-		opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
-	}
-
 	url := GenURL(fo.Config, fo.Param, srcUrl.(*CosUrl).Bucket)
 	srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, object)
 
-	_, _, err = destClient.Object.Copy(context.Background(), destPath, srcURL, opt)
+	// copy 大于5g使用分块copy
+	if size > 5*1024*1024*1024 {
+		opt := &cos.MultiCopyOptions{
+			OptCopy: &cos.ObjectCopyOptions{
+				&cos.ObjectCopyHeaderOptions{
+					CacheControl:       fo.Operation.Meta.CacheControl,
+					ContentDisposition: fo.Operation.Meta.ContentDisposition,
+					ContentEncoding:    fo.Operation.Meta.ContentEncoding,
+					ContentType:        fo.Operation.Meta.ContentType,
+					Expires:            fo.Operation.Meta.Expires,
+					XCosStorageClass:   fo.Operation.StorageClass,
+					XCosMetaXXX:        fo.Operation.Meta.XCosMetaXXX,
+				},
+				nil,
+			},
+			PartSize:       fo.Operation.PartSize,
+			ThreadPoolSize: fo.Operation.ThreadNum,
+		}
+		if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
+			fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {
+		}
+		{
+			opt.OptCopy.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
+		}
+		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
+	} else {
+		// 开始copy cos文件
+		opt := &cos.ObjectCopyOptions{
+			ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{
+				CacheControl:       fo.Operation.Meta.CacheControl,
+				ContentDisposition: fo.Operation.Meta.ContentDisposition,
+				ContentEncoding:    fo.Operation.Meta.ContentEncoding,
+				ContentType:        fo.Operation.Meta.ContentType,
+				Expires:            fo.Operation.Meta.Expires,
+				XCosStorageClass:   fo.Operation.StorageClass,
+				XCosMetaXXX:        fo.Operation.Meta.XCosMetaXXX,
+			},
+		}
+
+		if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
+			fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {
+		}
+		{
+			opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
+		}
+
+		_, _, err = destClient.Object.Copy(context.Background(), destPath, srcURL, opt)
+	}
+
 	if err != nil {
 		rErr = err
 		return
