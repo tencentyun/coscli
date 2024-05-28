@@ -267,7 +267,7 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 	marker := ""
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Key", "Type", "Last Modified", "Etag", "Size"})
+	table.SetHeader([]string{"Key", "Type", "Last Modified", "Etag", "Size", "RestoreStatus"})
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
 	table.SetAutoWrapText(false)
@@ -289,13 +289,13 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 					fmt.Println("Error parsing time:", err)
 					return
 				}
-				table.Append([]string{object.Key, object.StorageClass, utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size))})
+				table.Append([]string{object.Key, object.StorageClass, utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size)), object.RestoreStatus})
 				total++
 			}
 		}
 	}
 
-	table.SetFooter([]string{"", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
+	table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
 	table.Render()
 
 }
