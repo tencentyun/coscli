@@ -74,6 +74,7 @@ func deleteKeys(c *cos.Client, keysToDelete map[string]string, destUrl StorageUr
 
 func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl StorageUrl, fo *FileOperations) error {
 	deleteCount := 0
+	errCount := 0
 	objects := []cos.Object{}
 	for k, v := range keysToDelete {
 		if len(objects) >= MaxDeleteBatchCount {
@@ -84,14 +85,27 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 					// 值为 true 启动 Quiet 模式，值为 false 则启动 Verbose 模式，默认值为 false
 					Quiet: true,
 				}
-				_, _, err := c.Object.DeleteMulti(context.Background(), opt)
+				res, _, err := c.Object.DeleteMulti(context.Background(), opt)
 				if err != nil {
 					return err
+				}
+				// 删除失败的记录写入错误日志
+				if fo.Operation.FailOutput {
+					for _, delErr := range res.Errors {
+						deleteCount--
+						errCount++
+						writeError(fmt.Sprintf("delete %s failed , code:%s,errMsg:%s\n", delErr.Key, delErr.Code, delErr.Message), fo)
+					}
 				}
 			}
 			objects = []cos.Object{}
 			deleteCount += MaxDeleteBatchCount
-			fmt.Printf("\rdelete object count:%d", deleteCount)
+			if errCount > 0 {
+				fmt.Printf("\rdelete object count:%d, err count:%d", deleteCount, errCount)
+			} else {
+				fmt.Printf("\rdelete object count:%d", deleteCount)
+			}
+
 		}
 
 		objects = append(objects, cos.Object{Key: v + k})
@@ -104,12 +118,25 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 			// 值为 true 启动 Quiet 模式，值为 false 则启动 Verbose 模式，默认值为 false
 			Quiet: true,
 		}
-		_, _, err := c.Object.DeleteMulti(context.Background(), opt)
+		res, _, err := c.Object.DeleteMulti(context.Background(), opt)
 		if err != nil {
 			return err
 		}
+		// 删除失败的记录写入错误日志
+		if fo.Operation.FailOutput {
+			for _, delErr := range res.Errors {
+				deleteCount--
+				errCount++
+				writeError(fmt.Sprintf("delete %s failed , code:%s,errMsg:%s\n", delErr.Key, delErr.Code, delErr.Message), fo)
+			}
+		}
+
 		deleteCount += len(objects)
-		fmt.Printf("\rdelete object count:%d", deleteCount)
+		if errCount > 0 {
+			fmt.Printf("\rdelete object count:%d, err count:%d", deleteCount, errCount)
+		} else {
+			fmt.Printf("\rdelete object count:%d", deleteCount)
+		}
 	}
 	return nil
 }

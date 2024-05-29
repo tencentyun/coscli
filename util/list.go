@@ -269,12 +269,20 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Key", "Type", "Last Modified", "Etag", "Size", "RestoreStatus"})
 	table.SetBorder(false)
-	table.SetAlignment(tablewriter.ALIGN_RIGHT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(false)
 
-	for isTruncated {
+	processed := 0
+	isFirst := true
+
+	for isTruncated && processed < limit {
 		table.ClearRows()
-		err, objects, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, limit, recursive)
+		queryLimit := 1000
+		if limit-processed < 1000 {
+			queryLimit = limit - processed
+		}
+
+		err, objects, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, queryLimit, recursive)
 
 		if err != nil {
 			logger.Fatalln("list objects error : %v", err)
@@ -293,10 +301,21 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 				total++
 			}
 		}
-	}
 
-	table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
-	table.Render()
+		processed += len(objects)
+
+		if !isTruncated || processed >= limit {
+			table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
+		}
+		table.Render()
+
+		if isFirst {
+			table = tablewriter.NewWriter(os.Stdout)
+			table.SetBorder(false)
+			table.SetAlignment(tablewriter.ALIGN_LEFT)
+			table.SetAutoWrapText(false)
+		}
+	}
 
 }
 

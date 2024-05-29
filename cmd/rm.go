@@ -37,6 +37,8 @@ Example:
 		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
+		failOutput, _ := cmd.Flags().GetBool("fail-output")
+		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
 
 		_, filters := util.GetFilter(include, exclude)
 
@@ -47,6 +49,8 @@ Example:
 				OnlyCurrentDir: onlyCurrentDir,
 				Force:          force,
 				RetryNum:       retryNum,
+				FailOutput:     failOutput,
+				FailOutputPath: failOutputPath,
 			},
 			Monitor:   &util.FileProcessMonitor{},
 			Config:    &config,
@@ -67,8 +71,12 @@ func init() {
 
 	rmCmd.Flags().BoolP("recursive", "r", false, "Delete object recursively")
 	rmCmd.Flags().BoolP("force", "f", false, "Force delete")
+	rmCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
+	rmCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-10 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
 	rmCmd.Flags().String("include", "", "List files that meet the specified criteria")
 	rmCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+	rmCmd.Flags().Bool("fail-output", false, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
+	rmCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
 }
 
 // 获取所有文件和目录
