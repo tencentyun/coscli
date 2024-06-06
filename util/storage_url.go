@@ -294,7 +294,7 @@ func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, s
 	}
 
 	// 格式化dest路径
-	if fo.Operation.Recursive && isDir && !strings.HasSuffix(destPath, CosSeparator) {
+	if destPath != "" && fo.Operation.Recursive && isDir && !strings.HasSuffix(destPath, CosSeparator) {
 		destPath += CosSeparator
 	}
 
