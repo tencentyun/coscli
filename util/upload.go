@@ -18,9 +18,8 @@ var (
 )
 
 // 定义一个结构体类型
-type Glode struct {
-	TotalSize int64
-	TotalNum  int64
+type Counter struct {
+	TransferSize int64
 }
 
 func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
@@ -75,10 +74,10 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 	for file := range chFiles {
 		var skip, isDir bool
 		var err error
-		var size int64
+		var size, transferSize int64
 		var msg string
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
-			skip, err, isDir, size, msg = SingleUpload(c, fo, file, cosUrl)
+			skip, err, isDir, size, transferSize, msg = SingleUpload(c, fo, file, cosUrl)
 			if err == nil {
 				break // Upload succeeded, break the loop
 			} else {
@@ -89,6 +88,8 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 					} else {
 						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
 					}
+
+					fo.Monitor.updateDealSize(-transferSize)
 				}
 			}
 		}
@@ -103,11 +104,12 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 	chError <- nil
 }
 
-func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl StorageUrl) (skip bool, rErr error, isDir bool, size int64, msg string) {
+func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl StorageUrl) (skip bool, rErr error, isDir bool, size, transferSize int64, msg string) {
 	skip = false
 	rErr = nil
 	isDir = false
 	size = 0
+	transferSize = 0
 
 	localFilePath, cosPath := UploadPathFixed(file, cosUrl.(*CosUrl).Object)
 
@@ -182,15 +184,19 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			CheckPoint:     true,
 		}
 
+		counter := &Counter{TransferSize: 0}
 		// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
 		if size > fo.Operation.PartSize*1024*1024 {
-			opt.OptIni.Listener = &CosListener{fo}
+			opt.OptIni.Listener = &CosListener{fo, counter}
 			size = 0
 		}
 
 		_, _, err = c.Object.Upload(context.Background(), cosPath, localFilePath, opt)
 
 		if err != nil {
+			if strings.HasPrefix(err.Error(), "verification failed, want:") {
+				transferSize = counter.TransferSize
+			}
 			rErr = err
 			return
 		}

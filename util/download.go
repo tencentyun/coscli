@@ -56,7 +56,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 		freshProgress()
 
 		// 下载文件
-		skip, err, isDir, size, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl)
+		skip, err, isDir, size, _, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl)
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
 			logger.Fatalf("%s failed: %v", msg, err)
@@ -113,10 +113,10 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 	for object := range chObjects {
 		var skip, isDir bool
 		var err error
-		var size int64
+		var size, transferSize int64
 		var msg string
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
-			skip, err, isDir, size, msg = singleDownload(c, fo, object, cosUrl, fileUrl)
+			skip, err, isDir, size, transferSize, msg = singleDownload(c, fo, object, cosUrl, fileUrl)
 			if err == nil {
 				break // Download succeeded, break the loop
 			} else {
@@ -127,6 +127,9 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 					} else {
 						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
 					}
+
+					fo.Monitor.updateDealSize(-transferSize)
+
 				}
 			}
 		}
@@ -141,11 +144,12 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 	chError <- nil
 }
 
-func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType, cosUrl, fileUrl StorageUrl) (skip bool, rErr error, isDir bool, size int64, msg string) {
+func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType, cosUrl, fileUrl StorageUrl) (skip bool, rErr error, isDir bool, size, transferSize int64, msg string) {
 	skip = false
 	rErr = nil
 	isDir = false
 	size = objectInfo.size
+	transferSize = 0
 	object := objectInfo.prefix + objectInfo.relativeKey
 
 	localFilePath := DownloadPathFixed(objectInfo.relativeKey, fileUrl.ToString())
@@ -207,15 +211,18 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		CheckPoint:     true,
 		CheckPointFile: "",
 	}
-
+	counter := &Counter{TransferSize: 0}
 	// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
 	if size > fo.Operation.PartSize*1024*1024 {
-		opt.Opt.Listener = &CosListener{fo}
+		opt.Opt.Listener = &CosListener{fo, counter}
 		size = 0
 	}
 
 	resp, err := c.Object.Download(context.Background(), object, localFilePath, opt)
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "verification failed, want:") {
+			transferSize = counter.TransferSize
+		}
 		rErr = err
 		return
 	}

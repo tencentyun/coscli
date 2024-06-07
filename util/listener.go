@@ -6,7 +6,8 @@ import (
 )
 
 type CosListener struct {
-	fo *FileOperations
+	fo      *FileOperations
+	counter *Counter
 }
 
 func (l *CosListener) ProgressChangedCallback(event *cos.ProgressEvent) {
@@ -15,6 +16,7 @@ func (l *CosListener) ProgressChangedCallback(event *cos.ProgressEvent) {
 	case cos.ProgressDataEvent:
 		l.fo.Monitor.updateTransferSize(event.RWBytes)
 		l.fo.Monitor.updateDealSize(event.RWBytes)
+		l.counter.TransferSize += event.RWBytes
 	case cos.ProgressCompletedEvent:
 	case cos.ProgressFailedEvent:
 		l.fo.Monitor.updateDealSize(-event.ConsumedBytes)
