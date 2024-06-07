@@ -42,6 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&param.SecretKey, "secret-key", "k", "", "config secretKey")
 	rootCmd.PersistentFlags().StringVarP(&param.SessionToken, "token", "", "", "config sessionToken")
 	rootCmd.PersistentFlags().StringVarP(&param.Endpoint, "endpoint", "e", "", "config endpoint")
+	rootCmd.PersistentFlags().BoolVarP(&param.Customized, "customized", "", false, "config customized")
 	rootCmd.PersistentFlags().StringVarP(&param.Protocol, "protocol", "p", "", "config protocol")
 	rootCmd.PersistentFlags().BoolVarP(&initSkip, "init-skip", "", false, "skip config init")
 }

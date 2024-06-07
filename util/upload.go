@@ -17,6 +17,12 @@ var (
 	mu sync.Mutex
 )
 
+// 定义一个结构体类型
+type Glode struct {
+	TotalSize int64
+	TotalNum  int64
+}
+
 func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
 	startT := time.Now().UnixNano() / 1000 / 1000
 	localPath := fileUrl.ToString()
@@ -140,9 +146,6 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			return
 		}
 
-		// 未跳过则通过监听更新size
-		size = 0
-
 		opt := &cos.MultiUploadOptions{
 			OptIni: &cos.InitiateMultipartUploadOptions{
 				ACLHeaderOptions: &cos.ACLHeaderOptions{
@@ -172,14 +175,21 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 					XCosSSECustomerKeyMD5:    "",
 					XOptionHeader:            nil,
 					XCosTrafficLimit:         (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
-					Listener:                 &CosListener{fo},
 				},
 			},
 			PartSize:       fo.Operation.PartSize,
 			ThreadPoolSize: fo.Operation.ThreadNum,
 			CheckPoint:     true,
 		}
+
+		// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
+		if size > fo.Operation.PartSize*1024*1024 {
+			opt.OptIni.Listener = &CosListener{fo}
+			size = 0
+		}
+
 		_, _, err = c.Object.Upload(context.Background(), cosPath, localFilePath, opt)
+
 		if err != nil {
 			rErr = err
 			return

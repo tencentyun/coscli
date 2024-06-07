@@ -9,8 +9,14 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func GenBucketURL(bucketIDName string, protocol string, endpoint string) string {
-	b := fmt.Sprintf("%s://%s.%s", protocol, bucketIDName, endpoint)
+func GenBucketURL(bucketIDName string, protocol string, endpoint string, customized bool) string {
+	b := ""
+	if customized {
+		b = fmt.Sprintf("%s://%s", protocol, endpoint)
+	} else {
+		b = fmt.Sprintf("%s://%s.%s", protocol, bucketIDName, endpoint)
+	}
+
 	return b
 }
 
@@ -25,8 +31,8 @@ func GenCiURL(bucketIDName string, protocol string, endpoint string) string {
 }
 
 // 根据函数参数生成URL
-func CreateURL(idName string, protocol string, endpoint string) *cos.BaseURL {
-	b := GenBucketURL(idName, protocol, endpoint)
+func CreateURL(idName string, protocol string, endpoint string, customized bool) *cos.BaseURL {
+	b := GenBucketURL(idName, protocol, endpoint, customized)
 	s := GenServiceURL(protocol, endpoint)
 	c := GenCiURL(idName, protocol, endpoint)
 
@@ -94,5 +100,7 @@ func GenURL(config *Config, param *Param, bucketName string) *cos.BaseURL {
 		protocol = param.Protocol
 	}
 
-	return CreateURL(idName, protocol, endpoint)
+	customized := param.Customized
+
+	return CreateURL(idName, protocol, endpoint, customized)
 }

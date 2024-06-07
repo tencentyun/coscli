@@ -33,6 +33,7 @@ type Param struct {
 	SecretKey    string
 	SessionToken string
 	Endpoint     string
+	Customized   bool
 	Protocol     string
 }
 

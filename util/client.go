@@ -106,7 +106,7 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 	}
 
 	var client *cos.Client
-	client = cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint), &http.Client{
+	client = cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint, false), &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:     secretID,
 			SecretKey:    secretKey,

@@ -185,9 +185,6 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		return
 	}
 
-	// 未跳过则通过监听更新size
-	size = 0
-
 	// 开始下载文件
 	opt := &cos.MultiDownloadOptions{
 		Opt: &cos.ObjectGetOptions{
@@ -204,12 +201,17 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 			XCosSSECustomerKeyMD5:      "",
 			XOptionHeader:              nil,
 			XCosTrafficLimit:           (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
-			Listener:                   &CosListener{fo},
 		},
 		PartSize:       fo.Operation.PartSize,
 		ThreadPoolSize: fo.Operation.ThreadNum,
 		CheckPoint:     true,
 		CheckPointFile: "",
+	}
+
+	// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
+	if size > fo.Operation.PartSize*1024*1024 {
+		opt.Opt.Listener = &CosListener{fo}
+		size = 0
 	}
 
 	resp, err := c.Object.Download(context.Background(), object, localFilePath, opt)
