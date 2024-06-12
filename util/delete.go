@@ -7,6 +7,7 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"io"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -73,7 +74,7 @@ func deleteKeys(c *cos.Client, keysToDelete map[string]string, destUrl StorageUr
 }
 
 func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl StorageUrl, fo *FileOperations) error {
-	deleteCount := 0
+
 	errCount := 0
 	objects := []cos.Object{}
 	for k, v := range keysToDelete {
@@ -92,18 +93,18 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 				// 删除失败的记录写入错误日志
 				if fo.Operation.FailOutput {
 					for _, delErr := range res.Errors {
-						deleteCount--
+						fo.DeleteCount--
 						errCount++
 						writeError(fmt.Sprintf("delete %s failed , code:%s,errMsg:%s\n", delErr.Key, delErr.Code, delErr.Message), fo)
 					}
 				}
 			}
 			objects = []cos.Object{}
-			deleteCount += MaxDeleteBatchCount
+			fo.DeleteCount += MaxDeleteBatchCount
 			if errCount > 0 {
-				fmt.Printf("\rdelete object count:%d, err count:%d", deleteCount, errCount)
+				fmt.Printf("\rdelete object count:%d, err count:%d", fo.DeleteCount, errCount)
 			} else {
-				fmt.Printf("\rdelete object count:%d", deleteCount)
+				fmt.Printf("\rdelete object count:%d", fo.DeleteCount)
 			}
 
 		}
@@ -125,17 +126,17 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 		// 删除失败的记录写入错误日志
 		if fo.Operation.FailOutput {
 			for _, delErr := range res.Errors {
-				deleteCount--
+				fo.DeleteCount--
 				errCount++
 				writeError(fmt.Sprintf("delete %s failed , code:%s,errMsg:%s\n", delErr.Key, delErr.Code, delErr.Message), fo)
 			}
 		}
 
-		deleteCount += len(objects)
+		fo.DeleteCount += len(objects)
 		if errCount > 0 {
-			fmt.Printf("\rdelete object count:%d, err count:%d", deleteCount, errCount)
+			fmt.Printf("\rdelete object count:%d, err count:%d", fo.DeleteCount, errCount)
 		} else {
-			fmt.Printf("\rdelete object count:%d", deleteCount)
+			fmt.Printf("\rdelete object count:%d", fo.DeleteCount)
 		}
 	}
 	return nil
@@ -337,13 +338,37 @@ func RemoveObjects(args []string, fo *FileOperations) {
 
 		c := NewClient(fo.Config, fo.Param, bucketName)
 		keysToDelete := make(map[string]string)
-		err = GetCosKeys(c, cosUrl, keysToDelete, fo)
-		if err != nil {
-			logger.Fatalf("get cos list error: %v", err)
-		}
+
 		// 打印一个空行
 		fmt.Println()
-		DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+
+		var objects []cos.Object
+		isTruncated := true
+		marker := ""
+
+		for isTruncated {
+			err, objects, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, 0, true)
+
+			if err != nil {
+				logger.Fatalln("list objects error : %v", err)
+			}
+
+			for _, object := range objects {
+				object.Key, _ = url.QueryUnescape(object.Key)
+
+				objPrefix := ""
+				objKey := object.Key
+				index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
+				if index > 0 {
+					objPrefix = object.Key[:index+1]
+					objKey = object.Key[index+1:]
+				}
+				keysToDelete[objKey] = objPrefix
+			}
+
+			DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+		}
+
 	}
 	// 打印一个空行
 	fmt.Println()

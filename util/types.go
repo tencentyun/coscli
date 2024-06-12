@@ -58,14 +58,15 @@ type objectInfoType struct {
 type CpType int
 
 type FileOperations struct {
-	Operation  Operation
-	Monitor    *FileProcessMonitor
-	ErrOutput  *ErrOutput
-	Config     *Config
-	Param      *Param
-	SnapshotDb *leveldb.DB
-	CpType     CpType
-	Command    string
+	Operation   Operation
+	Monitor     *FileProcessMonitor
+	ErrOutput   *ErrOutput
+	Config      *Config
+	Param       *Param
+	SnapshotDb  *leveldb.DB
+	CpType      CpType
+	Command     string
+	DeleteCount int
 }
 
 type Operation struct {
