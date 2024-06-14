@@ -337,7 +337,6 @@ func RemoveObjects(args []string, fo *FileOperations) {
 		bucketName := cosUrl.(*CosUrl).Bucket
 
 		c := NewClient(fo.Config, fo.Param, bucketName)
-		keysToDelete := make(map[string]string)
 
 		// 打印一个空行
 		fmt.Println()
@@ -353,6 +352,7 @@ func RemoveObjects(args []string, fo *FileOperations) {
 				logger.Fatalln("list objects error : %v", err)
 			}
 
+			keysToDelete := make(map[string]string)
 			for _, object := range objects {
 				object.Key, _ = url.QueryUnescape(object.Key)
 
