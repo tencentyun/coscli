@@ -159,6 +159,15 @@ Example:
 			if err != nil {
 				logger.Fatalln(err)
 			}
+
+			if fo.Operation.Delete {
+				// 检查备份路径
+				err = util.CheckBackupDir(destUrl, fo)
+				if err != nil {
+					logger.Fatalln(err)
+				}
+			}
+
 			bucketName := srcUrl.(*util.CosUrl).Bucket
 			c := util.NewClient(fo.Config, fo.Param, bucketName)
 			// 是否关闭crc64

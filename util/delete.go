@@ -167,11 +167,6 @@ func confirm(objects []cos.Object, fo *FileOperations, cosUrl StorageUrl) bool {
 }
 
 func DeleteLocalFiles(keysToDelete map[string]string, fileUrl StorageUrl, fo *FileOperations) error {
-	// 检查备份路径
-	err := checkBackupDir(fileUrl, fo)
-	if err != nil {
-		return err
-	}
 	var sortList []string
 	for key, _ := range keysToDelete {
 		sortList = append(sortList, key)
@@ -227,7 +222,7 @@ func DeleteLocalFiles(keysToDelete map[string]string, fileUrl StorageUrl, fo *Fi
 	return nil
 }
 
-func checkBackupDir(fileUrl StorageUrl, fo *FileOperations) error {
+func CheckBackupDir(fileUrl StorageUrl, fo *FileOperations) error {
 	createDir := false
 	f, err := os.Stat(fileUrl.ToString())
 	if err != nil {
