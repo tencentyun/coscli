@@ -350,15 +350,16 @@ func RemoveObjects(args []string, fo *FileOperations) {
 			keysToDelete := make(map[string]string)
 			for _, object := range objects {
 				object.Key, _ = url.QueryUnescape(object.Key)
-
-				objPrefix := ""
-				objKey := object.Key
-				index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
-				if index > 0 {
-					objPrefix = object.Key[:index+1]
-					objKey = object.Key[index+1:]
+				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
+					objPrefix := ""
+					objKey := object.Key
+					index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
+					if index > 0 {
+						objPrefix = object.Key[:index+1]
+						objKey = object.Key[index+1:]
+					}
+					keysToDelete[objKey] = objPrefix
 				}
-				keysToDelete[objKey] = objPrefix
 			}
 
 			DeleteCosObjects(c, keysToDelete, cosUrl, fo)
