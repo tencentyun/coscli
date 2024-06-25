@@ -341,7 +341,7 @@ func RemoveObjects(args []string, fo *FileOperations) {
 		marker := ""
 
 		for isTruncated {
-			err, objects, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, 0, true)
+			err, objects, _, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, 0, true)
 
 			if err != nil {
 				logger.Fatalln("list objects error : %v", err)

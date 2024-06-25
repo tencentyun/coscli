@@ -159,7 +159,7 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	}
 }
 
-func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, isTruncated bool, nextMarker string) {
+func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {
 
 	prefix := cosUrl.(*CosUrl).Object
 	retries := 0
@@ -182,6 +182,7 @@ func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limi
 	}
 
 	objects = res.Contents
+	commonPrefixes = res.CommonPrefixes
 	isTruncated = res.IsTruncated
 	nextMarker, _ = url.QueryUnescape(res.NextMarker)
 	return

@@ -262,6 +262,7 @@ func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include st
 func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) {
 	var err error
 	var objects []cos.Object
+	var commonPrefixes []string
 	total := 0
 	isTruncated := true
 	marker := ""
@@ -282,10 +283,17 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 			queryLimit = limit - processed
 		}
 
-		err, objects, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, queryLimit, recursive)
+		err, objects, commonPrefixes, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, queryLimit, recursive)
 
 		if err != nil {
 			logger.Fatalln("list objects error : %v", err)
+		}
+
+		if len(commonPrefixes) > 0 {
+			for _, commonPrefix := range commonPrefixes {
+				table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
+				total++
+			}
 		}
 
 		for _, object := range objects {
