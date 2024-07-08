@@ -286,7 +286,7 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		err, objects, commonPrefixes, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, queryLimit, recursive)
 
 		if err != nil {
-			logger.Fatalln("list objects error : %v", err)
+			logger.Fatalf("list objects error : %v", err)
 		}
 
 		if len(commonPrefixes) > 0 {
