@@ -1,7 +1,6 @@
 package util
 
 import (
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -96,10 +95,10 @@ func createFilter(name, pattern string) (bool, FilterOptionType) {
 	var filter FilterOptionType
 	filter.name = name
 	filter.pattern = strings.Replace(pattern, "[!", "[^", -1)
-	dir, _ := filepath.Split(filter.pattern)
-	if dir != "" {
-		return false, filter
-	}
+	//dir, _ := filepath.Split(filter.pattern)
+	//if dir != "" {
+	//	return false, filter
+	//}
 	return true, filter
 }
 
