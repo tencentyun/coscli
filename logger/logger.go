@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
@@ -14,14 +15,25 @@ import (
 
 var logName = "coscli.log"
 
-func init() {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		dir = "."
+func InitLoggerWithDir(path string) {
+	if path == "" {
+		var err error
+		path, err = filepath.Abs(filepath.Dir(os.Args[0]))
+		if err != nil {
+			path = "."
+		}
 	}
-	logpath := dir + string(os.PathSeparator) + logName
+
+	logPath := ""
+
+	if strings.HasSuffix(path, ".log") {
+		logPath = path
+	} else {
+		logPath = filepath.Join(path, logName)
+	}
+
 	fsWriter, err := rotatelogs.New(
-		logpath,
+		logPath,
 		rotatelogs.WithMaxAge(time.Duration(168)*time.Hour),
 		rotatelogs.WithRotationTime(time.Duration(24)*time.Hour),
 	)
