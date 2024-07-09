@@ -269,7 +269,7 @@ func syncCopy(args []string, recursive bool, include string, exclude string, met
 			cosPath1 += "/"
 		}
 		// 判断cosDir是否是文件夹
-		isDir := util.CheckCosPathType(c1, cosPath1, 0)
+		isDir := util.CheckCosPathType(c1, cosPath1, 0, nil)
 
 		if isDir {
 			// cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加

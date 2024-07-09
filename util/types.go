@@ -67,6 +67,7 @@ type FileOperations struct {
 	CpType      CpType
 	Command     string
 	DeleteCount int
+	BucketType  string
 }
 
 type Operation struct {

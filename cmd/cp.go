@@ -117,12 +117,13 @@ Example:
 				EnableSymlinkDir:  enableSymlinkDir,
 				DisableCrc64:      disableCrc64,
 			},
-			Monitor:   &util.FileProcessMonitor{},
-			Config:    &config,
-			Param:     &param,
-			ErrOutput: &util.ErrOutput{},
-			CpType:    getCommandType(srcUrl, destUrl),
-			Command:   util.CommandCP,
+			Monitor:    &util.FileProcessMonitor{},
+			Config:     &config,
+			Param:      &param,
+			ErrOutput:  &util.ErrOutput{},
+			CpType:     getCommandType(srcUrl, destUrl),
+			Command:    util.CommandCP,
+			BucketType: "COS",
 		}
 
 		if !fo.Operation.Recursive && len(fo.Operation.Filters) > 0 {
@@ -155,6 +156,12 @@ Example:
 			}
 			bucketName := srcUrl.(*util.CosUrl).Bucket
 			c := util.NewClient(fo.Config, fo.Param, bucketName)
+			// 判断桶是否是ofs桶
+			s, _ := c.Bucket.Head(context.Background())
+			// 根据s.Header判断是否是融合桶或者普通桶
+			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+				fo.BucketType = "OFS"
+			}
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				c.Conf.EnableCRC = false
@@ -231,7 +238,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
 			cosPath1 += "/"
 		}
 		// 判断cosDir是否是文件夹
-		isDir := util.CheckCosPathType(c1, cosPath1, 0)
+		isDir := util.CheckCosPathType(c1, cosPath1, 0, nil)
 
 		if isDir {
 			// cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加
