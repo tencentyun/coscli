@@ -291,6 +291,9 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
+				if total >= limit {
+					break
+				}
 				table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
 				total++
 			}
@@ -299,7 +302,9 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		for _, object := range objects {
 			object.Key, _ = url.QueryUnescape(object.Key)
 			if cosObjectMatchPatterns(object.Key, filters) {
-
+				if total >= limit {
+					break
+				}
 				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					fmt.Println("Error parsing time:", err)
@@ -310,10 +315,12 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 			}
 		}
 
-		processed += len(objects)
+		//processed += len(objects)
 
-		if !isTruncated || processed >= limit {
+		if !isTruncated || total >= limit {
 			table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
+			table.Render()
+			break
 		}
 		table.Render()
 
