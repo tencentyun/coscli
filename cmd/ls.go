@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"coscli/util"
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -49,7 +50,14 @@ Example:
 			bucketName := cosUrl.(*util.CosUrl).Bucket
 			c := util.NewClient(&config, &param, bucketName)
 			_, filters := util.GetFilter(include, exclude)
-			util.ListObjects(c, cosUrl, limit, recursive, filters)
+			// 根据s.Header判断是否是融合桶或者普通桶
+			s, _ := c.Bucket.Head(context.Background())
+			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+				util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
+			} else {
+				util.ListObjects(c, cosUrl, limit, recursive, filters)
+			}
+
 		} else {
 			logger.Fatalln("cospath needs to contain cos://")
 		}

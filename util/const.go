@@ -34,6 +34,7 @@ const (
 	MaxSyncNumbers             = 1000000
 	MaxDeleteBatchCount int    = 100
 	SnapshotConnector          = "==>"
+	OfsMaxRenderNum     int    = 100
 )
 
 const (

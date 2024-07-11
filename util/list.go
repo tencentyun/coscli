@@ -273,14 +273,11 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(false)
 
-	processed := 0
-	isFirst := true
-
-	for isTruncated && processed < limit {
+	for isTruncated && total < limit {
 		table.ClearRows()
 		queryLimit := 1000
-		if limit-processed < 1000 {
-			queryLimit = limit - processed
+		if limit-total < 1000 {
+			queryLimit = limit - total
 		}
 
 		err, objects, commonPrefixes, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, queryLimit, recursive)
@@ -291,20 +288,16 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
-				if total >= limit {
-					break
+				if cosObjectMatchPatterns(commonPrefix, filters) {
+					table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
+					total++
 				}
-				table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
-				total++
 			}
 		}
 
 		for _, object := range objects {
 			object.Key, _ = url.QueryUnescape(object.Key)
 			if cosObjectMatchPatterns(object.Key, filters) {
-				if total >= limit {
-					break
-				}
 				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					fmt.Println("Error parsing time:", err)
@@ -315,8 +308,6 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 			}
 		}
 
-		//processed += len(objects)
-
 		if !isTruncated || total >= limit {
 			table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
 			table.Render()
@@ -324,14 +315,101 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		}
 		table.Render()
 
-		if isFirst {
-			table = tablewriter.NewWriter(os.Stdout)
-			table.SetBorder(false)
-			table.SetAlignment(tablewriter.ALIGN_LEFT)
-			table.SetAutoWrapText(false)
-		}
+		// 重置表格
+		table = tablewriter.NewWriter(os.Stdout)
+		table.SetBorder(false)
+		table.SetAlignment(tablewriter.ALIGN_LEFT)
+		table.SetAutoWrapText(false)
 	}
 
+}
+
+func ListOfsObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) {
+	lsCounter := &LsCounter{}
+	prefix := cosUrl.(*CosUrl).Object
+
+	lsCounter.Table = tablewriter.NewWriter(os.Stdout)
+	lsCounter.Table.SetHeader([]string{"Key", "Type", "Last Modified", "Etag", "Size", "RestoreStatus"})
+	lsCounter.Table.SetBorder(false)
+	lsCounter.Table.SetAlignment(tablewriter.ALIGN_LEFT)
+	lsCounter.Table.SetAutoWrapText(false)
+
+	getOfsObjects(c, prefix, limit, recursive, filters, "", lsCounter)
+
+	lsCounter.Table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", lsCounter.TotalLimit)})
+	lsCounter.Table.Render()
+}
+
+func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filters []FilterOptionType, marker string, lsCounter *LsCounter) {
+	var err error
+	var objects []cos.Object
+	var commonPrefixes []string
+	isTruncated := true
+
+	for isTruncated {
+
+		queryLimit := 1000
+		if limit-lsCounter.TotalLimit < 1000 {
+			queryLimit = limit - lsCounter.TotalLimit
+		}
+
+		if queryLimit <= 0 {
+			return
+		}
+
+		err, objects, commonPrefixes, isTruncated, marker = getOfsObjectListForLs(c, prefix, marker, queryLimit, recursive)
+
+		if err != nil {
+			logger.Fatalf("list objects error : %v", err)
+		}
+
+		for _, object := range objects {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, filters) {
+				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
+				if err != nil {
+					fmt.Println("Error parsing time:", err)
+					return
+				}
+				if lsCounter.TotalLimit >= limit {
+					break
+				}
+				lsCounter.TotalLimit++
+				lsCounter.RenderNum++
+				lsCounter.Table.Append([]string{object.Key, object.StorageClass, utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size)), object.RestoreStatus})
+				tableRender(lsCounter)
+			}
+		}
+
+		if len(commonPrefixes) > 0 {
+			for _, commonPrefix := range commonPrefixes {
+				commonPrefix, _ = url.QueryUnescape(commonPrefix)
+				if cosObjectMatchPatterns(commonPrefix, filters) {
+					if lsCounter.TotalLimit >= limit {
+						break
+					}
+					lsCounter.TotalLimit++
+					lsCounter.RenderNum++
+					lsCounter.Table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
+					tableRender(lsCounter)
+					// 递归目录
+					getOfsObjects(c, commonPrefix, limit, recursive, filters, "", lsCounter)
+				}
+			}
+		}
+	}
+}
+
+func tableRender(lsCounter *LsCounter) {
+	if lsCounter.RenderNum >= OfsMaxRenderNum {
+		lsCounter.Table.Render()
+		lsCounter.Table.ClearRows()
+		lsCounter.RenderNum = 0
+		lsCounter.Table = tablewriter.NewWriter(os.Stdout)
+		lsCounter.Table.SetBorder(false)
+		lsCounter.Table.SetAlignment(tablewriter.ALIGN_LEFT)
+		lsCounter.Table.SetAutoWrapText(false)
+	}
 }
 
 func ListBuckets(c *cos.Client, limit int) {
