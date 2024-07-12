@@ -384,17 +384,17 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
 				commonPrefix, _ = url.QueryUnescape(commonPrefix)
+				if lsCounter.TotalLimit >= limit {
+					break
+				}
 				if cosObjectMatchPatterns(commonPrefix, filters) {
-					if lsCounter.TotalLimit >= limit {
-						break
-					}
 					lsCounter.TotalLimit++
 					lsCounter.RenderNum++
 					lsCounter.Table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
 					tableRender(lsCounter)
-					// 递归目录
-					getOfsObjects(c, commonPrefix, limit, recursive, filters, "", lsCounter)
 				}
+				// 递归目录
+				getOfsObjects(c, commonPrefix, limit, recursive, filters, "", lsCounter)
 			}
 		}
 	}
