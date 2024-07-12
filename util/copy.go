@@ -62,10 +62,17 @@ func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUr
 	chError := make(chan error, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
-	// 扫描cos对象大小及数量
-	go getCosObjectList(srcClient, srcUrl, nil, nil, fo, true, false)
-	// 获取cos对象列表
-	go getCosObjectList(srcClient, srcUrl, chObjects, chListError, fo, false, true)
+	if fo.BucketType == "OFS" {
+		// 扫描ofs对象大小及数量
+		go getOfsObjectList(srcClient, srcUrl, nil, nil, fo, true, false)
+		// 获取ofs对象列表
+		go getOfsObjectList(srcClient, srcUrl, chObjects, chListError, fo, false, true)
+	} else {
+		// 扫描cos对象大小及数量
+		go getCosObjectList(srcClient, srcUrl, nil, nil, fo, true, false)
+		// 获取cos对象列表
+		go getCosObjectList(srcClient, srcUrl, chObjects, chListError, fo, false, true)
+	}
 
 	for i := 0; i < fo.Operation.Routines; i++ {
 		go copyFiles(srcClient, destClient, srcUrl, destUrl, fo, chObjects, chError)

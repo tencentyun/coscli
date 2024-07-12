@@ -22,7 +22,12 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 	if srcUrl.IsFileUrl() {
 		err = getLocalFileKeys(srcUrl, srcKeys, fo)
 	} else {
-		err = GetCosKeys(srcClient, srcUrl, srcKeys, fo)
+		if fo.BucketType == "OFS" {
+			err = GetOfsKeys(srcClient, srcUrl, srcKeys, fo)
+		} else {
+			err = GetCosKeys(srcClient, srcUrl, srcKeys, fo)
+		}
+
 	}
 
 	if err != nil {
@@ -32,7 +37,11 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 	if destUrl.IsFileUrl() {
 		err = getLocalFileKeys(destUrl, destKeys, fo)
 	} else {
-		err = GetCosKeys(destClient, destUrl, destKeys, fo)
+		if fo.BucketType == "OFS" {
+			err = GetOfsKeys(destClient, destUrl, destKeys, fo)
+		} else {
+			err = GetCosKeys(destClient, destUrl, destKeys, fo)
+		}
 	}
 
 	if err != nil {

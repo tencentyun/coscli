@@ -179,6 +179,13 @@ Example:
 			destBucketName := destUrl.(*util.CosUrl).Bucket
 			destClient := util.NewClient(fo.Config, fo.Param, destBucketName)
 
+			// 判断桶是否是ofs桶
+			s, _ := srcClient.Bucket.Head(context.Background())
+			// 根据s.Header判断是否是融合桶或者普通桶
+			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+				fo.BucketType = "OFS"
+			}
+
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				destClient.Conf.EnableCRC = false
