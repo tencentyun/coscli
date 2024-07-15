@@ -59,20 +59,22 @@ func TestBucket_taggingCmd(t *testing.T) {
 					So(e, ShouldBeError)
 				})
 			})
-			// Convey("get", func() {
-			// 	cmd := exec.Command("../coscli", "bucket-tagging", "--method", "get",
-			// 		fmt.Sprintf("cos://%s", testAlias))
-			// 	output, e := cmd.Output()
-			// 	fmt.Println(string(output))
-			// 	So(e, ShouldBeNil)
-			// })
-			// Convey("delete", func() {
-			// 	cmd := exec.Command("../coscli", "bucket-tagging", "--method", "delete",
-			// 		fmt.Sprintf("cos://%s", testAlias))
-			// 	output, e := cmd.Output()
-			// 	fmt.Println(string(output))
-			// 	So(e, ShouldBeNil)
-			// })
+			Convey("get", func() {
+				Convey("not enough arguments", func() {
+					cmd := exec.Command("../coscli", "bucket-tagging", "--method", "get")
+					output, e := cmd.Output()
+					fmt.Println(string(output))
+					So(e, ShouldBeError)
+				})
+			})
+			Convey("delete", func() {
+				Convey("not enough arguments", func() {
+					cmd := exec.Command("../coscli", "bucket-tagging", "--method", "delete")
+					output, e := cmd.Output()
+					fmt.Println(string(output))
+					So(e, ShouldBeError)
+				})
+			})
 		})
 	})
 }

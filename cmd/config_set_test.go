@@ -35,14 +35,14 @@ func TestConfigSetCmd(t *testing.T) {
 				fmt.Println(string(output))
 				So(e, ShouldBeError)
 			})
-		})
-		Convey("success", func() {
 			Convey("no arguments", func() {
 				cmd := exec.Command("../coscli", "config", "set")
 				output, e := cmd.Output()
 				fmt.Println(string(output))
-				So(e, ShouldBeNil)
+				So(e, ShouldBeError)
 			})
+		})
+		Convey("success", func() {
 			Convey("give arguments", func() {
 				cmd := exec.Command("../coscli", "config", "set", "--secret_id", oldconfig.Base.SecretID,
 					"--secret_key", oldconfig.Base.SecretKey, "--session_token", oldconfig.Base.SessionToken, "--mode", oldconfig.Base.Mode,
