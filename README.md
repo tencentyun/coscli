@@ -8,11 +8,21 @@
 
 当前版本：v1.0.0
 
-[Linux](https://github.com/tencentyun/coscli/releases/download/v1.0.0/coscli-linux)
+[Linux-386](https://github.com/tencentyun/coscli/releases/download/v1.0.1/coscli-v1.0.0-linux-386)
 
-[Mac](https://github.com/tencentyun/coscli/releases/download/v1.0.0/coscli-mac)
+[Linux-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.1/coscli-v1.0.0-linux-amd64)
 
-[Windows](https://github.com/tencentyun/coscli/releases/download/v1.0.0/coscli-windows.exe)
+[Linux-arm](https://github.com/tencentyun/coscli/releases/download/v1.0.1/coscli-v1.0.0-linux-arm)
+
+[Linux-arm64](https://github.com/tencentyun/coscli/releases/download/v1.0.1/coscli-v1.0.0-linux-arm64)
+
+[Mac-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.1/coscli-v1.0.0-darwin-amd64)
+
+[Mac-arm64](https://github.com/tencentyun/coscli/releases/download/v1.0.1/coscli-v1.0.0-darwin-arm64)
+
+[Windows-386](https://github.com/tencentyun/coscli/releases/download/v1.0.1/coscli-v1.0.0-windows-386.exe)
+
+[Windows-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.1/coscli-v1.0.0-windows-amd64.exe)
 
 ## 使用方法
 
