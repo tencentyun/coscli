@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"fmt"
-	"github.com/olekukonko/tablewriter"
 	"io/fs"
 	"io/ioutil"
 	"math/rand"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"time"
+
+	"github.com/olekukonko/tablewriter"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
