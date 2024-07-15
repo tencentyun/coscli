@@ -50,5 +50,5 @@ func deleteBucketConfig(cmd *cobra.Command) {
 		logger.Fatalln(err)
 		os.Exit(1)
 	}
-	logger.Infof("Delete succeccfully! name: %s, endpoint: %s, alias: %s", b.Name, b.Endpoint, b.Alias)
+	logger.Infof("Delete successfully! name: %s, endpoint: %s, alias: %s", b.Name, b.Endpoint, b.Alias)
 }

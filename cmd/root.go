@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	_ "coscli/logger"
+	clilog "coscli/logger"
 	"coscli/util"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
@@ -16,6 +16,7 @@ import (
 
 var cfgFile string
 var initSkip bool
+var logPath string
 var config util.Config
 var param util.Param
 var cmdCnt int //控制某些函数在一个命令中被调用的次数
@@ -45,9 +46,13 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&param.Customized, "customized", "", false, "config customized")
 	rootCmd.PersistentFlags().StringVarP(&param.Protocol, "protocol", "p", "", "config protocol")
 	rootCmd.PersistentFlags().BoolVarP(&initSkip, "init-skip", "", false, "skip config init")
+	rootCmd.PersistentFlags().StringVarP(&logPath, "log-path", "", "", "coscli log dir")
 }
 
 func initConfig() {
+	// 初始化日志路径
+	clilog.InitLoggerWithDir(logPath)
+
 	home, err := homedir.Dir()
 	cobra.CheckErr(err)
 	viper.SetConfigType("yaml")

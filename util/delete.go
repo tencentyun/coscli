@@ -22,7 +22,12 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 	if srcUrl.IsFileUrl() {
 		err = getLocalFileKeys(srcUrl, srcKeys, fo)
 	} else {
-		err = GetCosKeys(srcClient, srcUrl, srcKeys, fo)
+		if fo.BucketType == "OFS" {
+			err = GetOfsKeys(srcClient, srcUrl, srcKeys, fo)
+		} else {
+			err = GetCosKeys(srcClient, srcUrl, srcKeys, fo)
+		}
+
 	}
 
 	if err != nil {
@@ -32,7 +37,11 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 	if destUrl.IsFileUrl() {
 		err = getLocalFileKeys(destUrl, destKeys, fo)
 	} else {
-		err = GetCosKeys(destClient, destUrl, destKeys, fo)
+		if fo.BucketType == "OFS" {
+			err = GetOfsKeys(destClient, destUrl, destKeys, fo)
+		} else {
+			err = GetCosKeys(destClient, destUrl, destKeys, fo)
+		}
 	}
 
 	if err != nil {
@@ -333,24 +342,94 @@ func RemoveObjects(args []string, fo *FileOperations) {
 
 		c := NewClient(fo.Config, fo.Param, bucketName)
 
+		// 根据s.Header判断是否是融合桶或者普通桶
+		s, _ := c.Bucket.Head(context.Background())
+
 		// 打印一个空行
 		fmt.Println()
 
-		var objects []cos.Object
-		isTruncated := true
-		marker := ""
+		if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+			prefix := cosUrl.(*CosUrl).Object
+			RemoveOfsObjects("", c, cosUrl, prefix, fo)
+		} else {
+			RemoveCosObjects("", c, cosUrl, fo)
+		}
 
-		for isTruncated {
-			err, objects, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, 0, true)
+	}
+	// 打印一个空行
+	fmt.Println()
+}
 
-			if err != nil {
-				logger.Fatalln("list objects error : %v", err)
+func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix string, fo *FileOperations) {
+	var err error
+	isTruncated := true
+	var objects []cos.Object
+	var keysToDelete map[string]string
+
+	for isTruncated {
+		var commonPrefixes []string
+		err, objects, commonPrefixes, isTruncated, marker = getOfsObjectListForLs(c, prefix, marker, 0, true)
+
+		if err != nil {
+			logger.Fatalf("list objects error : %v", err)
+		}
+
+		keysToDelete = make(map[string]string)
+		for _, object := range objects {
+			key, _ := url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(key, fo.Operation.Filters) {
+				objPrefix := ""
+				objKey := key
+				index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
+				if index > 0 {
+					objPrefix = key[:index+1]
+					objKey = key[index+1:]
+				}
+				keysToDelete[objKey] = objPrefix
+			}
+		}
+		DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+
+		if len(commonPrefixes) > 0 {
+			for _, commonPrefix := range commonPrefixes {
+				commonPrefix, _ = url.QueryUnescape(commonPrefix)
+				RemoveOfsObjects("", c, cosUrl, commonPrefix, fo)
 			}
 
-			keysToDelete := make(map[string]string)
-			for _, object := range objects {
-				object.Key, _ = url.QueryUnescape(object.Key)
+			keysToDelete = make(map[string]string)
+			for _, commonPrefix := range commonPrefixes {
+				key, _ := url.QueryUnescape(commonPrefix)
+				if cosObjectMatchPatterns(key, fo.Operation.Filters) {
+					objPrefix := ""
+					objKey := key
+					index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
+					if index > 0 {
+						objPrefix = key[:index+1]
+						objKey = key[index+1:]
+					}
+					keysToDelete[objKey] = objPrefix
+				}
+			}
+			DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+		}
+	}
+}
 
+func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileOperations) {
+	var err error
+	var objects []cos.Object
+	isTruncated := true
+	for isTruncated {
+		err, objects, _, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, 0, true)
+
+		if err != nil {
+			logger.Fatalf("list objects error : %v", err)
+		}
+
+		keysToDelete := make(map[string]string)
+		for _, object := range objects {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
 				objPrefix := ""
 				objKey := object.Key
 				index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
@@ -360,13 +439,10 @@ func RemoveObjects(args []string, fo *FileOperations) {
 				}
 				keysToDelete[objKey] = objPrefix
 			}
-
-			DeleteCosObjects(c, keysToDelete, cosUrl, fo)
 		}
 
+		DeleteCosObjects(c, keysToDelete, cosUrl, fo)
 	}
-	// 打印一个空行
-	fmt.Println()
 }
 
 func RemoveObject(args []string, fo *FileOperations) {

@@ -211,7 +211,7 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 	isDir := false
 	if fo.Operation.Recursive {
 		// 判断cosPath是否是文件夹
-		isDir = CheckCosPathType(c, cosPath, 1, fo.Operation.RetryNum)
+		isDir = CheckCosPathType(c, cosPath, 1, fo)
 
 		if !isDir && strings.HasSuffix(cosPath, CosSeparator) {
 			logger.Fatalf("cos dir not found:%s", cosPath)
@@ -273,7 +273,7 @@ func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, s
 	isDir := false
 	if fo.Operation.Recursive {
 		// 判断src路径是否是文件夹
-		isDir = CheckCosPathType(srcClient, srcPath, 1, fo.Operation.RetryNum)
+		isDir = CheckCosPathType(srcClient, srcPath, 1, fo)
 
 		if !isDir && strings.HasSuffix(srcPath, CosSeparator) {
 			logger.Fatalf("src cos dir not found:%s", srcPath)

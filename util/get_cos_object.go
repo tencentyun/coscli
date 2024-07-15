@@ -43,7 +43,7 @@ func ReadCosKeys(keys map[string]string, cosUrl StorageUrl, chObjects <-chan obj
 	chFinish <- nil
 }
 
-func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int) (isDir bool) {
+func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperations) (isDir bool) {
 	if prefix == "" {
 		return true
 	}
@@ -53,10 +53,7 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int
 		prefix += CosSeparator
 	}
 
-	retries := 0
-	if len(retryCount) > 0 {
-		retries = retryCount[0]
-	}
+	retries := fo.Operation.RetryNum
 
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
@@ -72,10 +69,14 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, retryCount ...int
 		os.Exit(1)
 	}
 
-	isDir = true
-	if len(res.Contents) == 0 {
-		isDir = false
+	isDir = false
+	if len(res.Contents) > 0 {
+		isDir = true
 	}
+	if fo.BucketType == "OFS" && len(res.CommonPrefixes) > 0 {
+		isDir = true
+	}
+
 	return isDir
 }
 
@@ -159,7 +160,7 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	}
 }
 
-func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, isTruncated bool, nextMarker string) {
+func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {
 
 	prefix := cosUrl.(*CosUrl).Object
 	retries := 0
@@ -182,6 +183,7 @@ func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limi
 	}
 
 	objects = res.Contents
+	commonPrefixes = res.CommonPrefixes
 	isTruncated = res.IsTruncated
 	nextMarker, _ = url.QueryUnescape(res.NextMarker)
 	return

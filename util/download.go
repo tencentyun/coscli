@@ -78,10 +78,17 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 	chError := make(chan error, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
-	// 扫描cos对象大小及数量
-	go getCosObjectList(c, cosUrl, nil, nil, fo, true, false)
-	// 获取cos对象列表
-	go getCosObjectList(c, cosUrl, chObjects, chListError, fo, false, true)
+	if fo.BucketType == "OFS" {
+		// 扫描ofs对象大小及数量
+		go getOfsObjectList(c, cosUrl, nil, nil, fo, true, false)
+		// 获取ofs对象列表
+		go getOfsObjectList(c, cosUrl, chObjects, chListError, fo, false, true)
+	} else {
+		// 扫描cos对象大小及数量
+		go getCosObjectList(c, cosUrl, nil, nil, fo, true, false)
+		// 获取cos对象列表
+		go getCosObjectList(c, cosUrl, chObjects, chListError, fo, false, true)
+	}
 
 	for i := 0; i < fo.Operation.Routines; i++ {
 		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError)

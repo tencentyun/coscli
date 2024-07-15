@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/olekukonko/tablewriter"
 	"github.com/syndtr/goleveldb/leveldb"
 	"net/http"
 	"os"
@@ -67,6 +68,7 @@ type FileOperations struct {
 	CpType      CpType
 	Command     string
 	DeleteCount int
+	BucketType  string
 }
 
 type Operation struct {
@@ -115,4 +117,10 @@ type Meta struct {
 	// 自定义的 x-cos-meta-* header
 	XCosMetaXXX *http.Header
 	MetaChange  bool
+}
+
+type LsCounter struct {
+	TotalLimit int
+	RenderNum  int
+	Table      *tablewriter.Table
 }
