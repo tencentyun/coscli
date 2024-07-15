@@ -35,7 +35,7 @@ func init() {
 	configSetCmd.Flags().StringP("session_token", "t", "", "Set session token")
 	configSetCmd.Flags().StringP("mode", "", "", "Set mode")
 	configSetCmd.Flags().StringP("cvm_role_name", "", "", "Set cvm role name")
-	configSetCmd.Flags().StringP("close_auto_switch_host", "", "true", "Close Auto Switch Host")
+	configSetCmd.Flags().StringP("close_auto_switch_host", "", "", "Close Auto Switch Host")
 }
 
 func setConfigItem(cmd *cobra.Command) {
@@ -89,7 +89,7 @@ func setConfigItem(cmd *cobra.Command) {
 		}
 	}
 
-	if closeAutoSwitchHost != ""{
+	if closeAutoSwitchHost != "" {
 		flag = true
 		if closeAutoSwitchHost == "@" {
 			config.Base.CloseAutoSwitchHost = ""

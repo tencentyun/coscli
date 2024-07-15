@@ -393,8 +393,10 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 					lsCounter.Table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
 					tableRender(lsCounter)
 				}
-				// 递归目录
-				getOfsObjects(c, commonPrefix, limit, recursive, filters, "", lsCounter)
+				if recursive {
+					// 递归目录
+					getOfsObjects(c, commonPrefix, limit, recursive, filters, "", lsCounter)
+				}
 			}
 		}
 	}
