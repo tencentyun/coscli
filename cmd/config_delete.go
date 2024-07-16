@@ -2,8 +2,7 @@ package cmd
 
 import (
 	"coscli/util"
-	"os"
-
+	"fmt"
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,8 +18,9 @@ Format:
 
 Example:
   ./coscli config delete -a example`,
-	Run: func(cmd *cobra.Command, args []string) {
-		deleteBucketConfig(cmd)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		err := deleteBucketConfig(cmd)
+		return err
 	},
 }
 
@@ -32,23 +32,22 @@ func init() {
 	_ = configDeleteCmd.MarkFlagRequired("alias")
 }
 
-func deleteBucketConfig(cmd *cobra.Command) {
+func deleteBucketConfig(cmd *cobra.Command) error {
 	alias, _ := cmd.Flags().GetString("alias")
 	b, i, err := util.FindBucket(&config, alias)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
 	}
 
 	if i < 0 {
-		logger.Fatalln("Bucket not exist in config file!")
+		return fmt.Errorf("Bucket not exist in config file!")
 	}
 	config.Buckets = append(config.Buckets[:i], config.Buckets[i+1:]...)
 
 	viper.Set("cos.buckets", config.Buckets)
 	if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
 	}
 	logger.Infof("Delete successfully! name: %s, endpoint: %s, alias: %s", b.Name, b.Endpoint, b.Alias)
+	return nil
 }

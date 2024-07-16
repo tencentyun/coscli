@@ -2,11 +2,8 @@ package util
 
 import (
 	"fmt"
-	"net/url"
-	"os"
-
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"net/url"
 )
 
 func GenBucketURL(bucketIDName string, protocol string, endpoint string, customized bool) string {
@@ -76,11 +73,10 @@ func CreateBaseURL(protocol string, endpoint string) *cos.BaseURL {
 }
 
 // 根据配置文件生成URL
-func GenURL(config *Config, param *Param, bucketName string) *cos.BaseURL {
+func GenURL(config *Config, param *Param, bucketName string) (url *cos.BaseURL, err error) {
 	bucket, _, err := FindBucket(config, bucketName)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return url, err
 	}
 
 	idName := bucket.Name
@@ -102,5 +98,5 @@ func GenURL(config *Config, param *Param, bucketName string) *cos.BaseURL {
 
 	customized := param.Customized
 
-	return CreateURL(idName, protocol, endpoint, customized)
+	return CreateURL(idName, protocol, endpoint, customized), nil
 }

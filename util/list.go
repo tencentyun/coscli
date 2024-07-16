@@ -70,7 +70,7 @@ func MatchPattern(strs []string, pattern string, include bool) []string {
 }
 
 func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object,
-	commonPrefixes []string) {
+	commonPrefixes []string, err error) {
 
 	retries := 0
 	if len(retryCount) > 0 {
@@ -92,8 +92,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 
 		res, err := tryGetBucket(c, opt, retries)
 		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
+			return objects, commonPrefixes, err
 		}
 
 		objects = append(objects, res.Contents...)
@@ -117,7 +116,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 		objects = MatchCosPattern(objects, exclude, false)
 	}
 
-	return objects, commonPrefixes
+	return objects, commonPrefixes, nil
 }
 
 func tryGetBucket(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*cos.BucketGetResult, error) {
@@ -143,6 +142,7 @@ func tryGetBucket(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*co
 	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
+// 已废弃 todo
 func GetLocalFilesListRecursive(localPath string, include string, exclude string) (files []string) {
 	// bfs遍历文件夹
 	var dirs []string
@@ -207,7 +207,7 @@ func GetLocalFilesListRecursive(localPath string, include string, exclude string
 	return files
 }
 
-func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []UploadInfo) {
+func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []UploadInfo, err error) {
 	opt := &cos.ListMultipartUploadsOptions{
 		Delimiter:      "",
 		EncodingType:   "",
@@ -226,8 +226,7 @@ func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include st
 
 		res, _, err := c.Bucket.ListMultipartUploads(context.Background(), opt)
 		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
+			return uploads, err
 		}
 
 		for _, u := range res.Uploads {
@@ -254,12 +253,12 @@ func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include st
 		uploads = MatchUploadPattern(uploads, exclude, false)
 	}
 
-	return uploads
+	return uploads, nil
 }
 
 // =====new
 
-func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) {
+func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) error {
 	var err error
 	var objects []cos.Object
 	var commonPrefixes []string
@@ -283,7 +282,7 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		err, objects, commonPrefixes, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, queryLimit, recursive)
 
 		if err != nil {
-			logger.Fatalf("list objects error : %v", err)
+			return fmt.Errorf("list objects error : %v", err)
 		}
 
 		if len(commonPrefixes) > 0 {
@@ -300,8 +299,7 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 			if cosObjectMatchPatterns(object.Key, filters) {
 				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
-					fmt.Println("Error parsing time:", err)
-					return
+					return fmt.Errorf("Error parsing time:", err)
 				}
 				table.Append([]string{object.Key, object.StorageClass, utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size)), object.RestoreStatus})
 				total++
@@ -322,9 +320,10 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		table.SetAutoWrapText(false)
 	}
 
+	return nil
 }
 
-func ListOfsObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) {
+func ListOfsObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) error {
 	lsCounter := &LsCounter{}
 	prefix := cosUrl.(*CosUrl).Object
 
@@ -334,13 +333,17 @@ func ListOfsObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool,
 	lsCounter.Table.SetAlignment(tablewriter.ALIGN_LEFT)
 	lsCounter.Table.SetAutoWrapText(false)
 
-	getOfsObjects(c, prefix, limit, recursive, filters, "", lsCounter)
+	err := getOfsObjects(c, prefix, limit, recursive, filters, "", lsCounter)
+	if err != nil {
+		return err
+	}
 
 	lsCounter.Table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", lsCounter.TotalLimit)})
 	lsCounter.Table.Render()
+	return nil
 }
 
-func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filters []FilterOptionType, marker string, lsCounter *LsCounter) {
+func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filters []FilterOptionType, marker string, lsCounter *LsCounter) error {
 	var err error
 	var objects []cos.Object
 	var commonPrefixes []string
@@ -354,13 +357,13 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 		}
 
 		if queryLimit <= 0 {
-			return
+			return nil
 		}
 
 		err, objects, commonPrefixes, isTruncated, marker = getOfsObjectListForLs(c, prefix, marker, queryLimit, recursive)
 
 		if err != nil {
-			logger.Fatalf("list objects error : %v", err)
+			return fmt.Errorf("list objects error : %v", err)
 		}
 
 		for _, object := range objects {
@@ -368,8 +371,7 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 			if cosObjectMatchPatterns(object.Key, filters) {
 				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
-					fmt.Println("Error parsing time:", err)
-					return
+					return fmt.Errorf("Error parsing time:", err)
 				}
 				if lsCounter.TotalLimit >= limit {
 					break
@@ -395,11 +397,16 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 				}
 				if recursive {
 					// 递归目录
-					getOfsObjects(c, commonPrefix, limit, recursive, filters, "", lsCounter)
+					err = getOfsObjects(c, commonPrefix, limit, recursive, filters, "", lsCounter)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
 func tableRender(lsCounter *LsCounter) {
@@ -414,16 +421,20 @@ func tableRender(lsCounter *LsCounter) {
 	}
 }
 
-func ListBuckets(c *cos.Client, limit int) {
+func ListBuckets(c *cos.Client, limit int) error {
 	var buckets []cos.Bucket
 	marker := ""
 	isTruncated := true
 	totalNum := 0
+	var err error
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Bucket Name", "Region", "Create Date"})
 	for isTruncated {
-		buckets, marker, isTruncated = GetBucketsList(c, limit, marker)
+		buckets, marker, isTruncated, err = GetBucketsList(c, limit, marker)
+		if err != nil {
+			return err
+		}
 		for _, b := range buckets {
 			table.Append([]string{b.Name, b.Region, b.CreationDate})
 			totalNum++
@@ -436,9 +447,11 @@ func ListBuckets(c *cos.Client, limit int) {
 	table.SetFooter([]string{"", "Total Buckets: ", fmt.Sprintf("%d", totalNum)})
 	table.SetBorder(false)
 	table.Render()
+
+	return err
 }
 
-func GetBucketsList(c *cos.Client, limit int, marker string) (buckets []cos.Bucket, nextMarker string, isTruncated bool) {
+func GetBucketsList(c *cos.Client, limit int, marker string) (buckets []cos.Bucket, nextMarker string, isTruncated bool, err error) {
 	opt := &cos.ServiceGetOptions{
 		Marker:  marker,
 		MaxKeys: int64(limit),
@@ -446,8 +459,7 @@ func GetBucketsList(c *cos.Client, limit int, marker string) (buckets []cos.Buck
 	res, _, err := c.Service.Get(context.Background(), opt)
 
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return buckets, nextMarker, isTruncated, err
 	}
 
 	buckets = res.Buckets

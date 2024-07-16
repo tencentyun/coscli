@@ -4,8 +4,6 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-	"os"
-
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +28,7 @@ Example:
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		bucketIDName, _ := util.ParsePath(args[0])
 		flagRegion, _ := cmd.Flags().GetString("region")
 		Force, _ := cmd.Flags().GetBool("force")
@@ -38,6 +36,7 @@ Example:
 			param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
 		}
 		var choice string
+		var err error
 		if Force {
 			logger.Infof("Do you want to clear all inside the bucket and delete bucket %s ? (y/n)", bucketIDName)
 			_, _ = fmt.Scanf("%s\n", &choice)
@@ -51,18 +50,31 @@ Example:
 					Param:     &param,
 					ErrOutput: &util.ErrOutput{},
 				}
-				util.RemoveObjects(args, fo)
-				abortParts(args[0], "", "")
-				removeBucket(bucketIDName)
+				err = util.RemoveObjects(args, fo)
+				if err != nil {
+					return err
+				}
+
+				err = abortParts(args[0], "", "")
+				if err != nil {
+					return err
+				}
+				err = removeBucket(bucketIDName)
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			logger.Infof("Do you want to delete %s? (y/n)", bucketIDName)
 			_, _ = fmt.Scanf("%s\n", &choice)
 			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
-				removeBucket(bucketIDName)
+				err = removeBucket(bucketIDName)
+				if err != nil {
+					return err
+				}
 			}
 		}
-
+		return nil
 	},
 }
 
@@ -72,12 +84,15 @@ func init() {
 	rbCmd.Flags().StringP("region", "r", "", "Region")
 }
 
-func removeBucket(bucketIDName string) {
-	c := util.NewClient(&config, &param, bucketIDName)
-	_, err := c.Bucket.Delete(context.Background())
+func removeBucket(bucketIDName string) error {
+	c, err := util.NewClient(&config, &param, bucketIDName)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
+	}
+	_, err = c.Bucket.Delete(context.Background())
+	if err != nil {
+		return err
 	}
 	logger.Infof("Delete a empty bucket! name: %s\n", bucketIDName)
+	return nil
 }

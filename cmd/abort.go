@@ -19,11 +19,12 @@ Format:
 Example:
   ./coscli abort cos://examplebucket/test/`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
 
-		abortParts(args[0], include, exclude)
+		err := abortParts(args[0], include, exclude)
+		return err
 	},
 }
 
@@ -34,11 +35,16 @@ func init() {
 	abortCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 }
 
-func abortParts(arg string, include string, exclude string) {
+func abortParts(arg string, include string, exclude string) error {
 	bucketName, cosPath := util.ParsePath(arg)
-	c := util.NewClient(&config, &param, bucketName)
-
-	uploads := util.GetUploadsListRecursive(c, cosPath, 0, include, exclude)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
+	uploads, err := util.GetUploadsListRecursive(c, cosPath, 0, include, exclude)
+	if err != nil {
+		return err
+	}
 
 	successCnt, failCnt := 0, 0
 	for _, u := range uploads {
@@ -52,4 +58,5 @@ func abortParts(arg string, include string, exclude string) {
 		}
 	}
 	logger.Infoln("Total:", len(uploads), ",", successCnt, "Success,", failCnt, "Fail")
+	return nil
 }

@@ -2,11 +2,9 @@ package cmd
 
 import (
 	"context"
+	"coscli/util"
 	"encoding/xml"
 	"fmt"
-	"os"
-
-	"coscli/util"
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
@@ -29,12 +27,11 @@ Example:
 		}
 		storageClass, _ := cmd.Flags().GetString("storage-class")
 		if storageClass != "" && util.IsCosPath(args[0]) {
-			logger.Fatalln("--storage-class can only use in upload")
-			os.Exit(1)
+			return fmt.Errorf("--storage-class can only use in upload")
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
@@ -42,7 +39,7 @@ Example:
 		metaString, _ := cmd.Flags().GetString("meta")
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
-			logger.Fatalln("Move invalid meta " + err.Error())
+			return fmt.Errorf("Move invalid meta " + err.Error())
 		}
 		// args[0]: 源地址
 		// args[1]: 目标地址
@@ -53,11 +50,12 @@ Example:
 				// 移动
 				move(args, recursive, include, exclude, meta, storageClass)
 			} else {
-				logger.Fatalln("cospath needs the same bucket")
+				return fmt.Errorf("cospath needs the same bucket")
 			}
 		} else {
-			logger.Fatalln("cospath needs to contain cos://")
+			return fmt.Errorf("cospath needs to contain cos://")
 		}
+		return nil
 	},
 }
 
@@ -73,11 +71,14 @@ func init() {
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
 }
 
-func move(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) {
+func move(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error {
 	bucketName, cosPath1 := util.ParsePath(args[0])
 	_, cosPath2 := util.ParsePath(args[1])
-	c := util.NewClient(&config, &param, bucketName)
 
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 	s, _ := c.Bucket.Head(context.Background())
 	// 根据s.Header判断是否是融合桶或者普通桶
 	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
@@ -85,32 +86,45 @@ func move(args []string, recursive bool, include string, exclude string, meta ut
 		dstPath := fmt.Sprintf("cos://%s/%s", bucketName, cosPath2)
 		logger.Infoln("Move", srcPath, "=>", dstPath)
 
-		url := util.GenURL(&config, &param, bucketName)
+		url, err := util.GenURL(&config, &param, bucketName)
+		if err != nil {
+			return err
+		}
 		dstURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath2)
 
 		var closeBody bool = true
 
 		//dstURL:tina-coscli-test-123/x
 		//cosPath1:ofs
-		_, err := util.PutRename(context.Background(), &config, &param, c, cosPath1, dstURL, closeBody)
+		_, err = util.PutRename(context.Background(), &config, &param, c, cosPath1, dstURL, closeBody)
 		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
+			return err
 		}
 		logger.Infof("\nAll move successfully!\n")
 	} else {
-		cosCopy(args, recursive, include, exclude, meta, storageClass)
+		err = cosCopy(args, recursive, include, exclude, meta, storageClass)
+		if err != nil {
+			return err
+		}
 		if recursive {
-			moveObjects(args, include, exclude)
+			err = moveObjects(args, include, exclude)
 		} else {
-			moveObject(args)
+			err = moveObject(args)
+		}
+		if err != nil {
+			return err
 		}
 	}
+
+	return nil
 }
 
-func moveObjects(args []string, include string, exclude string) {
+func moveObjects(args []string, include string, exclude string) error {
 	bucketName, cosDir := util.ParsePath(args[0])
-	c := util.NewClient(&config, &param, bucketName)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 
 	if cosDir != "" && cosDir[len(cosDir)-1] != '/' {
 		cosDir += "/"
@@ -121,13 +135,18 @@ func moveObjects(args []string, include string, exclude string) {
 	deleteOrNot := false
 	errorOrNot := false
 	for isTruncated {
-		objects, t, m, commonPrefixes := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
-
+		objects, t, m, commonPrefixes, err := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+		if err != nil {
+			return err
+		}
 		if len(commonPrefixes) > 0 {
-			files := getFilesAndDirs(c, cosDir, nextMarker, include, exclude)
-
+			files, err := getFilesAndDirs(c, cosDir, nextMarker, include, exclude)
+			if err != nil {
+				return err
+			}
 			for _, v := range files {
-				recursivemoveObject(bucketName, v)
+				err = recursivemoveObject(bucketName, v)
+				return err
 			}
 			isTruncated = false
 		} else {
@@ -147,8 +166,7 @@ func moveObjects(args []string, include string, exclude string) {
 			}
 			res, _, err := c.Object.DeleteMulti(context.Background(), opt)
 			if err != nil {
-				logger.Fatalln(err)
-				os.Exit(1)
+				return err
 			}
 
 			for _, o := range res.DeletedObjects {
@@ -171,10 +189,14 @@ func moveObjects(args []string, include string, exclude string) {
 	if errorOrNot == false {
 		logger.Infof("\nAll move successfully!\n")
 	}
+	return nil
 }
-func moveObject(args []string) {
+func moveObject(args []string) error {
 	bucketName, cosPath := util.ParsePath(args[0])
-	c := util.NewClient(&config, &param, bucketName)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 
 	opt := &cos.ObjectDeleteOptions{
 		XCosSSECustomerAglo:   "",
@@ -183,17 +205,20 @@ func moveObject(args []string) {
 		XOptionHeader:         nil,
 		VersionId:             "",
 	}
-	_, err := c.Object.Delete(context.Background(), cosPath, opt)
+	_, err = c.Object.Delete(context.Background(), cosPath, opt)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
 	}
 	logger.Infoln("Delete", args[0], "successfully!")
 	logger.Infof("\n Move successfully!\n")
+	return nil
 }
 
-func recursivemoveObject(bucketName string, cosPath string) {
-	c := util.NewClient(&config, &param, bucketName)
+func recursivemoveObject(bucketName string, cosPath string) error {
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 	opt := &cos.ObjectDeleteOptions{
 		XCosSSECustomerAglo:   "",
 		XCosSSECustomerKey:    "",
@@ -202,9 +227,6 @@ func recursivemoveObject(bucketName string, cosPath string) {
 		VersionId:             "",
 	}
 
-	_, err := c.Object.Delete(context.Background(), cosPath, opt)
-	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
-	}
+	_, err = c.Object.Delete(context.Background(), cosPath, opt)
+	return err
 }

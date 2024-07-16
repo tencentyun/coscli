@@ -8,10 +8,13 @@ import (
 var secretID, secretKey, secretToken string
 
 // 根据桶别名，从配置文件中加载信息，创建客户端
-func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
+func NewClient(config *Config, param *Param, bucketName string) (client *cos.Client, err error) {
 	if config.Base.Mode == "CvmRole" {
 		// 若使用 CvmRole 方式，则需请求请求CAM的服务，获取临时密钥
-		data := CamAuth(config.Base.CvmRoleName)
+		data, err = CamAuth(config.Base.CvmRoleName)
+		if err != nil {
+			return client, err
+		}
 		secretID = data.TmpSecretId
 		secretKey = data.TmpSecretKey
 		secretToken = data.Token
@@ -34,7 +37,6 @@ func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
 		secretToken = param.SessionToken
 	}
 
-	var client *cos.Client
 	if bucketName == "" { // 不指定 bucket，则创建用于发送 Service 请求的客户端
 		client = cos.NewClient(GenBaseURL(config, param), &http.Client{
 			Transport: &cos.AuthorizationTransport{
@@ -45,7 +47,11 @@ func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
 		})
 
 	} else {
-		client = cos.NewClient(GenURL(config, param, bucketName), &http.Client{
+		url, err := GenURL(config, param, bucketName)
+		if err != nil {
+			return client, err
+		}
+		client = cos.NewClient(url, &http.Client{
 			Transport: &cos.AuthorizationTransport{
 				SecretID:     secretID,
 				SecretKey:    secretKey,
@@ -66,14 +72,18 @@ func NewClient(config *Config, param *Param, bucketName string) *cos.Client {
 	// 修改 UserAgent
 	client.UserAgent = Package + "-" + Version
 
-	return client
+	return client, nil
 }
 
 // 根据函数参数创建客户端
-func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client {
+func CreateClient(config *Config, param *Param, bucketIDName string) (client *cos.Client, err error) {
 	if config.Base.Mode == "CvmRole" {
 		// 若使用 CvmRole 方式，则需请求请求CAM的服务，获取临时密钥
-		data := CamAuth(config.Base.CvmRoleName)
+		data, err = CamAuth(config.Base.CvmRoleName)
+		if err != nil {
+			return client, err
+		}
+
 		secretID = data.TmpSecretId
 		secretKey = data.TmpSecretKey
 		secretToken = data.Token
@@ -105,7 +115,6 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 		protocol = param.Protocol
 	}
 
-	var client *cos.Client
 	client = cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint, false), &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:     secretID,
@@ -126,5 +135,5 @@ func CreateClient(config *Config, param *Param, bucketIDName string) *cos.Client
 	// 修改 UserAgent
 	client.UserAgent = Package + "-" + Version
 
-	return client
+	return client, nil
 }

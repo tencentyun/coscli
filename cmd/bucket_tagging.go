@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 	"coscli/util"
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -24,31 +24,32 @@ Example:
 	./coscli bucket-tagging --method put cos://examplebucket tag1#test1 tag2#test2
 	./coscli bucket-tagging --method get cos://examplebucket
 	./coscli bucket-tagging --method delete cos://examplebucket`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")
 
+		var err error
 		if method == "put" {
 			if len(args) < 2 {
-				logger.Fatalln("not enough arguments in call to put bucket tagging")
+				return fmt.Errorf("not enough arguments in call to put bucket tagging")
 			}
-			putBucketTagging(args[0], args[1:])
+			err = putBucketTagging(args[0], args[1:])
 		}
 
 		if method == "get" {
 			if len(args) < 1 {
-				logger.Fatalln("not enough arguments in call to get bucket tagging")
-				os.Exit(1)
+				return fmt.Errorf("not enough arguments in call to get bucket tagging")
 			}
-			getBucketTagging(args[0])
+			err = getBucketTagging(args[0])
 		}
 
 		if method == "delete" {
 			if len(args) < 1 {
-				logger.Fatalln("not enough arguments in call to get bucket tagging")
-				os.Exit(1)
+				return fmt.Errorf("not enough arguments in call to delete bucket tagging")
 			}
-			deleteBucketTagging(args[0])
+			err = deleteBucketTagging(args[0])
 		}
+
+		return err
 	},
 }
 
@@ -57,37 +58,40 @@ func init() {
 	bucketTaggingCmd.Flags().String("method", "", "put/get/delete")
 }
 
-func putBucketTagging(cosPath string, tags []string) {
+func putBucketTagging(cosPath string, tags []string) error {
 	bucketName, _ := util.ParsePath(cosPath)
-	c := util.NewClient(&config, &param, bucketName)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 	tg := &cos.BucketPutTaggingOptions{}
 	for i := 0; i < len(tags); i += 1 {
 		tmp := strings.Split(tags[i], "#")
 		if len(tmp) >= 2 {
 			tg.TagSet = append(tg.TagSet, cos.BucketTaggingTag{Key: tmp[0], Value: tmp[1]})
 		} else {
-			logger.Fatalln("invalid tag")
-			os.Exit(1)
+			return fmt.Errorf("invalid tag")
 		}
 	}
 
-	_, err := c.Bucket.PutTagging(context.Background(), tg)
+	_, err = c.Bucket.PutTagging(context.Background(), tg)
 	if err != nil {
-		logger.Infoln(err.Error())
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
 	}
+
+	return nil
 }
 
-func getBucketTagging(cosPath string) {
+func getBucketTagging(cosPath string) error {
 	bucketName, _ := util.ParsePath(cosPath)
-	c := util.NewClient(&config, &param, bucketName)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 
 	v, _, err := c.Bucket.GetTagging(context.Background())
 	if err != nil {
-		logger.Infoln(err.Error())
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
 	}
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Key", "Value"})
@@ -97,16 +101,20 @@ func getBucketTagging(cosPath string) {
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
 	table.Render()
+
+	return nil
 }
 
-func deleteBucketTagging(cosPath string) {
+func deleteBucketTagging(cosPath string) error {
 	bucketName, _ := util.ParsePath(cosPath)
-	c := util.NewClient(&config, &param, bucketName)
-
-	_, err := c.Bucket.DeleteTagging(context.Background())
+	c, err := util.NewClient(&config, &param, bucketName)
 	if err != nil {
-		logger.Infoln(err.Error())
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
 	}
+
+	_, err = c.Bucket.DeleteTagging(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
 }

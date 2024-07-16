@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/olekukonko/tablewriter"
-	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -21,16 +20,16 @@ Format:
 Example:
   ./coscli lsparts cos://examplebucket/test/`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		limit, _ := cmd.Flags().GetInt("limit")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
 		if limit < 0 || limit > 1000 {
-			logger.Fatalln("Flag --limit should in range 0~1000")
-			os.Exit(1)
+			return fmt.Errorf("Flag --limit should in range 0~1000")
 		}
 
-		listParts(args[0], limit, include, exclude)
+		err := listParts(args[0], limit, include, exclude)
+		return err
 	},
 }
 
@@ -42,11 +41,17 @@ func init() {
 	lspartsCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 }
 
-func listParts(arg string, limit int, include string, exclude string) {
+func listParts(arg string, limit int, include string, exclude string) error {
 	bucketName, cosPath := util.ParsePath(arg)
-	c := util.NewClient(&config, &param, bucketName)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 
-	uploads := util.GetUploadsListRecursive(c, cosPath, limit, include, exclude)
+	uploads, err := util.GetUploadsListRecursive(c, cosPath, limit, include, exclude)
+	if err != nil {
+		return err
+	}
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Key", "Upload ID", "Initiate time"})
@@ -57,4 +62,5 @@ func listParts(arg string, limit int, include string, exclude string) {
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
 	table.SetFooter([]string{"", "", fmt.Sprintf("Total: %d", len(uploads))})
 	table.Render()
+	return nil
 }

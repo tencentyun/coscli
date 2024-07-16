@@ -2,7 +2,6 @@ package util
 
 import (
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
 	"os/user"
@@ -157,20 +156,20 @@ func getCosUrl(bucket string, object string) string {
 }
 
 // 格式化上传操作cos路径及local路径
-func FormatUploadPath(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
+func FormatUploadPath(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) error {
 	localPath := fileUrl.ToString()
 	if localPath == "" {
-		logger.Fatalln("localPath is empty")
+		return fmt.Errorf("localPath is empty")
 	}
 
 	// 获取本地文件/文件夹信息
 	localPathInfo, err := os.Stat(localPath)
 	if err != nil {
-		logger.Fatalln(err)
+		return err
 	}
 
 	if localPathInfo.IsDir() && !fo.Operation.Recursive {
-		logger.Fatalf("localPath:%v is dir, please use --recursive option", localPath)
+		return fmt.Errorf("localPath:%v is dir, please use --recursive option", localPath)
 	}
 
 	cosPath := cosUrl.(*CosUrl).Object
@@ -193,35 +192,42 @@ func FormatUploadPath(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations)
 
 	fileUrl.UpdateUrlStr(localPath)
 	cosUrl.UpdateUrlStr(SchemePrefix + cosUrl.(*CosUrl).Bucket + CosSeparator + cosPath)
+	return nil
 }
 
 // 格式化下载操作cos路径及local路径
-func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations, c *cos.Client) {
+func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations, c *cos.Client) error {
 	localPath := fileUrl.ToString()
 	if localPath == "" {
-		logger.Fatalln("localPath is empty")
+		return fmt.Errorf("localPath is empty")
 	}
 
 	cosPath := cosUrl.(*CosUrl).Object
 
 	if (cosPath == "" || strings.HasSuffix(cosPath, CosSeparator)) && !fo.Operation.Recursive {
-		logger.Fatalf("cosPath:%v is dir, please use --recursive option", cosPath)
+		return fmt.Errorf("cosPath:%v is dir, please use --recursive option", cosPath)
 	}
 
 	isDir := false
 	if fo.Operation.Recursive {
 		// 判断cosPath是否是文件夹
-		isDir = CheckCosPathType(c, cosPath, 1, fo)
+		isDir, err := CheckCosPathType(c, cosPath, 1, fo)
+		if err != nil {
+			return err
+		}
 
 		if !isDir && strings.HasSuffix(cosPath, CosSeparator) {
-			logger.Fatalf("cos dir not found:%s", cosPath)
+			return fmt.Errorf("cos dir not found:%s", cosPath)
 		}
 	}
 
 	if !isDir {
-		fileExist := CheckCosObjectExist(c, cosPath)
+		fileExist, err := CheckCosObjectExist(c, cosPath)
+		if err != nil {
+			return err
+		}
 		if !fileExist {
-			logger.Fatalf("cos object not found:%s", cosPath)
+			return fmt.Errorf("cos object not found:%s", cosPath)
 		}
 	}
 
@@ -241,13 +247,13 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 		// cos路径不是dir，则local路径只创建文件前面的路径
 		localDir := filepath.Dir(localPath)
 		if err := os.MkdirAll(localDir, 0755); err != nil {
-			logger.Fatalf("mkdir %s failed:%v", localPath, err)
+			return fmt.Errorf("mkdir %s failed:%v", localPath, err)
 		}
 	} else {
 		// cos路径是dir，则local路径创建全路径
 		if strings.HasSuffix(localPath, string(filepath.Separator)) {
 			if err := os.MkdirAll(localPath, 0755); err != nil {
-				logger.Fatalf("mkdir %s failed:%v", localPath, err)
+				return fmt.Errorf("mkdir %s failed:%v", localPath, err)
 			}
 		}
 	}
@@ -259,31 +265,37 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 
 	fileUrl.UpdateUrlStr(localPath)
 	cosUrl.UpdateUrlStr(SchemePrefix + cosUrl.(*CosUrl).Bucket + CosSeparator + cosPath)
+
+	return nil
 }
 
 // 格式化copy操作src路径及dest路径
-func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, srcClient *cos.Client, destClient *cos.Client) {
+func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, srcClient *cos.Client) error {
 	srcPath := srcUrl.(*CosUrl).Object
 	destPath := destUrl.(*CosUrl).Object
-
 	if (srcPath == "" || strings.HasSuffix(srcPath, CosSeparator)) && !fo.Operation.Recursive {
-		logger.Fatalf("srcPath:%v is dir, please use --recursive option", srcPath)
+		return fmt.Errorf("srcPath:%v is dir, please use --recursive option", srcPath)
 	}
 
 	isDir := false
 	if fo.Operation.Recursive {
 		// 判断src路径是否是文件夹
-		isDir = CheckCosPathType(srcClient, srcPath, 1, fo)
-
+		isDir, err := CheckCosPathType(srcClient, srcPath, 1, fo)
+		if err != nil {
+			return err
+		}
 		if !isDir && strings.HasSuffix(srcPath, CosSeparator) {
-			logger.Fatalf("src cos dir not found:%s", srcPath)
+			return fmt.Errorf("src cos dir not found:%s", srcPath)
 		}
 	}
 
 	if !isDir {
-		fileExist := CheckCosObjectExist(srcClient, srcPath)
+		fileExist, err := CheckCosObjectExist(srcClient, srcPath)
+		if err != nil {
+			return err
+		}
 		if !fileExist {
-			logger.Fatalf("src cos object not found:%s", srcPath)
+			return fmt.Errorf("src cos object not found:%s", srcPath)
 		}
 	}
 
@@ -306,4 +318,6 @@ func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, s
 	// 更新路径
 	srcUrl.UpdateUrlStr(SchemePrefix + srcUrl.(*CosUrl).Bucket + CosSeparator + srcPath)
 	destUrl.UpdateUrlStr(SchemePrefix + destUrl.(*CosUrl).Bucket + CosSeparator + destPath)
+
+	return nil
 }

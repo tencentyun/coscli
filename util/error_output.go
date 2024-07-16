@@ -27,7 +27,8 @@ func writeError(errString string, fo *FileOperations) {
 		if os.IsNotExist(err) {
 			err := os.MkdirAll(fo.ErrOutput.Path, 0755)
 			if err != nil {
-				logger.Fatalf("Failed to create error output dir: %v", err)
+				logger.Errorf("Failed to create error output dir: %v", err)
+				return
 			}
 		}
 	}
@@ -37,7 +38,8 @@ func writeError(errString string, fo *FileOperations) {
 		failOutputFilePath := filepath.Join(fo.ErrOutput.Path, "error.report")
 		fo.ErrOutput.outputFile, err = os.OpenFile(failOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
-			logger.Fatal("Failed to create error error output file:", err)
+			logger.Errorf("Failed to create error error output file:", err)
+			return
 		}
 	}
 
@@ -45,7 +47,7 @@ func writeError(errString string, fo *FileOperations) {
 	_, writeErr := fo.ErrOutput.outputFile.WriteString(errString)
 
 	if writeErr != nil {
-		logger.Printf("Failed to write error output file : %v\n", writeErr)
+		logger.Errorf("Failed to write error output file : %v\n", writeErr)
 	}
 	outputMu.Unlock()
 }

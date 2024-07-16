@@ -2,20 +2,19 @@ package util
 
 import (
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"strconv"
 	"time"
 )
 
-func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
+func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	keysToDelete := make(map[string]string)
 	if fo.Operation.Delete {
 		keysToDelete, err = getDeleteKeys(nil, c, fileUrl, cosUrl, fo)
 		if err != nil {
-			logger.Fatalf("get delete keys error : %v", err)
+			return fmt.Errorf("get delete keys error : %v", err)
 		}
 	}
 
@@ -27,8 +26,9 @@ func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOp
 	}
 
 	if err != nil {
-		logger.Fatalf("delete keys error : %v", err)
+		return fmt.Errorf("delete keys error : %v", err)
 	}
+	return nil
 }
 
 func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFileModifiedTime int64, cosPath string, localPath string) (bool, error) {
@@ -53,7 +53,10 @@ func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFile
 	} else {
 		if resp.StatusCode != 404 {
 			cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
-			localCrc, _ := CalculateHash(localPath, "crc64")
+			localCrc, _, err := CalculateHash(localPath, "crc64")
+			if err != nil {
+				return false, err
+			}
 			if cosCrc == localCrc {
 				// 本地校验通过后，若未记录快照。则添加
 				if fo.Operation.SnapshotPath != "" {
@@ -99,7 +102,10 @@ func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPa
 		}
 	}
 
-	localCrc, _ := CalculateHash(localPath, "crc64")
+	localCrc, _, err := CalculateHash(localPath, "crc64")
+	if err != nil {
+		return false, err
+	}
 	resp, err := getHead(c, object)
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
@@ -166,9 +172,9 @@ func skipCopy(srcClient, destClient *cos.Client, object, destPath string) (bool,
 	return false, nil
 }
 
-func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) {
+func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	if fo.Operation.SnapshotPath == "" {
-		return
+		return nil
 	}
 
 	var err error
@@ -177,29 +183,33 @@ func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	} else if fo.CpType == CpTypeDownload {
 		err = CheckPath(destUrl, fo, TypeSnapshotPath)
 	} else {
-		logger.Fatalln("copy object doesn't support option --snapshot-path")
+		return fmt.Errorf("copy object doesn't support option --snapshot-path")
 	}
 	if err != nil {
-		logger.Fatalln(err)
+		return err
 	}
 
 	if fo.SnapshotDb, err = leveldb.OpenFile(fo.Operation.SnapshotPath, nil); err != nil {
-		logger.Fatalln("Sync load snapshot error, reason: " + err.Error())
+		return fmt.Errorf("Sync load snapshot error, reason: " + err.Error())
 	}
+	return nil
 }
 
-func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
+func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	keysToDelete := make(map[string]string)
 	if fo.Operation.Delete {
 		keysToDelete, err = getDeleteKeys(c, nil, cosUrl, fileUrl, fo)
 		if err != nil {
-			logger.Fatalf("get delete keys error : %v", err)
+			return fmt.Errorf("get delete keys error : %v", err)
 		}
 	}
 
 	// 下载
-	Download(c, cosUrl, fileUrl, fo)
+	err = Download(c, cosUrl, fileUrl, fo)
+	if err != nil {
+		return err
+	}
 
 	if len(keysToDelete) > 0 {
 		// 删除源位置没有而目标位置有的cos对象或本地文件
@@ -207,22 +217,26 @@ func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *File
 	}
 
 	if err != nil {
-		logger.Fatalf("delete keys error : %v", err)
+		return fmt.Errorf("delete keys error : %v", err)
 	}
+	return nil
 }
 
-func SyncCosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) {
+func SyncCosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	keysToDelete := make(map[string]string)
 	if fo.Operation.Delete {
 		keysToDelete, err = getDeleteKeys(srcClient, destClient, srcUrl, destUrl, fo)
 		if err != nil {
-			logger.Fatalf("get delete keys error : %v", err)
+			fmt.Errorf("get delete keys error : %v", err)
 		}
 	}
 
 	// copy
-	CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
+	err = CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
+	if err != nil {
+		return err
+	}
 
 	if len(keysToDelete) > 0 {
 		// 删除源位置没有而目标位置有的cos对象或本地文件
@@ -230,6 +244,7 @@ func SyncCosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, 
 	}
 
 	if err != nil {
-		logger.Fatalf("delete keys error : %v", err)
+		fmt.Errorf("delete keys error : %v", err)
 	}
+	return nil
 }

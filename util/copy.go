@@ -3,14 +3,13 @@ package util
 import (
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
 	"strings"
 	"time"
 )
 
-func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) {
+func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	startT := time.Now().UnixNano() / 1000 / 1000
 
 	fo.Monitor.init(fo.CpType)
@@ -31,9 +30,9 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				// 源文件不在cos上
-				logger.Fatalf("Object not found : %v", err)
+				return fmt.Errorf("Object not found : %v", err)
 			}
-			logger.Fatalf("Head object err : %v", err)
+			return fmt.Errorf("Head object err : %v", err)
 		}
 
 		// copy文件
@@ -41,7 +40,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
-			logger.Fatalf("%s failed: %v", msg, err)
+			return fmt.Errorf("%s failed: %v", msg, err)
 		}
 
 	} else {
@@ -55,6 +54,8 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 
 	endT := time.Now().UnixNano() / 1000 / 1000
 	PrintTransferStats(startT, endT, fo)
+
+	return nil
 }
 
 func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) {
@@ -164,7 +165,8 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	// copy暂不支持监听进度
 	// size = 0
 
-	url := GenURL(fo.Config, fo.Param, srcUrl.(*CosUrl).Bucket)
+	url, err := GenURL(fo.Config, fo.Param, srcUrl.(*CosUrl).Bucket)
+
 	srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, object)
 
 	opt := &cos.MultiCopyOptions{
