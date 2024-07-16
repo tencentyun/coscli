@@ -7,11 +7,11 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestMvCmd(t *testing.T) {
-	fmt.Println("TestMvCmd")
+func TestLspartsCmd(t *testing.T) {
+	fmt.Println("TestLspartsCmd")
 	setUp(testBucket, testAlias, testEndpoint)
 	defer tearDown(testBucket, testAlias, testEndpoint)
-	Convey("Test coscli mv", t, func() {
+	Convey("Test coscli lsparts", t, func() {
 		Convey("success", func() {
 			cmd := rootCmd
 			args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias)}

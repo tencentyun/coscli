@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/mitchellh/go-homedir"
@@ -55,17 +54,22 @@ func getConfig() {
 func setUp(testBucket, testAlias, testEndpoint string) {
 	// 创建测试桶
 	logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
-	cmd := exec.Command("../coscli", "mb",
-		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint)
-	if err := cmd.Run(); err != nil {
+	cmd := rootCmd
+	args := []string{"mb",
+		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
 		logger.Errorln("SetUp error: 创建测试桶失败")
 	}
 
 	// 更新配置文件
 	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
-	cmd = exec.Command("../coscli", "config", "add", "-b",
-		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias)
-	if err := cmd.Run(); err != nil {
+	args = []string{"config", "add", "-b",
+		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
+	cmd.SetArgs(args)
+	err = cmd.Execute()
+	if err != nil {
 		logger.Errorln("SetUp error: 更新配置文件失败")
 	}
 
@@ -76,56 +80,74 @@ func setUp(testBucket, testAlias, testEndpoint string) {
 func tearDown(testBucket, testAlias, testEndpoint string) {
 	// 清空测试桶
 	logger.Infoln(fmt.Sprintf("清空测试桶：%s", testAlias))
-	cmd := exec.Command("../coscli", "rm",
-		fmt.Sprintf("cos://%s", testAlias), "-r", "-f")
-	if err := cmd.Run(); err != nil {
+	cmd := rootCmd
+	args := []string{"rm",
+		fmt.Sprintf("cos://%s", testAlias), "-r", "-f"}
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
 		logger.Errorln("TearDown error: 清空测试桶失败")
 	}
-	cmd = exec.Command("../coscli", "abort",
-		fmt.Sprintf("cos://%s", testAlias))
-	if err := cmd.Run(); err != nil {
+	args = []string{"abort",
+		fmt.Sprintf("cos://%s", testAlias)}
+	cmd.SetArgs(args)
+	err = cmd.Execute()
+	if err != nil {
 		logger.Errorln("TearDown error: 清空测试桶失败")
 	}
 
 	// 删除测试桶
 	logger.Infoln(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testEndpoint))
-	cmd = exec.Command("../coscli", "rb",
-		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint)
-	if err := cmd.Run(); err != nil {
+	args = []string{"rb",
+		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+	cmd.SetArgs(args)
+	err = cmd.Execute()
+	if err != nil {
 		logger.Errorln("TearDown error: 删除测试桶失败")
 	}
 
 	// 更新配置文件
 	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
-	cmd = exec.Command("../coscli", "config", "delete", "-a",
-		fmt.Sprintf("%s", testAlias))
-	if err := cmd.Run(); err != nil {
+	args = []string{"config", "delete", "-a",
+		fmt.Sprintf("%s", testAlias)}
+	cmd.SetArgs(args)
+	err = cmd.Execute()
+	if err != nil {
 		logger.Errorln("TearDown error: 更新配置文件失败")
 	}
 }
 
 func createTestBucket(testBucket, testEndpoint string) {
 	logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
-	cmd := exec.Command("../coscli", "mb",
-		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint)
-	if err := cmd.Run(); err != nil {
+	cmd := rootCmd
+	args := []string{"mb",
+		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
 		logger.Errorln("SetUp error: 创建测试桶失败")
 	}
 }
 
 func deleteTestBucket(testBucket, testEndpoint string) {
 	logger.Infoln(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testEndpoint))
-	cmd := exec.Command("../coscli", "rb",
-		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint)
-	if err := cmd.Run(); err != nil {
+	cmd := rootCmd
+	args := []string{"rb",
+		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
 		logger.Errorln("TearDown error: 删除测试桶失败")
 	}
 }
 
 func addConfig(testBucket, testEndpoint string) {
-	cmd := exec.Command("../coscli", "config", "add", "-b",
-		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint)
-	if err := cmd.Run(); err != nil {
+	cmd := rootCmd
+	args := []string{"config", "add", "-b",
+		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint}
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
 		logger.Errorln("SetUp error: 更新配置文件失败")
 	}
 
@@ -133,21 +155,27 @@ func addConfig(testBucket, testEndpoint string) {
 	getConfig()
 }
 
-func addConfig_alias(testBucket, testAlias, testEndpoint string) {
-	cmd := exec.Command("../coscli", "config", "add", "-b",
-		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias)
-	if err := cmd.Run(); err != nil {
-		logger.Errorln("SetUp error: 更新配置文件失败")
-	}
+// func addConfig_alias(testBucket, testAlias, testEndpoint string) {
+// 	cmd := rootCmd
+// 	args := []string{"config", "add", "-b",
+// 		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
+// 	cmd.SetArgs(args)
+// 	err := cmd.Execute()
+// 	if err != nil {
+// 		logger.Errorln("SetUp error: 更新配置文件失败")
+// 	}
 
-	// 更新 Config
-	getConfig()
-}
+// 	// 更新 Config
+// 	getConfig()
+// }
 
 func deleteConfig(testBucket string) {
-	cmd := exec.Command("../coscli", "config", "delete", "-a",
-		fmt.Sprintf("%s-%s", testBucket, appID))
-	if err := cmd.Run(); err != nil {
+	cmd := rootCmd
+	args := []string{"config", "delete", "-a",
+		fmt.Sprintf("%s-%s", testBucket, appID)}
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
 		logger.Errorln("TearDown error: 更新配置文件失败")
 	}
 
@@ -155,15 +183,18 @@ func deleteConfig(testBucket string) {
 	getConfig()
 }
 
-func deleteConfig_alias(testAlias string) {
-	cmd := exec.Command("../coscli", "config", "delete", "-a", testAlias)
-	if err := cmd.Run(); err != nil {
-		logger.Errorln("TearDown error: 更新配置文件失败")
-	}
+// func deleteConfig_alias(testAlias string) {
+// 	cmd := rootCmd
+// 	args := []string{"config", "delete", "-a", testAlias}
+// 	cmd.SetArgs(args)
+// 	err := cmd.Execute()
+// 	if err != nil {
+// 		logger.Errorln("TearDown error: 更新配置文件失败")
+// 	}
 
-	// 更新 Config
-	getConfig()
-}
+// 	// 更新 Config
+// 	getConfig()
+// }
 
 // 创建文件
 func genFile(fileName string, size int) {

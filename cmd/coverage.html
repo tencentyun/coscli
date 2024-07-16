@@ -1,0 +1,2942 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>cmd: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">coscli/cmd/abort.go (66.7%)</option>
+				
+				<option value="file1">coscli/cmd/bucket_tagging.go (69.2%)</option>
+				
+				<option value="file2">coscli/cmd/config.go (100.0%)</option>
+				
+				<option value="file3">coscli/cmd/config_add.go (65.9%)</option>
+				
+				<option value="file4">coscli/cmd/config_delete.go (70.6%)</option>
+				
+				<option value="file5">coscli/cmd/config_init.go (1.9%)</option>
+				
+				<option value="file6">coscli/cmd/config_set.go (51.4%)</option>
+				
+				<option value="file7">coscli/cmd/config_show.go (100.0%)</option>
+				
+				<option value="file8">coscli/cmd/cp.go (53.2%)</option>
+				
+				<option value="file9">coscli/cmd/du.go (100.0%)</option>
+				
+				<option value="file10">coscli/cmd/hash.go (80.0%)</option>
+				
+				<option value="file11">coscli/cmd/ls.go (83.9%)</option>
+				
+				<option value="file12">coscli/cmd/lsparts.go (18.2%)</option>
+				
+				<option value="file13">coscli/cmd/mb.go (75.0%)</option>
+				
+				<option value="file14">coscli/cmd/mv.go (5.9%)</option>
+				
+				<option value="file15">coscli/cmd/rb.go (84.8%)</option>
+				
+				<option value="file16">coscli/cmd/restore.go (18.2%)</option>
+				
+				<option value="file17">coscli/cmd/rm.go (66.7%)</option>
+				
+				<option value="file18">coscli/cmd/root.go (51.5%)</option>
+				
+				<option value="file19">coscli/cmd/signurl.go (7.7%)</option>
+				
+				<option value="file20">coscli/cmd/sync.go (10.7%)</option>
+				
+				<option value="file21">coscli/cmd/testconfig.go (78.5%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package cmd
+
+import (
+        "context"
+        "coscli/util"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+)
+
+var abortCmd = &amp;cobra.Command{
+        Use:   "abort",
+        Short: "Abort parts",
+        Long: `Abort parts
+
+Format:
+  ./coscli abort cos://&lt;bucket-name&gt;[/&lt;prefix&gt;] [flags]
+
+Example:
+  ./coscli abort cos://examplebucket/test/`,
+        Args: cobra.ExactArgs(1),
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+
+                abortParts(args[0], include, exclude)
+        }</span>,
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(abortCmd)
+
+        abortCmd.Flags().String("include", "", "List files that meet the specified criteria")
+        abortCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+}</span>
+
+func abortParts(arg string, include string, exclude string) <span class="cov8" title="1">{
+        bucketName, cosPath := util.ParsePath(arg)
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        uploads := util.GetUploadsListRecursive(c, cosPath, 0, include, exclude)
+
+        successCnt, failCnt := 0, 0
+        for _, u := range uploads </span><span class="cov0" title="0">{
+                _, err := c.Object.AbortMultipartUpload(context.Background(), u.Key, u.UploadID)
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Infoln("Abort fail!    UploadID:", u.UploadID, "Key:", u.Key)
+                        failCnt++
+                }</span> else<span class="cov0" title="0"> {
+                        logger.Infoln("Abort success! UploadID:", u.UploadID, "Key:", u.Key)
+                        successCnt++
+                }</span>
+        }
+        <span class="cov8" title="1">logger.Infoln("Total:", len(uploads), ",", successCnt, "Success,", failCnt, "Fail")</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package cmd
+
+import (
+        "context"
+        "coscli/util"
+        "os"
+        "strings"
+
+        "github.com/olekukonko/tablewriter"
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/tencentyun/cos-go-sdk-v5"
+)
+
+var bucketTaggingCmd = &amp;cobra.Command{
+        Use:   "bucket-tagging",
+        Short: "Modify bucket tagging",
+        Long: `Modify bucket tagging
+
+Format:
+        ./coscli bucket-tagging --method [method] cos://&lt;bucket-name&gt; [tag_key]#[tag_value]
+
+Example:
+        ./coscli bucket-tagging --method put cos://examplebucket tag1#test1 tag2#test2
+        ./coscli bucket-tagging --method get cos://examplebucket
+        ./coscli bucket-tagging --method delete cos://examplebucket`,
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                method, _ := cmd.Flags().GetString("method")
+
+                if method == "put" </span><span class="cov8" title="1">{
+                        if len(args) &lt; 2 </span><span class="cov0" title="0">{
+                                logger.Fatalln("not enough arguments in call to put bucket tagging")
+                        }</span>
+                        <span class="cov8" title="1">putBucketTagging(args[0], args[1:])</span>
+                }
+
+                <span class="cov8" title="1">if method == "get" </span><span class="cov8" title="1">{
+                        if len(args) &lt; 1 </span><span class="cov0" title="0">{
+                                logger.Fatalln("not enough arguments in call to get bucket tagging")
+                                os.Exit(1)
+                        }</span>
+                        <span class="cov8" title="1">getBucketTagging(args[0])</span>
+                }
+
+                <span class="cov8" title="1">if method == "delete" </span><span class="cov8" title="1">{
+                        if len(args) &lt; 1 </span><span class="cov0" title="0">{
+                                logger.Fatalln("not enough arguments in call to get bucket tagging")
+                                os.Exit(1)
+                        }</span>
+                        <span class="cov8" title="1">deleteBucketTagging(args[0])</span>
+                }
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(bucketTaggingCmd)
+        bucketTaggingCmd.Flags().String("method", "", "put/get/delete")
+}</span>
+
+func putBucketTagging(cosPath string, tags []string) <span class="cov8" title="1">{
+        bucketName, _ := util.ParsePath(cosPath)
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        tg := &amp;cos.BucketPutTaggingOptions{}
+        for i := 0; i &lt; len(tags); i += 1 </span><span class="cov8" title="1">{
+                tmp := strings.Split(tags[i], "#")
+                if len(tmp) &gt;= 2 </span><span class="cov8" title="1">{
+                        tg.TagSet = append(tg.TagSet, cos.BucketTaggingTag{Key: tmp[0], Value: tmp[1]})
+                }</span> else<span class="cov0" title="0"> {
+                        logger.Fatalln("invalid tag")
+                        os.Exit(1)
+                }</span>
+        }
+
+        <span class="cov8" title="1">_, err := c.Bucket.PutTagging(context.Background(), tg)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Infoln(err.Error())
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+}
+
+func getBucketTagging(cosPath string) <span class="cov8" title="1">{
+        bucketName, _ := util.ParsePath(cosPath)
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        v, _, err := c.Bucket.GetTagging(context.Background())
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Infoln(err.Error())
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+        <span class="cov8" title="1">table := tablewriter.NewWriter(os.Stdout)
+        table.SetHeader([]string{"Key", "Value"})
+        for _, t := range v.TagSet </span><span class="cov8" title="1">{
+                table.Append([]string{t.Key, t.Value})
+        }</span>
+        <span class="cov8" title="1">table.SetBorder(false)
+        table.SetAlignment(tablewriter.ALIGN_RIGHT)
+        table.Render()</span>
+}
+
+func deleteBucketTagging(cosPath string) <span class="cov8" title="1">{
+        bucketName, _ := util.ParsePath(cosPath)
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        _, err := c.Bucket.DeleteTagging(context.Background())
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Infoln(err.Error())
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package cmd
+
+import (
+        "github.com/spf13/cobra"
+)
+
+var configCmd = &amp;cobra.Command{
+        Use:   "config",
+        Short: "Init or edit config file",
+        Long:  "Init or edit config file",
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                _ = cmd.Help()
+        }</span>,
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(configCmd)
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package cmd
+
+import (
+        "fmt"
+        "github.com/mitchellh/go-homedir"
+        "os"
+
+        "coscli/util"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/spf13/viper"
+)
+
+var configAddCmd = &amp;cobra.Command{
+        Use:   "add",
+        Short: "Used to add a new bucket configuration",
+        Long: `Used to add a new bucket configuration
+
+Format:
+  ./coscli config add -b &lt;bucket-name&gt; -e &lt;endpoint&gt; -a &lt;alias&gt; [-c &lt;config-file-path&gt;]
+
+Example:
+  ./coscli config add -b example-1234567890 -r ap-shanghai -a example`,
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                addBucketConfig(cmd)
+        }</span>,
+}
+
+func init() <span class="cov8" title="1">{
+        configCmd.AddCommand(configAddCmd)
+
+        configAddCmd.Flags().StringP("bucket", "b", "", "Bucket name")
+        configAddCmd.Flags().StringP("endpoint", "e", "", "Bucket endpoint")
+        configAddCmd.Flags().StringP("region", "r", "", "Bucket region")
+        configAddCmd.Flags().StringP("alias", "a", "", "Bucket alias")
+        configAddCmd.Flags().BoolP("ofs", "o", false, "Bucket ofs")
+
+        _ = configAddCmd.MarkFlagRequired("bucket")
+        // _ = configAddCmd.MarkFlagRequired("endpoint")
+}</span>
+
+func addBucketConfig(cmd *cobra.Command) <span class="cov8" title="1">{
+        name, _ := cmd.Flags().GetString("bucket")
+        endpoint, _ := cmd.Flags().GetString("endpoint")
+        region, _ := cmd.Flags().GetString("region")
+        alias, _ := cmd.Flags().GetString("alias")
+        ofs, _ := cmd.Flags().GetBool("ofs")
+        if alias == "" </span><span class="cov0" title="0">{
+                alias = name
+        }</span>
+
+        <span class="cov8" title="1">bucket := util.Bucket{
+                Name:     name,
+                Endpoint: endpoint,
+                Region:   region,
+                Alias:    alias,
+                Ofs:      ofs,
+        }
+
+        for _, b := range config.Buckets </span><span class="cov8" title="1">{
+                if name == b.Name </span><span class="cov0" title="0">{
+                        logger.Fatalln("The bucket already exists, fail to add!")
+                        os.Exit(1)
+                }</span> else<span class="cov8" title="1"> if alias == b.Name </span><span class="cov0" title="0">{
+                        logger.Fatalln("The alias cannot be the same as other bucket's name")
+                        os.Exit(1)
+                }</span> else<span class="cov8" title="1"> if alias == b.Alias </span><span class="cov0" title="0">{
+                        logger.Fatalln("The alias already exists, fail to add!")
+                        os.Exit(1)
+                }</span>
+        }
+
+        <span class="cov8" title="1">config.Buckets = append(config.Buckets, bucket)
+        viper.Set("cos.buckets", config.Buckets)
+
+        // 判断config文件是否存在。不存在则创建
+        home, err := homedir.Dir()
+        configFile := ""
+        if cfgFile != "" </span><span class="cov0" title="0">{
+                if cfgFile[0] == '~' </span><span class="cov0" title="0">{
+                        configFile = home + cfgFile[1:]
+                }</span> else<span class="cov0" title="0"> {
+                        configFile = cfgFile
+                }</span>
+        } else<span class="cov8" title="1"> {
+                configFile = home + "/.cos.yaml"
+        }</span>
+        <span class="cov8" title="1">_, err = os.Stat(configFile)
+        if os.IsNotExist(err) || cfgFile != "" </span><span class="cov0" title="0">{
+                if err := viper.WriteConfigAs(configFile); err != nil </span><span class="cov0" title="0">{
+                        fmt.Println(err)
+                        os.Exit(1)
+                }</span>
+        } else<span class="cov8" title="1"> {
+                if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalln(err)
+                        os.Exit(1)
+                }</span>
+        }
+        <span class="cov8" title="1">logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n, ofs: %t\n", name, endpoint, alias, ofs)</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package cmd
+
+import (
+        "coscli/util"
+        "os"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/spf13/viper"
+)
+
+var configDeleteCmd = &amp;cobra.Command{
+        Use:   "delete",
+        Short: "Used to delete an existing bucket",
+        Long: `Used to delete an existing bucket
+
+Format:
+  ./coscli config delete -a &lt;alias&gt; [-c &lt;config-file-path&gt;]
+
+Example:
+  ./coscli config delete -a example`,
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                deleteBucketConfig(cmd)
+        }</span>,
+}
+
+func init() <span class="cov8" title="1">{
+        configCmd.AddCommand(configDeleteCmd)
+
+        configDeleteCmd.Flags().StringP("alias", "a", "", "Bucket alias")
+
+        _ = configDeleteCmd.MarkFlagRequired("alias")
+}</span>
+
+func deleteBucketConfig(cmd *cobra.Command) <span class="cov8" title="1">{
+        alias, _ := cmd.Flags().GetString("alias")
+        b, i, err := util.FindBucket(&amp;config, alias)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+
+        <span class="cov8" title="1">if i &lt; 0 </span><span class="cov0" title="0">{
+                logger.Fatalln("Bucket not exist in config file!")
+        }</span>
+        <span class="cov8" title="1">config.Buckets = append(config.Buckets[:i], config.Buckets[i+1:]...)
+
+        viper.Set("cos.buckets", config.Buckets)
+        if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil </span><span class="cov0" title="0">{
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+        <span class="cov8" title="1">logger.Infof("Delete successfully! name: %s, endpoint: %s, alias: %s", b.Name, b.Endpoint, b.Alias)</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package cmd
+
+import (
+        "coscli/util"
+        "fmt"
+        "os"
+
+        "github.com/spf13/viper"
+
+        homedir "github.com/mitchellh/go-homedir"
+        "github.com/spf13/cobra"
+)
+
+var configInitCmd = &amp;cobra.Command{
+        Use:   "init",
+        Short: "Used to interactively generate the configuration file",
+        Long: `Used to interactively generate the configuration file
+
+Format:
+  ./coscli config init [-c &lt;config-file-path&gt;]
+
+Example:
+  ./coscli config init`,
+        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+                if cmdCnt &gt;= 1 </span><span class="cov0" title="0">{
+                        return
+                }</span>
+                <span class="cov0" title="0">initConfigFile(true)</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        configCmd.AddCommand(configInitCmd)
+}</span>
+
+// cfgFlag: 是否允许用户自定义配置文件的输出路径
+func initConfigFile(cfgFlag bool) <span class="cov0" title="0">{
+        var (
+                configFile string
+                config     util.Config
+                bucket     util.Bucket
+        )
+        home, _ := homedir.Dir()
+
+        if cfgFlag </span><span class="cov0" title="0">{
+                fmt.Println("Specify the path of the configuration file: (default:" + home + "/.cos.yaml)")
+                _, _ = fmt.Scanf("%s\n", &amp;configFile)
+        }</span>
+        <span class="cov0" title="0">if configFile == "" </span><span class="cov0" title="0">{
+                configFile = home + "/.cos.yaml"
+        }</span>
+        <span class="cov0" title="0">if configFile[0] == '~' </span><span class="cov0" title="0">{
+                configFile = home + configFile[1:]
+        }</span>
+        <span class="cov0" title="0">fmt.Println("The path of the configuration file: " + configFile)
+
+        fmt.Println("Input Your Mode:")
+        _, _ = fmt.Scanf("%s\n", &amp;config.Base.Mode)
+
+        if config.Base.Mode == "CvmRole" </span><span class="cov0" title="0">{
+                fmt.Println("Input Your Cvm Role Name:")
+                _, _ = fmt.Scanf("%s\n", &amp;config.Base.CvmRoleName)
+        }</span> else<span class="cov0" title="0"> {
+                fmt.Println("Input Your Secret ID:")
+                _, _ = fmt.Scanf("%s\n", &amp;config.Base.SecretID)
+                fmt.Println("Input Your Secret Key:")
+                _, _ = fmt.Scanf("%s\n", &amp;config.Base.SecretKey)
+                fmt.Println("Input Your Session Token:")
+                _, _ = fmt.Scanf("%s\n", &amp;config.Base.SessionToken)
+        }</span>
+
+        <span class="cov0" title="0">fmt.Println("Input Auto Switch Host:")
+        _, _ = fmt.Scanf("%s\n", &amp;config.Base.CloseAutoSwitchHost)
+        if len(config.Base.SessionToken) &lt; 3 </span><span class="cov0" title="0">{
+                config.Base.SessionToken = ""
+        }</span>
+        <span class="cov0" title="0">config.Base.Protocol = "https"
+
+        fmt.Println("Input Your Bucket's Name:")
+        fmt.Println("Format: &lt;bucketname&gt;-&lt;appid&gt;，Example: example-1234567890")
+        _, _ = fmt.Scanf("%s\n", &amp;bucket.Name)
+        fmt.Println("Input Bucket's Endpoint:")
+        fmt.Println("Format: cos.&lt;region&gt;.myqcloud.com，Example: cos.ap-beijing.myqcloud.com")
+        _, _ = fmt.Scanf("%s\n", &amp;bucket.Endpoint)
+        fmt.Println("Input Bucket's Alias: (Input nothing will use the original name)")
+        _, _ = fmt.Scanf("%s\n", &amp;bucket.Alias)
+        if bucket.Alias == "" </span><span class="cov0" title="0">{
+                bucket.Alias = bucket.Name
+        }</span>
+
+        <span class="cov0" title="0">config.Buckets = append(config.Buckets, bucket)
+        fmt.Println("You have configured the bucket:")
+        for _, b := range config.Buckets </span><span class="cov0" title="0">{
+                fmt.Printf("- Name: %s\tEndpoint: %s\tAlias: %s\n", b.Name, b.Endpoint, b.Alias)
+        }</span>
+        <span class="cov0" title="0">fmt.Printf("\nIf you want to configure more buckets, you can use the \"config add\" command later.\n")
+        // 默认加密存储
+        config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
+        config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
+        config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
+
+        viper.Set("cos", config)
+
+        if err := viper.WriteConfigAs(configFile); err != nil </span><span class="cov0" title="0">{
+                fmt.Println(err)
+                os.Exit(1)
+        }</span>
+        <span class="cov0" title="0">fmt.Printf("\nThe configuration file is initialized successfully! \nYou can use \"./coscli config show [-c &lt;Config File Path&gt;]\" show the contents of the specified configuration file\n")</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package cmd
+
+import (
+        "coscli/util"
+        "fmt"
+        "github.com/mitchellh/go-homedir"
+        "os"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/spf13/viper"
+)
+
+var configSetCmd = &amp;cobra.Command{
+        Use:   "set",
+        Short: "Used to modify configuration items in the [base] group of the configuration file",
+        Long: `Used to modify configuration items in the [base] group of the configuration file
+
+Format:
+  ./coscli config set [flags]
+
+Example:
+  ./coscli config set -t example-token`,
+        Args: cobra.ExactArgs(0),
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                setConfigItem(cmd)
+        }</span>,
+}
+
+func init() <span class="cov8" title="1">{
+        configCmd.AddCommand(configSetCmd)
+
+        configSetCmd.Flags().StringP("secret_id", "", "", "Set secret id")
+        configSetCmd.Flags().StringP("secret_key", "", "", "Set secret key")
+        configSetCmd.Flags().StringP("session_token", "t", "", "Set session token")
+        configSetCmd.Flags().StringP("mode", "", "", "Set mode")
+        configSetCmd.Flags().StringP("cvm_role_name", "", "", "Set cvm role name")
+        configSetCmd.Flags().StringP("close_auto_switch_host", "", "", "Close Auto Switch Host")
+}</span>
+
+func setConfigItem(cmd *cobra.Command) <span class="cov8" title="1">{
+        flag := false
+        secretID, _ := cmd.Flags().GetString("secret_id")
+        secretKey, _ := cmd.Flags().GetString("secret_key")
+        sessionToken, _ := cmd.Flags().GetString("session_token")
+        mode, _ := cmd.Flags().GetString("mode")
+        cvmRoleName, _ := cmd.Flags().GetString("cvm_role_name")
+        closeAutoSwitchHost, _ := cmd.Flags().GetString("close_auto_switch_host")
+        if secretID != "" </span><span class="cov0" title="0">{
+                flag = true
+                if secretID == "@" </span><span class="cov0" title="0">{
+                        config.Base.SecretID = ""
+                }</span> else<span class="cov0" title="0"> {
+                        config.Base.SecretID = secretID
+                }</span>
+        }
+        <span class="cov8" title="1">if secretKey != "" </span><span class="cov0" title="0">{
+                flag = true
+                if secretKey == "@" </span><span class="cov0" title="0">{
+                        config.Base.SecretKey = ""
+                }</span> else<span class="cov0" title="0"> {
+                        config.Base.SecretKey = secretKey
+                }</span>
+        }
+        <span class="cov8" title="1">if sessionToken != "" </span><span class="cov0" title="0">{
+                flag = true
+                if sessionToken == "@" </span><span class="cov0" title="0">{
+                        config.Base.SessionToken = ""
+                }</span> else<span class="cov0" title="0"> {
+                        config.Base.SessionToken = sessionToken
+                }</span>
+        }
+        <span class="cov8" title="1">if mode != "" </span><span class="cov0" title="0">{
+                flag = true
+                if mode != "SecretKey" &amp;&amp; mode != "CvmRole" </span><span class="cov0" title="0">{
+                        logger.Fatalln("Please Enter Mode As SecretKey Or CvmRole!")
+                        logger.Infoln(cmd.UsageString())
+                        os.Exit(1)
+                }</span> else<span class="cov0" title="0"> {
+                        config.Base.Mode = mode
+                }</span>
+        }
+        <span class="cov8" title="1">if cvmRoleName != "" </span><span class="cov0" title="0">{
+                flag = true
+                if cvmRoleName == "@" </span><span class="cov0" title="0">{
+                        config.Base.CvmRoleName = ""
+                }</span> else<span class="cov0" title="0"> {
+                        config.Base.CvmRoleName = cvmRoleName
+                }</span>
+        }
+
+        <span class="cov8" title="1">if closeAutoSwitchHost != "" </span><span class="cov8" title="1">{
+                flag = true
+                if closeAutoSwitchHost == "@" </span><span class="cov0" title="0">{
+                        config.Base.CloseAutoSwitchHost = ""
+                }</span> else<span class="cov8" title="1"> {
+                        config.Base.CloseAutoSwitchHost = closeAutoSwitchHost
+                }</span>
+        }
+
+        <span class="cov8" title="1">if !flag </span><span class="cov0" title="0">{
+                logger.Fatalln("Enter at least one configuration item to be modified!")
+                logger.Infoln(cmd.UsageString())
+                os.Exit(1)
+        }</span>
+        // 默认加密存储
+        <span class="cov8" title="1">config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
+        config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
+        config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
+
+        // 判断config文件是否存在。不存在则创建
+        home, err := homedir.Dir()
+        configFile := ""
+        if cfgFile != "" </span><span class="cov0" title="0">{
+                if cfgFile[0] == '~' </span><span class="cov0" title="0">{
+                        configFile = home + cfgFile[1:]
+                }</span> else<span class="cov0" title="0"> {
+                        configFile = cfgFile
+                }</span>
+        } else<span class="cov8" title="1"> {
+                configFile = home + "/.cos.yaml"
+        }</span>
+        <span class="cov8" title="1">_, err = os.Stat(configFile)
+        if os.IsNotExist(err) || cfgFile != "" </span><span class="cov0" title="0">{
+                viper.Set("cos.base", config.Base)
+                if err := viper.WriteConfigAs(configFile); err != nil </span><span class="cov0" title="0">{
+                        fmt.Println(err)
+                        os.Exit(1)
+                }</span>
+        } else<span class="cov8" title="1"> {
+                viper.Set("cos.base", config.Base)
+                if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalln(err)
+                        os.Exit(1)
+                }</span>
+        }
+
+        <span class="cov8" title="1">logger.Infoln("Modify successfully!")</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package cmd
+
+import (
+        "fmt"
+        "github.com/spf13/cobra"
+        "github.com/spf13/viper"
+)
+
+var configShowCmd = &amp;cobra.Command{
+        Use:   "show",
+        Short: "Prints information from a specified configuration file",
+        Long: `Prints information from a specified configuration file
+
+Format:
+  ./coscli config show [-c &lt;config-file-path&gt;]
+
+Example:
+  ./coscli config show`,
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                showConfig()
+        }</span>,
+}
+
+func init() <span class="cov8" title="1">{
+        configCmd.AddCommand(configShowCmd)
+}</span>
+
+func showConfig() <span class="cov8" title="1">{
+        fmt.Println("Configuration file path:")
+        fmt.Printf("  %s\n", viper.ConfigFileUsed())
+        fmt.Println("====================")
+        fmt.Println("Basic Configuration Information:")
+        fmt.Printf("  Secret ID:     %s\n", config.Base.SecretID)
+        fmt.Printf("  Secret Key:    %s\n", config.Base.SecretKey)
+        fmt.Printf("  Session Token: %s\n", config.Base.SessionToken)
+        fmt.Printf("  Mode: %s\n", config.Base.Mode)
+        fmt.Printf("  CvmRoleName: %s\n", config.Base.CvmRoleName)
+        fmt.Printf("  CloseAutoSwitchHost: %s\n", config.Base.CloseAutoSwitchHost)
+        fmt.Println("====================")
+        fmt.Println("Bucket Configuration Information:")
+
+        for i, b := range config.Buckets </span><span class="cov8" title="1">{
+                fmt.Printf("- Bucket %d :\n", i+1)
+                fmt.Printf("  Name:  \t%s\n", b.Name)
+                fmt.Printf("  Endpoint:\t%s\n", b.Endpoint)
+                fmt.Printf("  Alias: \t%s\n", b.Alias)
+                fmt.Printf("  Ofs: \t%v\n", b.Ofs)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package cmd
+
+import (
+        "context"
+        "coscli/util"
+        "fmt"
+        "os"
+        "path/filepath"
+        "strings"
+        "time"
+
+        "github.com/tencentyun/cos-go-sdk-v5"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+)
+
+var cpCmd = &amp;cobra.Command{
+        Use:   "cp",
+        Short: "Upload, download or cper objects",
+        Long: `Upload, download or cper objects
+
+Format:
+  ./coscli cp &lt;source_path&gt; &lt;destination_path&gt; [flags]
+
+Example: 
+  Upload:
+    ./coscli cp ~/example.txt cos://examplebucket/example.txt
+  Download:
+    ./coscli cp cos://examplebucket/example.txt ~/example.txt
+  Copy:
+    ./coscli cp cos://examplebucket1/example1.txt cos://examplebucket2/example2.txt`,
+        Args: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                if err := cobra.ExactArgs(2)(cmd, args); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">storageClass, _ := cmd.Flags().GetString("storage-class")
+                if storageClass != "" &amp;&amp; util.IsCosPath(args[0]) </span><span class="cov0" title="0">{
+                        logger.Fatalln("--storage-class can only use in upload")
+                        os.Exit(1)
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        },
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                recursive, _ := cmd.Flags().GetBool("recursive")
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+                storageClass, _ := cmd.Flags().GetString("storage-class")
+                rateLimiting, _ := cmd.Flags().GetFloat32("rate-limiting")
+                partSize, _ := cmd.Flags().GetInt64("part-size")
+                threadNum, _ := cmd.Flags().GetInt("thread-num")
+                routines, _ := cmd.Flags().GetInt("routines")
+                failOutput, _ := cmd.Flags().GetBool("fail-output")
+                failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+                metaString, _ := cmd.Flags().GetString("meta")
+                retryNum, _ := cmd.Flags().GetInt("retry-num")
+                errRetryNum, _ := cmd.Flags().GetInt("err-retry-num")
+                errRetryInterval, _ := cmd.Flags().GetInt("err-retry-interval")
+                onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
+                disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
+                enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
+                disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
+
+                meta, err := util.MetaStringToHeader(metaString)
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalln("Copy invalid meta " + err.Error())
+                }</span>
+
+                <span class="cov8" title="1">if retryNum &lt; 0 || retryNum &gt; 10 </span><span class="cov0" title="0">{
+                        logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
+                        return
+                }</span>
+
+                <span class="cov8" title="1">if errRetryNum &lt; 0 || errRetryNum &gt; 10 </span><span class="cov0" title="0">{
+                        logger.Fatalln("err-retry-num must be between 0 and 10 (inclusive)")
+                        return
+                }</span>
+
+                <span class="cov8" title="1">if errRetryInterval &lt; 0 || errRetryInterval &gt; 10 </span><span class="cov0" title="0">{
+                        logger.Fatalln("err-retry-interval must be between 0 and 10 (inclusive)")
+                        return
+                }</span>
+
+                <span class="cov8" title="1">srcUrl, err := util.FormatUrl(args[0])
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalf("format srcURL error,%v", err)
+                }</span>
+
+                <span class="cov8" title="1">destUrl, err := util.FormatUrl(args[1])
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalf("format destURL error,%v", err)
+                }</span>
+
+                <span class="cov8" title="1">if srcUrl.IsFileUrl() &amp;&amp; destUrl.IsFileUrl() </span><span class="cov0" title="0">{
+                        logger.Fatalln("not support cp between local directory")
+                }</span>
+
+                <span class="cov8" title="1">_, filters := util.GetFilter(include, exclude)
+
+                fo := &amp;util.FileOperations{
+                        Operation: util.Operation{
+                                Recursive:         recursive,
+                                Filters:           filters,
+                                StorageClass:      storageClass,
+                                RateLimiting:      rateLimiting,
+                                PartSize:          partSize,
+                                ThreadNum:         threadNum,
+                                Routines:          routines,
+                                FailOutput:        failOutput,
+                                FailOutputPath:    failOutputPath,
+                                Meta:              meta,
+                                RetryNum:          retryNum,
+                                ErrRetryNum:       errRetryNum,
+                                ErrRetryInterval:  errRetryInterval,
+                                OnlyCurrentDir:    onlyCurrentDir,
+                                DisableAllSymlink: disableAllSymlink,
+                                EnableSymlinkDir:  enableSymlinkDir,
+                                DisableCrc64:      disableCrc64,
+                        },
+                        Monitor:    &amp;util.FileProcessMonitor{},
+                        Config:     &amp;config,
+                        Param:      &amp;param,
+                        ErrOutput:  &amp;util.ErrOutput{},
+                        CpType:     getCommandType(srcUrl, destUrl),
+                        Command:    util.CommandCP,
+                        BucketType: "COS",
+                }
+
+                if !fo.Operation.Recursive &amp;&amp; len(fo.Operation.Filters) &gt; 0 </span><span class="cov0" title="0">{
+                        logger.Fatalln("--include or --exclude only work with --recursive")
+                }</span>
+
+                <span class="cov8" title="1">startT := time.Now().UnixNano() / 1000 / 1000
+                if srcUrl.IsFileUrl() &amp;&amp; destUrl.IsCosUrl() </span><span class="cov8" title="1">{
+                        // 检查错误输出日志是否是本地路径的子集
+                        err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
+                        if err != nil </span><span class="cov0" title="0">{
+                                logger.Fatalln(err)
+                        }</span>
+                        // 实例化cos client
+                        <span class="cov8" title="1">bucketName := destUrl.(*util.CosUrl).Bucket
+                        c := util.NewClient(fo.Config, fo.Param, bucketName)
+                        // 是否关闭crc64
+                        if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
+                                c.Conf.EnableCRC = false
+                        }</span>
+                        // 格式化上传路径
+                        <span class="cov8" title="1">util.FormatUploadPath(srcUrl, destUrl, fo)
+                        // 上传
+                        util.Upload(c, srcUrl, destUrl, fo)</span>
+                } else<span class="cov8" title="1"> if srcUrl.IsCosUrl() &amp;&amp; destUrl.IsFileUrl() </span><span class="cov8" title="1">{
+                        // 检查错误输出日志是否是本地路径的子集
+                        err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
+                        if err != nil </span><span class="cov0" title="0">{
+                                logger.Fatalln(err)
+                        }</span>
+                        <span class="cov8" title="1">bucketName := srcUrl.(*util.CosUrl).Bucket
+                        c := util.NewClient(fo.Config, fo.Param, bucketName)
+                        // 判断桶是否是ofs桶
+                        s, _ := c.Bucket.Head(context.Background())
+                        // 根据s.Header判断是否是融合桶或者普通桶
+                        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+                                fo.BucketType = "OFS"
+                        }</span>
+                        // 是否关闭crc64
+                        <span class="cov8" title="1">if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
+                                c.Conf.EnableCRC = false
+                        }</span>
+                        // 格式化下载路径
+                        <span class="cov8" title="1">util.FormatDownloadPath(srcUrl, destUrl, fo, c)
+                        // 下载
+                        util.Download(c, srcUrl, destUrl, fo)</span>
+                } else<span class="cov8" title="1"> if srcUrl.IsCosUrl() &amp;&amp; destUrl.IsCosUrl() </span><span class="cov8" title="1">{
+                        // 实例化来源 cos client
+                        srcBucketName := srcUrl.(*util.CosUrl).Bucket
+                        srcClient := util.NewClient(fo.Config, fo.Param, srcBucketName)
+
+                        // 实例化目标 cos client
+                        destBucketName := destUrl.(*util.CosUrl).Bucket
+                        destClient := util.NewClient(fo.Config, fo.Param, destBucketName)
+
+                        // 判断桶是否是ofs桶
+                        s, _ := srcClient.Bucket.Head(context.Background())
+                        // 根据s.Header判断是否是融合桶或者普通桶
+                        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+                                fo.BucketType = "OFS"
+                        }</span>
+
+                        // 是否关闭crc64
+                        <span class="cov8" title="1">if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
+                                destClient.Conf.EnableCRC = false
+                        }</span>
+
+                        // 格式化copy路径
+                        <span class="cov8" title="1">util.FormatCopyPath(srcUrl, destUrl, fo, srcClient, destClient)
+                        // 拷贝
+                        util.CosCopy(srcClient, destClient, srcUrl, destUrl, fo)</span>
+                } else<span class="cov0" title="0"> {
+                        logger.Fatalf("cospath needs to contain %s", util.SchemePrefix)
+                }</span>
+                <span class="cov8" title="1">util.CloseErrorOutputFile(fo)
+                endT := time.Now().UnixNano() / 1000 / 1000
+                util.PrintCostTime(startT, endT)</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(cpCmd)
+
+        cpCmd.Flags().BoolP("recursive", "r", false, "Copy objects recursively")
+        cpCmd.Flags().String("include", "", "Include files that meet the specified criteria")
+        cpCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+        cpCmd.Flags().String("storage-class", "", "Specifying a storage class")
+        cpCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
+        cpCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
+        cpCmd.Flags().Int("thread-num", 5, "Specifies the number of partition concurrent upload or download threads")
+        cpCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
+        cpCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
+        cpCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
+        cpCmd.Flags().String("meta", "",
+                "Set the meta information of the file, "+
+                        "the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
+        cpCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-10 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
+        cpCmd.Flags().Int("err-retry-num", 0, "Error retry attempts. Specify 1-10 times, or 0 for no retry.")
+        cpCmd.Flags().Int("err-retry-interval", 0, "Retry interval (available only when specifying error retry attempts 1-10). Specify an interval of 1-10 seconds, or if not specified or set to 0, a random interval within 1-10 seconds will be used for each retry.")
+        cpCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
+        cpCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
+        cpCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
+        cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
+}</span>
+
+func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) <span class="cov0" title="0">{
+        bucketName1, cosPath1 := util.ParsePath(args[0])
+        bucketName2, cosPath2 := util.ParsePath(args[1])
+        c2 := util.NewClient(&amp;config, &amp;param, bucketName2)
+
+        if recursive </span><span class="cov0" title="0">{
+                c1 := util.NewClient(&amp;config, &amp;param, bucketName1)
+                // 路径分隔符
+                // 记录是否是代码添加的路径分隔符
+                isAddSeparator := false
+                // 源路径若不以路径分隔符结尾，则添加
+                if !strings.HasSuffix(cosPath1, "/") &amp;&amp; cosPath1 != "" </span><span class="cov0" title="0">{
+                        isAddSeparator = true
+                        cosPath1 += "/"
+                }</span>
+                // 判断cosDir是否是文件夹
+                <span class="cov0" title="0">isDir := util.CheckCosPathType(c1, cosPath1, 0, nil)
+
+                if isDir </span><span class="cov0" title="0">{
+                        // cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加
+                        if cosPath2 != "" &amp;&amp; !strings.HasSuffix(cosPath2, string(filepath.Separator)) </span><span class="cov0" title="0">{
+                                cosPath2 += string(filepath.Separator)
+                        }</span> else<span class="cov0" title="0"> {
+                                // 若cosPath2以路径分隔符结尾，且cosPath1传入时不以路径分隔符结尾，则需将cos路径的最终文件拼接至local路径最后
+                                if isAddSeparator </span><span class="cov0" title="0">{
+                                        fileName := filepath.Base(cosPath1)
+                                        cosPath2 += fileName
+                                        cosPath2 += string(filepath.Separator)
+                                }</span>
+                        }
+                } else<span class="cov0" title="0"> {
+                        // cosPath1不是文件夹且路径分隔符为代码添加,则去掉路径分隔符
+                        if isAddSeparator </span><span class="cov0" title="0">{
+                                cosPath1 = strings.TrimSuffix(cosPath1, "/")
+                        }</span>
+                }
+
+                <span class="cov0" title="0">objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
+
+                opt := &amp;cos.ObjectCopyOptions{
+                        ObjectCopyHeaderOptions: &amp;cos.ObjectCopyHeaderOptions{
+                                CacheControl:       meta.CacheControl,
+                                ContentDisposition: meta.ContentDisposition,
+                                ContentEncoding:    meta.ContentEncoding,
+                                ContentType:        meta.ContentType,
+                                Expires:            meta.Expires,
+                                XCosStorageClass:   storageClass,
+                                XCosMetaXXX:        meta.XCosMetaXXX,
+                        },
+                }
+
+                if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
+                        meta.ContentType != "" || meta.Expires != "" || meta.MetaChange </span>{<span class="cov0" title="0">
+                }</span>
+                <span class="cov0" title="0">{
+                        opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
+                }</span>
+
+                <span class="cov0" title="0">for _, o := range objects </span><span class="cov0" title="0">{
+                        srcKey := o.Key
+                        objName := srcKey[len(cosPath1):]
+
+                        // 格式化文件名
+                        dstKey := cosPath2 + objName
+                        if objName == "" &amp;&amp; (strings.HasSuffix(cosPath2, "/") || cosPath2 == "") </span><span class="cov0" title="0">{
+                                fileName := filepath.Base(o.Key)
+                                dstKey = cosPath2 + fileName
+                        }</span>
+
+                        <span class="cov0" title="0">if dstKey == "" </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+
+                        <span class="cov0" title="0">srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
+                        dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
+                        logger.Infoln("Copy", srcPath, "=&gt;", dstPath)
+
+                        url := util.GenURL(&amp;config, &amp;param, bucketName1)
+                        srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
+
+                        _, _, err := c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
+                        if err != nil </span><span class="cov0" title="0">{
+                                logger.Fatalln(err)
+                                os.Exit(1)
+                        }</span>
+                }
+        } else<span class="cov0" title="0"> {
+
+                if len(cosPath1) == 0 </span><span class="cov0" title="0">{
+                        logger.Errorln("Invalid srcPath")
+                        os.Exit(1)
+                }</span>
+
+                <span class="cov0" title="0">if strings.HasSuffix(cosPath1, "/") </span><span class="cov0" title="0">{
+                        logger.Errorln("srcPath is a dir")
+                        os.Exit(1)
+                }</span>
+
+                <span class="cov0" title="0">if cosPath2 == "" || strings.HasSuffix(cosPath2, "/") </span><span class="cov0" title="0">{
+                        fileName := filepath.Base(cosPath1)
+                        cosPath2 = filepath.Join(cosPath2, fileName)
+                        args[1] = filepath.Join(args[1], fileName)
+                }</span>
+
+                <span class="cov0" title="0">logger.Infoln("Copy", args[0], "=&gt;", args[1])
+                url := util.GenURL(&amp;config, &amp;param, bucketName1)
+                srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
+
+                _, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalln(err)
+                        os.Exit(1)
+                }</span>
+        }
+}
+
+func getCommandType(srcUrl util.StorageUrl, destUrl util.StorageUrl) util.CpType <span class="cov8" title="1">{
+        if srcUrl.IsCosUrl() </span><span class="cov8" title="1">{
+                if destUrl.IsFileUrl() </span><span class="cov8" title="1">{
+                        return util.CpTypeDownload
+                }</span>
+                <span class="cov8" title="1">return util.CpTypeCopy</span>
+        }
+        <span class="cov8" title="1">return util.CpTypeUpload</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package cmd
+
+import (
+        "coscli/util"
+
+        "github.com/spf13/cobra"
+)
+
+var duCmd = &amp;cobra.Command{
+        Use:   "du",
+        Short: "Displays the size of a bucket or objects",
+        Long: `Displays the size of a bucket or objects
+
+Format:
+  ./coscli du cos://&lt;bucket_alias&gt;[/prefix/] [flags]
+
+Example:
+  ./coscli du cos://examplebucket/test/`,
+        Args: cobra.ExactArgs(1),
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                bucketName, cosPath := util.ParsePath(args[0])
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+                if cosPath == "" </span><span class="cov8" title="1">{
+                        duBucket(bucketName, include, exclude)
+                }</span> else<span class="cov8" title="1"> {
+                        duObjects(bucketName, cosPath, include, exclude)
+                }</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(duCmd)
+        duCmd.Flags().String("include", "", "List files that meet the specified criteria")
+        duCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+}</span>
+
+func duBucket(bucketName string, include string, exclude string) <span class="cov8" title="1">{
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        objects, _ := util.GetObjectsListRecursive(c, "", 0, include, exclude)
+
+        util.Statistic(objects)
+}</span>
+
+func duObjects(bucketName string, cosPath string, include string, exclude string) <span class="cov8" title="1">{
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        objects, _ := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+
+        util.Statistic(objects)
+}</span>
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package cmd
+
+import (
+        "coscli/util"
+        "os"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+)
+
+var hashCmd = &amp;cobra.Command{
+        Use:   "hash",
+        Short: "Calculate local file's hash-code or show cos file's hash-code",
+        Long: `Calculate local file's hash-code or show cos file's hash-code
+
+Format:
+  ./coscli hash &lt;file-path&gt; [--type &lt;hash-type&gt;]
+
+Example:
+  ./coscli hash cos://example --type md5`,
+        Args: cobra.ExactArgs(1),
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                bucketName, path := util.ParsePath(args[0])
+                hashType, _ := cmd.Flags().GetString("type")
+
+                if bucketName != "" </span><span class="cov8" title="1">{
+                        showHash(bucketName, path, hashType)
+                }</span> else<span class="cov8" title="1"> {
+                        calculateHash(path, hashType)
+                }</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(hashCmd)
+
+        hashCmd.Flags().StringP("type", "", "crc64", "Choose the hash type(md5 or crc64)")
+}</span>
+
+func showHash(bucketName string, path string, hashType string) <span class="cov8" title="1">{
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        switch hashType </span>{
+        case "crc64":<span class="cov8" title="1">
+                h, _ ,_:= util.ShowHash(c, path, "crc64")
+                logger.Infoln("crc64-ecma:  ", h)</span>
+        case "md5":<span class="cov8" title="1">
+                h, b ,_:= util.ShowHash(c, path, "md5")
+                logger.Infoln("md5:    ", h)
+                logger.Infoln("base64: ", b)</span>
+        default:<span class="cov0" title="0">
+                logger.Infoln("Wrong args!")</span>
+        }
+}
+
+func calculateHash(path string, hashType string) (h string) <span class="cov8" title="1">{
+        switch hashType </span>{
+        case "crc64":<span class="cov8" title="1">
+                h, _ := util.CalculateHash(path, "crc64")
+                logger.Infoln("crc64-ecma:  ", h)</span>
+        case "md5":<span class="cov8" title="1">
+                f, err := os.Stat(path)
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalln(err)
+                        os.Exit(1)
+                }</span>
+
+                <span class="cov8" title="1">if (float64(f.Size()) / 1024 / 1024) &gt; 32 </span><span class="cov0" title="0">{
+                        logger.Fatalln("MD5 of large files is not supported")
+                        os.Exit(1)
+                }</span>
+
+                <span class="cov8" title="1">h, b := util.CalculateHash(path, "md5")
+                logger.Infof("md5:     %s\n", h)
+                logger.Infoln("base64: ", b)</span>
+        default:<span class="cov0" title="0">
+                logger.Infoln("Wrong args!")</span>
+        }
+        <span class="cov8" title="1">return h</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package cmd
+
+import (
+        "context"
+        "coscli/util"
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+)
+
+var lsCmd = &amp;cobra.Command{
+        Use:   "ls",
+        Short: "List buckets or objects",
+        Long: `List buckets or objects
+
+Format:
+  ./coscli ls cos://&lt;bucket-name&gt;[/prefix/] [flags]
+
+Example:
+  ./coscli ls cos://examplebucket/test/ -r`,
+        Args: cobra.MaximumNArgs(1),
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                limit, _ := cmd.Flags().GetInt("limit")
+                recursive, _ := cmd.Flags().GetBool("recursive")
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+
+                if limit == 0 </span><span class="cov8" title="1">{
+                        limit = 10000
+                }</span> else<span class="cov0" title="0"> if limit &lt; 0 </span><span class="cov0" title="0">{
+                        logger.Fatalln("Flag --limit should be greater than 0")
+                }</span>
+
+                <span class="cov8" title="1">cosPath := ""
+                if len(args) != 0 </span><span class="cov8" title="1">{
+                        cosPath = args[0]
+                }</span>
+
+                <span class="cov8" title="1">cosUrl, err := util.FormatUrl(cosPath)
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalf("cos url format error:%v", err)
+                }</span>
+
+                // 无参数，则列出当前账号下的所有存储桶
+                <span class="cov8" title="1">if cosPath == "" </span><span class="cov8" title="1">{
+                        // 实例化cos client
+                        c := util.NewClient(&amp;config, &amp;param, "")
+                        util.ListBuckets(c, limit)
+                }</span> else<span class="cov8" title="1"> if cosUrl.IsCosUrl() </span><span class="cov8" title="1">{
+                        // 实例化cos client
+                        bucketName := cosUrl.(*util.CosUrl).Bucket
+                        c := util.NewClient(&amp;config, &amp;param, bucketName)
+                        _, filters := util.GetFilter(include, exclude)
+                        // 根据s.Header判断是否是融合桶或者普通桶
+                        s, _ := c.Bucket.Head(context.Background())
+                        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+                                util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
+                        }</span> else<span class="cov8" title="1"> {
+                                util.ListObjects(c, cosUrl, limit, recursive, filters)
+                        }</span>
+
+                } else<span class="cov0" title="0"> {
+                        logger.Fatalln("cospath needs to contain cos://")
+                }</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(lsCmd)
+
+        lsCmd.Flags().Int("limit", 0, "Limit the number of objects listed(0~1000)")
+        lsCmd.Flags().BoolP("recursive", "r", false, "List objects recursively")
+        lsCmd.Flags().String("include", "", "List files that meet the specified criteria")
+        lsCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+}</span>
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package cmd
+
+import (
+        "coscli/util"
+        "fmt"
+        "os"
+
+        "github.com/olekukonko/tablewriter"
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+)
+
+var lspartsCmd = &amp;cobra.Command{
+        Use:   "lsparts",
+        Short: "List multipart uploads",
+        Long: `List multipart uploads
+
+Format:
+  ./coscli lsparts cos://&lt;bucket-name&gt;[/&lt;prefix&gt;] [flags]
+
+Example:
+  ./coscli lsparts cos://examplebucket/test/`,
+        Args: cobra.ExactArgs(1),
+        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+                limit, _ := cmd.Flags().GetInt("limit")
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+                if limit &lt; 0 || limit &gt; 1000 </span><span class="cov0" title="0">{
+                        logger.Fatalln("Flag --limit should in range 0~1000")
+                        os.Exit(1)
+                }</span>
+
+                <span class="cov0" title="0">listParts(args[0], limit, include, exclude)</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(lspartsCmd)
+
+        lspartsCmd.Flags().Int("limit", 0, "Limit the number of parts listed(0~1000)")
+        lspartsCmd.Flags().String("include", "", "List files that meet the specified criteria")
+        lspartsCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+}</span>
+
+func listParts(arg string, limit int, include string, exclude string) <span class="cov0" title="0">{
+        bucketName, cosPath := util.ParsePath(arg)
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        uploads := util.GetUploadsListRecursive(c, cosPath, limit, include, exclude)
+
+        table := tablewriter.NewWriter(os.Stdout)
+        table.SetHeader([]string{"Key", "Upload ID", "Initiate time"})
+        for _, u := range uploads </span><span class="cov0" title="0">{
+                table.Append([]string{u.Key, u.UploadID, u.Initiated})
+        }</span>
+        <span class="cov0" title="0">table.SetBorder(false)
+        table.SetAlignment(tablewriter.ALIGN_RIGHT)
+        table.SetFooter([]string{"", "", fmt.Sprintf("Total: %d", len(uploads))})
+        table.Render()</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package cmd
+
+import (
+        "context"
+        "fmt"
+        "os"
+
+        "coscli/util"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/tencentyun/cos-go-sdk-v5"
+)
+
+var mbCmd = &amp;cobra.Command{
+        Use:   "mb",
+        Short: "Create bucket",
+        Long: `Create bucket
+
+Format:
+  ./coscli mb cos://&lt;bucket-name&gt;-&lt;appid&gt; -e &lt;endpoint&gt;
+
+Example:
+  ./coscli mb cos://examplebucket-1234567890 -e cos.ap-beijing.myqcloud.com`,
+        Args: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                if err := cobra.ExactArgs(1)(cmd, args); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">bucketIDName, cosPath := util.ParsePath(args[0])
+                if bucketIDName == "" || cosPath != "" </span><span class="cov0" title="0">{
+                        return fmt.Errorf("Invalid arguments! ")
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        },
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                createBucket(cmd, args)
+        }</span>,
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(mbCmd)
+
+        mbCmd.Flags().StringP("region", "r", "", "Region")
+        mbCmd.Flags().BoolP("ofs", "o", false, "Ofs")
+}</span>
+
+func createBucket(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        flagRegion, _ := cmd.Flags().GetString("region")
+        flagOfs, _ := cmd.Flags().GetBool("ofs")
+        if param.Endpoint == "" &amp;&amp; flagRegion != "" </span><span class="cov0" title="0">{
+                param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
+        }</span>
+        <span class="cov8" title="1">bucketIDName, _ := util.ParsePath(args[0])
+
+        c := util.CreateClient(&amp;config, &amp;param, bucketIDName)
+
+        opt := &amp;cos.BucketPutOptions{
+                XCosACL:                   "",
+                XCosGrantRead:             "",
+                XCosGrantWrite:            "",
+                XCosGrantFullControl:      "",
+                XCosGrantReadACP:          "",
+                XCosGrantWriteACP:         "",
+                CreateBucketConfiguration: nil,
+        }
+
+        if flagOfs </span><span class="cov0" title="0">{
+                opt.CreateBucketConfiguration = &amp;cos.CreateBucketConfiguration{
+                        BucketArchConfig: "OFS",
+                }
+        }</span>
+
+        <span class="cov8" title="1">_, err := c.Bucket.Put(context.Background(), opt)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+        <span class="cov8" title="1">logger.Infof("Create a new bucket! name: %s\n", bucketIDName)</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package cmd
+
+import (
+        "context"
+        "encoding/xml"
+        "fmt"
+        "os"
+
+        "coscli/util"
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/tencentyun/cos-go-sdk-v5"
+)
+
+var mvCmd = &amp;cobra.Command{
+        Use:   "mv",
+        Short: "Move objects",
+        Long: `Move objects
+
+Format:
+  ./coscli mv &lt;source_path&gt; &lt;destination_path&gt; [flags]
+
+Example: 
+  Move:
+    ./coscli mv ~/example.txt cos://examplebucket/example.txt`,
+        Args: func(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+                if err := cobra.ExactArgs(2)(cmd, args); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov0" title="0">storageClass, _ := cmd.Flags().GetString("storage-class")
+                if storageClass != "" &amp;&amp; util.IsCosPath(args[0]) </span><span class="cov0" title="0">{
+                        logger.Fatalln("--storage-class can only use in upload")
+                        os.Exit(1)
+                }</span>
+                <span class="cov0" title="0">return nil</span>
+        },
+        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+                recursive, _ := cmd.Flags().GetBool("recursive")
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+                storageClass, _ := cmd.Flags().GetString("storage-class")
+                metaString, _ := cmd.Flags().GetString("meta")
+                meta, err := util.MetaStringToHeader(metaString)
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalln("Move invalid meta " + err.Error())
+                }</span>
+                // args[0]: 源地址
+                // args[1]: 目标地址
+                <span class="cov0" title="0">if util.IsCosPath(args[0]) &amp;&amp; util.IsCosPath(args[1]) </span><span class="cov0" title="0">{
+                        bucketIDNameSource, _ := util.ParsePath(args[0])
+                        bucketIDNameDest, _ := util.ParsePath(args[1])
+                        if bucketIDNameSource == bucketIDNameDest </span><span class="cov0" title="0">{
+                                // 移动
+                                move(args, recursive, include, exclude, meta, storageClass)
+                        }</span> else<span class="cov0" title="0"> {
+                                logger.Fatalln("cospath needs the same bucket")
+                        }</span>
+                } else<span class="cov0" title="0"> {
+                        logger.Fatalln("cospath needs to contain cos://")
+                }</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(mvCmd)
+
+        mvCmd.Flags().BoolP("recursive", "r", false, "Move objects recursively")
+        mvCmd.Flags().String("include", "", "Include files that meet the specified criteria")
+        mvCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+        mvCmd.Flags().String("storage-class", "", "Specifying a storage class")
+        mvCmd.Flags().String("meta", "",
+                "Set the meta information of the file, "+
+                        "the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
+}</span>
+
+func move(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) <span class="cov0" title="0">{
+        bucketName, cosPath1 := util.ParsePath(args[0])
+        _, cosPath2 := util.ParsePath(args[1])
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        s, _ := c.Bucket.Head(context.Background())
+        // 根据s.Header判断是否是融合桶或者普通桶
+        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+                srcPath := fmt.Sprintf("cos://%s/%s", bucketName, cosPath1)
+                dstPath := fmt.Sprintf("cos://%s/%s", bucketName, cosPath2)
+                logger.Infoln("Move", srcPath, "=&gt;", dstPath)
+
+                url := util.GenURL(&amp;config, &amp;param, bucketName)
+                dstURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath2)
+
+                var closeBody bool = true
+
+                //dstURL:tina-coscli-test-123/x
+                //cosPath1:ofs
+                _, err := util.PutRename(context.Background(), &amp;config, &amp;param, c, cosPath1, dstURL, closeBody)
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalln(err)
+                        os.Exit(1)
+                }</span>
+                <span class="cov0" title="0">logger.Infof("\nAll move successfully!\n")</span>
+        } else<span class="cov0" title="0"> {
+                cosCopy(args, recursive, include, exclude, meta, storageClass)
+                if recursive </span><span class="cov0" title="0">{
+                        moveObjects(args, include, exclude)
+                }</span> else<span class="cov0" title="0"> {
+                        moveObject(args)
+                }</span>
+        }
+}
+
+func moveObjects(args []string, include string, exclude string) <span class="cov0" title="0">{
+        bucketName, cosDir := util.ParsePath(args[0])
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        if cosDir != "" &amp;&amp; cosDir[len(cosDir)-1] != '/' </span><span class="cov0" title="0">{
+                cosDir += "/"
+        }</span>
+
+        <span class="cov0" title="0">isTruncated := true
+        nextMarker := ""
+        deleteOrNot := false
+        errorOrNot := false
+        for isTruncated </span><span class="cov0" title="0">{
+                objects, t, m, commonPrefixes := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+
+                if len(commonPrefixes) &gt; 0 </span><span class="cov0" title="0">{
+                        files := getFilesAndDirs(c, cosDir, nextMarker, include, exclude)
+
+                        for _, v := range files </span><span class="cov0" title="0">{
+                                recursivemoveObject(bucketName, v)
+                        }</span>
+                        <span class="cov0" title="0">isTruncated = false</span>
+                } else<span class="cov0" title="0"> {
+                        isTruncated = t
+                        nextMarker = m
+                        var oKeys []cos.Object
+                        for _, o := range objects </span><span class="cov0" title="0">{
+                                oKeys = append(oKeys, cos.Object{Key: o.Key})
+                        }</span>
+                        <span class="cov0" title="0">if len(oKeys) &gt; 0 </span><span class="cov0" title="0">{
+                                deleteOrNot = true
+                        }</span>
+                        <span class="cov0" title="0">opt := &amp;cos.ObjectDeleteMultiOptions{
+                                XMLName: xml.Name{},
+                                Quiet:   false,
+                                Objects: oKeys,
+                        }
+                        res, _, err := c.Object.DeleteMulti(context.Background(), opt)
+                        if err != nil </span><span class="cov0" title="0">{
+                                logger.Fatalln(err)
+                                os.Exit(1)
+                        }</span>
+
+                        <span class="cov0" title="0">for _, o := range res.DeletedObjects </span><span class="cov0" title="0">{
+                                logger.Infoln("Delete ", o.Key)
+                        }</span>
+                        <span class="cov0" title="0">if len(res.Errors) &gt; 0 </span><span class="cov0" title="0">{
+                                errorOrNot = true
+                                logger.Infoln()
+                                for _, e := range res.Errors </span><span class="cov0" title="0">{
+                                        logger.Infoln("Fail to delete", e.Key)
+                                        logger.Infoln("    Error Code: ", e.Code, " Message: ", e.Message)
+                                }</span>
+                        }
+                }
+        }
+
+        <span class="cov0" title="0">if deleteOrNot == false </span><span class="cov0" title="0">{
+                logger.Infoln("No objects were deleted!")
+        }</span>
+        <span class="cov0" title="0">if errorOrNot == false </span><span class="cov0" title="0">{
+                logger.Infof("\nAll move successfully!\n")
+        }</span>
+}
+func moveObject(args []string) <span class="cov0" title="0">{
+        bucketName, cosPath := util.ParsePath(args[0])
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        opt := &amp;cos.ObjectDeleteOptions{
+                XCosSSECustomerAglo:   "",
+                XCosSSECustomerKey:    "",
+                XCosSSECustomerKeyMD5: "",
+                XOptionHeader:         nil,
+                VersionId:             "",
+        }
+        _, err := c.Object.Delete(context.Background(), cosPath, opt)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+        <span class="cov0" title="0">logger.Infoln("Delete", args[0], "successfully!")
+        logger.Infof("\n Move successfully!\n")</span>
+}
+
+func recursivemoveObject(bucketName string, cosPath string) <span class="cov0" title="0">{
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        opt := &amp;cos.ObjectDeleteOptions{
+                XCosSSECustomerAglo:   "",
+                XCosSSECustomerKey:    "",
+                XCosSSECustomerKeyMD5: "",
+                XOptionHeader:         nil,
+                VersionId:             "",
+        }
+
+        _, err := c.Object.Delete(context.Background(), cosPath, opt)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package cmd
+
+import (
+        "context"
+        "coscli/util"
+        "fmt"
+        "os"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+)
+
+var rbCmd = &amp;cobra.Command{
+        Use:   "rb",
+        Short: "Remove bucket",
+        Long: `Remove bucket
+
+Format:
+  ./coscli rb cos://&lt;bucket-name&gt;-&lt;app-id&gt; -e &lt;endpoint&gt;
+
+Example:
+  ./coscli rb cos://example-1234567890 -e cos.ap-beijing.myqcloud.com`,
+        Args: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                if err := cobra.ExactArgs(1)(cmd, args); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">bucketIDName, cosPath := util.ParsePath(args[0])
+                if bucketIDName == "" || cosPath != "" </span><span class="cov0" title="0">{
+                        return fmt.Errorf("Invalid arguments! ")
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        },
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                bucketIDName, _ := util.ParsePath(args[0])
+                flagRegion, _ := cmd.Flags().GetString("region")
+                Force, _ := cmd.Flags().GetBool("force")
+                if param.Endpoint == "" &amp;&amp; flagRegion != "" </span><span class="cov0" title="0">{
+                        param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
+                }</span>
+                <span class="cov8" title="1">var choice string
+                if Force </span><span class="cov8" title="1">{
+                        logger.Infof("Do you want to clear all inside the bucket and delete bucket %s ? (y/n)", bucketIDName)
+                        _, _ = fmt.Scanf("%s\n", &amp;choice)
+                        if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" </span><span class="cov8" title="1">{
+                                fo := &amp;util.FileOperations{
+                                        Operation: util.Operation{
+                                                Force: true,
+                                        },
+                                        Monitor:   &amp;util.FileProcessMonitor{},
+                                        Config:    &amp;config,
+                                        Param:     &amp;param,
+                                        ErrOutput: &amp;util.ErrOutput{},
+                                }
+                                util.RemoveObjects(args, fo)
+                                abortParts(args[0], "", "")
+                                removeBucket(bucketIDName)
+                        }</span>
+                } else<span class="cov8" title="1"> {
+                        logger.Infof("Do you want to delete %s? (y/n)", bucketIDName)
+                        _, _ = fmt.Scanf("%s\n", &amp;choice)
+                        if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" </span><span class="cov8" title="1">{
+                                removeBucket(bucketIDName)
+                        }</span>
+                }
+
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(rbCmd)
+        rbCmd.Flags().BoolP("force", "f", false, "Clear all inside the bucket and delete bucket")
+        rbCmd.Flags().StringP("region", "r", "", "Region")
+}</span>
+
+func removeBucket(bucketIDName string) <span class="cov8" title="1">{
+        c := util.NewClient(&amp;config, &amp;param, bucketIDName)
+        _, err := c.Bucket.Delete(context.Background())
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+        <span class="cov8" title="1">logger.Infof("Delete a empty bucket! name: %s\n", bucketIDName)</span>
+}
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package cmd
+
+import (
+        "context"
+        "encoding/xml"
+        "fmt"
+
+        "coscli/util"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/tencentyun/cos-go-sdk-v5"
+)
+
+var restoreCmd = &amp;cobra.Command{
+        Use:   "restore",
+        Short: "Restore objects",
+        Long: `Restore objects
+
+Format:
+  ./coscli restore cos://&lt;bucket-name&gt;[/&lt;prefix&gt;] [flags]
+
+Example:
+  ./coscli restore cos://examplebucket/test/ -r -d 3 -m Expedited`,
+        Args: cobra.ExactArgs(1),
+        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+                recursive, _ := cmd.Flags().GetBool("recursive")
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+                days, _ := cmd.Flags().GetInt("days")
+                mode, _ := cmd.Flags().GetString("mode")
+
+                if recursive </span><span class="cov0" title="0">{
+                        restoreObjects(args[0], days, mode, include, exclude)
+                }</span> else<span class="cov0" title="0"> {
+                        restoreObject(args[0], days, mode)
+                }</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(restoreCmd)
+
+        restoreCmd.Flags().BoolP("recursive", "r", false, "Restore objects recursively")
+        restoreCmd.Flags().String("include", "", "Include files that meet the specified criteria")
+        restoreCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+        restoreCmd.Flags().IntP("days", "d", 3, "Specifies the expiration time of temporary files")
+        restoreCmd.Flags().StringP("mode", "m", "Standard", "Specifies the mode for fetching temporary files")
+}</span>
+
+func restoreObject(arg string, days int, mode string) error <span class="cov0" title="0">{
+        bucketName, cosPath := util.ParsePath(arg)
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        opt := &amp;cos.ObjectRestoreOptions{
+                XMLName:       xml.Name{},
+                Days:          days,
+                Tier:          &amp;cos.CASJobParameters{Tier: mode},
+                XOptionHeader: nil,
+        }
+
+        logger.Infof("Restore cos://%s/%s\n", bucketName, cosPath)
+        _, err := c.Object.PostRestore(context.Background(), cosPath, opt)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln(err)
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func restoreObjects(arg string, days int, mode string, include string, exclude string) <span class="cov0" title="0">{
+        bucketName, cosPath := util.ParsePath(arg)
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        objects, _ := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+        succeed_num := 0
+        failed_num := 0
+
+        for _, o := range objects </span><span class="cov0" title="0">{
+                err := restoreObject(fmt.Sprintf("cos://%s/%s", bucketName, o.Key), days, mode)
+                if err != nil </span><span class="cov0" title="0">{
+                        failed_num += 1
+                }</span> else<span class="cov0" title="0"> {
+                        succeed_num += 1
+                }</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package cmd
+
+import (
+        "coscli/util"
+        "fmt"
+
+        "github.com/spf13/cobra"
+        "github.com/tencentyun/cos-go-sdk-v5"
+)
+
+var rmCmd = &amp;cobra.Command{
+        Use:   "rm",
+        Short: "Remove objects",
+        Long: `Remove objects
+
+Format:
+  ./coscli rm cos://&lt;bucket-name&gt;[/prefix/] [cos://&lt;bucket-name&gt;[/prefix/]...] [flags]
+
+Example:
+  ./coscli rm cos://example/test/ -r`,
+        Args: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                if err := cobra.MinimumNArgs(1)(cmd, args); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">for _, arg := range args </span><span class="cov8" title="1">{
+                        bucketName, _ := util.ParsePath(arg)
+                        if bucketName == "" </span><span class="cov0" title="0">{
+                                return fmt.Errorf("Invalid arguments! ")
+                        }</span>
+                }
+                <span class="cov8" title="1">return nil</span>
+        },
+        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+                recursive, _ := cmd.Flags().GetBool("recursive")
+                force, _ := cmd.Flags().GetBool("force")
+                onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
+                retryNum, _ := cmd.Flags().GetInt("retry-num")
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+                failOutput, _ := cmd.Flags().GetBool("fail-output")
+                failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+
+                _, filters := util.GetFilter(include, exclude)
+
+                fo := &amp;util.FileOperations{
+                        Operation: util.Operation{
+                                Recursive:      recursive,
+                                Filters:        filters,
+                                OnlyCurrentDir: onlyCurrentDir,
+                                Force:          force,
+                                RetryNum:       retryNum,
+                                FailOutput:     failOutput,
+                                FailOutputPath: failOutputPath,
+                        },
+                        Monitor:   &amp;util.FileProcessMonitor{},
+                        Config:    &amp;config,
+                        Param:     &amp;param,
+                        ErrOutput: &amp;util.ErrOutput{},
+                }
+
+                if recursive </span><span class="cov8" title="1">{
+                        util.RemoveObjects(args, fo)
+                }</span> else<span class="cov0" title="0"> {
+                        util.RemoveObject(args, fo)
+                }</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(rmCmd)
+
+        rmCmd.Flags().BoolP("recursive", "r", false, "Delete object recursively")
+        rmCmd.Flags().BoolP("force", "f", false, "Force delete")
+        rmCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
+        rmCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-10 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
+        rmCmd.Flags().String("include", "", "List files that meet the specified criteria")
+        rmCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+        rmCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
+        rmCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
+}</span>
+
+// 获取所有文件和目录
+func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string) <span class="cov0" title="0">{
+        objects, _, _, commonPrefixes := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+        tempFiles := make([]string, 0)
+        tempFiles = append(tempFiles, cosDir)
+        for _, v := range objects </span><span class="cov0" title="0">{
+                files = append(files, v.Key)
+        }</span>
+        <span class="cov0" title="0">if len(commonPrefixes) &gt; 0 </span><span class="cov0" title="0">{
+                for _, v := range commonPrefixes </span><span class="cov0" title="0">{
+                        files = append(files, getFilesAndDirs(c, v, nextMarker, include, exclude)...)
+                }</span>
+        }
+        <span class="cov0" title="0">files = append(files, tempFiles...)
+        return files</span>
+}
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package cmd
+
+import (
+        clilog "coscli/logger"
+        "coscli/util"
+        "fmt"
+        logger "github.com/sirupsen/logrus"
+        "log"
+        "os"
+        "strings"
+
+        homedir "github.com/mitchellh/go-homedir"
+        "github.com/spf13/cobra"
+        "github.com/spf13/viper"
+)
+
+var cfgFile string
+var initSkip bool
+var logPath string
+var config util.Config
+var param util.Param
+var cmdCnt int //控制某些函数在一个命令中被调用的次数
+
+var rootCmd = &amp;cobra.Command{
+        Use:   "coscli",
+        Short: "Welcome to use coscli",
+        Long:  "Welcome to use coscli!",
+        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+                _ = cmd.Help()
+        }</span>,
+        Version: util.Version,
+}
+
+func Execute() <span class="cov0" title="0">{
+        cobra.CheckErr(rootCmd.Execute())
+}</span>
+
+func init() <span class="cov8" title="1">{
+        cobra.OnInitialize(initConfig)
+
+        rootCmd.PersistentFlags().StringVarP(&amp;cfgFile, "config-path", "c", "", "config file path(default is $HOME/.cos.yaml)")
+        rootCmd.PersistentFlags().StringVarP(&amp;param.SecretID, "secret-id", "i", "", "config secretId")
+        rootCmd.PersistentFlags().StringVarP(&amp;param.SecretKey, "secret-key", "k", "", "config secretKey")
+        rootCmd.PersistentFlags().StringVarP(&amp;param.SessionToken, "token", "", "", "config sessionToken")
+        rootCmd.PersistentFlags().StringVarP(&amp;param.Endpoint, "endpoint", "e", "", "config endpoint")
+        rootCmd.PersistentFlags().BoolVarP(&amp;param.Customized, "customized", "", false, "config customized")
+        rootCmd.PersistentFlags().StringVarP(&amp;param.Protocol, "protocol", "p", "", "config protocol")
+        rootCmd.PersistentFlags().BoolVarP(&amp;initSkip, "init-skip", "", false, "skip config init")
+        rootCmd.PersistentFlags().StringVarP(&amp;logPath, "log-path", "", "", "coscli log dir")
+}</span>
+
+func initConfig() <span class="cov8" title="1">{
+        // 初始化日志路径
+        clilog.InitLoggerWithDir(logPath)
+
+        home, err := homedir.Dir()
+        cobra.CheckErr(err)
+        viper.SetConfigType("yaml")
+        firstArg := ""
+        if len(os.Args) &gt; 1 </span><span class="cov8" title="1">{
+                firstArg = os.Args[1]
+        }</span>
+
+        <span class="cov8" title="1">if cfgFile != "" </span><span class="cov0" title="0">{
+                if cfgFile[0] == '~' </span><span class="cov0" title="0">{
+                        cfgFile = home + cfgFile[1:]
+                }</span>
+                <span class="cov0" title="0">if !strings.HasSuffix(cfgFile, ".yaml") </span><span class="cov0" title="0">{
+                        fmt.Println("config file need end with .yaml ")
+                        os.Exit(1)
+                }</span>
+                <span class="cov0" title="0">viper.SetConfigFile(cfgFile)</span>
+        } else<span class="cov8" title="1"> {
+                _, err = os.Stat(home + "/.cos.yaml")
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        if firstArg != "config" </span><span class="cov0" title="0">{
+                                if !initSkip </span><span class="cov0" title="0">{
+                                        log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
+                                        initConfigFile(false)
+                                        cmdCnt++
+                                }</span> else<span class="cov0" title="0"> {
+                                        // 若无配置文件，则需有输入ak，sk及endpoint
+                                        if param.SecretID == "" </span><span class="cov0" title="0">{
+                                                logger.Fatalln("missing parameter SecretID")
+                                                os.Exit(1)
+                                        }</span>
+                                        <span class="cov0" title="0">if param.SecretKey == "" </span><span class="cov0" title="0">{
+                                                logger.Fatalln("missing parameter SecretKey")
+                                                os.Exit(1)
+                                        }</span>
+                                        <span class="cov0" title="0">if param.Endpoint == "" </span><span class="cov0" title="0">{
+                                                logger.Fatalln("missing parameter Endpoint")
+                                                os.Exit(1)
+                                        }</span>
+                                        <span class="cov0" title="0">return</span>
+                                }
+                        } else<span class="cov0" title="0"> {
+                                if !initSkip </span><span class="cov0" title="0">{
+                                        log.Println("Welcome to coscli!\nWhen you use coscli for the first time, you need to input some necessary information to generate the default configuration file of coscli.")
+                                        initConfigFile(false)
+                                        cmdCnt++
+                                }</span> else<span class="cov0" title="0"> {
+                                        return
+                                }</span>
+                        }
+
+                }
+
+                <span class="cov8" title="1">viper.AddConfigPath(home)
+                viper.SetConfigName(".cos")</span>
+        }
+
+        <span class="cov8" title="1">viper.AutomaticEnv()
+        if err := viper.ReadInConfig(); err == nil </span><span class="cov8" title="1">{
+                if err := viper.UnmarshalKey("cos", &amp;config); err != nil </span><span class="cov0" title="0">{
+                        fmt.Println(err)
+                        os.Exit(1)
+                }</span>
+                <span class="cov8" title="1">if config.Base.Protocol == "" </span><span class="cov0" title="0">{
+                        config.Base.Protocol = "https"
+                }</span>
+                // 尝试解码secretId/secretKey/session, 能解开就是加密的，否则就不解
+                <span class="cov8" title="1">secretKey, err := util.DecryptSecret(config.Base.SecretKey)
+                if err == nil </span><span class="cov8" title="1">{
+                        config.Base.SecretKey = secretKey
+                }</span>
+                <span class="cov8" title="1">secretId, err := util.DecryptSecret(config.Base.SecretID)
+                if err == nil </span><span class="cov8" title="1">{
+                        config.Base.SecretID = secretId
+                }</span>
+                <span class="cov8" title="1">sessionToken, err := util.DecryptSecret(config.Base.SessionToken)
+                if err == nil </span><span class="cov8" title="1">{
+                        config.Base.SessionToken = sessionToken
+                }</span>
+
+        } else<span class="cov0" title="0"> {
+                fmt.Println(err)
+                os.Exit(1)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package cmd
+
+import (
+        "context"
+        "coscli/util"
+        "net/http"
+        "net/url"
+        "os"
+        "time"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/tencentyun/cos-go-sdk-v5"
+)
+
+var signurlCmd = &amp;cobra.Command{
+        Use:   "signurl",
+        Short: "Gets the signed download URL",
+        Long: `Gets the signed download URL
+
+Format:
+  ./coscli signurl cos://&lt;bucket-name&gt;/&lt;key&gt; [flags]
+
+Example:
+  ./coscli signurl cos://examplebucket/test.jpg -t 100`,
+        Args: cobra.ExactArgs(1),
+        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+                time, _ := cmd.Flags().GetInt("time")
+                if util.IsCosPath(args[0]) </span><span class="cov0" title="0">{
+                        GetSignedURL(args[0], time)
+                }</span> else<span class="cov0" title="0"> {
+                        logger.Fatalln("cospath needs to contain cos://")
+                }</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(signurlCmd)
+
+        signurlCmd.Flags().IntP("time", "t", 10000, "Set the validity time of the signature(Default 10000)")
+}</span>
+
+func GetSignedURL(path string, t int) <span class="cov0" title="0">{
+        bucketName, cosPath := util.ParsePath(path)
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+
+        opt := &amp;cos.PresignedURLOptions{
+                Query:  &amp;url.Values{},
+                Header: &amp;http.Header{},
+        }
+        // 格式化参数
+        secretID, secretKey, secretToken := config.Base.SecretID, config.Base.SecretKey, config.Base.SessionToken
+        if param.SecretID != "" </span><span class="cov0" title="0">{
+                secretID = param.SecretID
+                secretToken = ""
+        }</span>
+        <span class="cov0" title="0">if param.SecretKey != "" </span><span class="cov0" title="0">{
+                secretKey = param.SecretKey
+                secretToken = ""
+        }</span>
+        <span class="cov0" title="0">if param.SessionToken != "" </span><span class="cov0" title="0">{
+                secretToken = param.SessionToken
+        }</span>
+        <span class="cov0" title="0">if secretToken != "" </span><span class="cov0" title="0">{
+                opt.Query.Add("x-cos-security-token", secretToken)
+        }</span>
+
+        <span class="cov0" title="0">presignedURL, err := c.Object.GetPresignedURL(context.Background(), http.MethodGet, cosPath,
+                secretID, secretKey, time.Second*time.Duration(t), opt)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Fatalln(err)
+                os.Exit(1)
+        }</span>
+
+        <span class="cov0" title="0">logger.Infoln("Signed URL:")
+        logger.Infoln(presignedURL)</span>
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package cmd
+
+import (
+        "context"
+        "fmt"
+        "os"
+        "path/filepath"
+        "strings"
+        "time"
+
+        "coscli/util"
+
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/cobra"
+        "github.com/tencentyun/cos-go-sdk-v5"
+)
+
+var syncCmd = &amp;cobra.Command{
+        Use:   "sync",
+        Short: "Synchronize objects",
+        Long: `Synchronize objects
+
+Format:
+  ./coscli sync &lt;source_path&gt; &lt;destination_path&gt; [flags]
+
+Example:
+  Sync Upload:
+    ./coscli sync ~/example.txt cos://examplebucket/example.txt
+  Sync Download:
+    ./coscli sync cos://examplebucket/example.txt ~/example.txt
+  Sync Copy:
+    ./coscli sync cos://examplebucket1/example1.txt cos://examplebucket2/example2.txt`,
+        Args: func(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+                if err := cobra.ExactArgs(2)(cmd, args); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov0" title="0">storageClass, _ := cmd.Flags().GetString("storage-class")
+                if storageClass != "" &amp;&amp; util.IsCosPath(args[0]) </span><span class="cov0" title="0">{
+                        logger.Fatalln("--storage-class can only use in upload")
+                        os.Exit(1)
+                }</span>
+                <span class="cov0" title="0">return nil</span>
+        },
+        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+                recursive, _ := cmd.Flags().GetBool("recursive")
+                include, _ := cmd.Flags().GetString("include")
+                exclude, _ := cmd.Flags().GetString("exclude")
+                storageClass, _ := cmd.Flags().GetString("storage-class")
+                rateLimiting, _ := cmd.Flags().GetFloat32("rate-limiting")
+                partSize, _ := cmd.Flags().GetInt64("part-size")
+                threadNum, _ := cmd.Flags().GetInt("thread-num")
+                metaString, _ := cmd.Flags().GetString("meta")
+                retryNum, _ := cmd.Flags().GetInt("retry-num")
+                errRetryNum, _ := cmd.Flags().GetInt("err-retry-num")
+                errRetryInterval, _ := cmd.Flags().GetInt("err-retry-interval")
+                snapshotPath, _ := cmd.Flags().GetString("snapshot-path")
+                delete, _ := cmd.Flags().GetBool("delete")
+                routines, _ := cmd.Flags().GetInt("routines")
+                failOutput, _ := cmd.Flags().GetBool("fail-output")
+                failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+                onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
+                disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
+                enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
+                disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
+                backupDir, _ := cmd.Flags().GetString("backup-dir")
+                force, _ := cmd.Flags().GetBool("force")
+
+                meta, err := util.MetaStringToHeader(metaString)
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalln("Sync invalid meta, reason: " + err.Error())
+                }</span>
+
+                <span class="cov0" title="0">if retryNum &lt; 0 || retryNum &gt; 10 </span><span class="cov0" title="0">{
+                        logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if errRetryNum &lt; 0 || errRetryNum &gt; 10 </span><span class="cov0" title="0">{
+                        logger.Fatalln("err-retry-num must be between 0 and 10 (inclusive)")
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if errRetryInterval &lt; 0 || errRetryInterval &gt; 10 </span><span class="cov0" title="0">{
+                        logger.Fatalln("err-retry-interval must be between 0 and 10 (inclusive)")
+                        return
+                }</span>
+
+                <span class="cov0" title="0">srcUrl, err := util.FormatUrl(args[0])
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalf("format srcURL error,%v", err)
+                }</span>
+
+                <span class="cov0" title="0">destUrl, err := util.FormatUrl(args[1])
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.Fatalf("format destURL error,%v", err)
+                }</span>
+
+                <span class="cov0" title="0">if srcUrl.IsFileUrl() &amp;&amp; destUrl.IsFileUrl() </span><span class="cov0" title="0">{
+                        logger.Fatalln("not support cp between local directory")
+                }</span>
+
+                <span class="cov0" title="0">_, filters := util.GetFilter(include, exclude)
+
+                fo := &amp;util.FileOperations{
+                        Operation: util.Operation{
+                                Recursive:         recursive,
+                                Filters:           filters,
+                                StorageClass:      storageClass,
+                                RateLimiting:      rateLimiting,
+                                PartSize:          partSize,
+                                ThreadNum:         threadNum,
+                                Routines:          routines,
+                                FailOutput:        failOutput,
+                                FailOutputPath:    failOutputPath,
+                                Meta:              meta,
+                                RetryNum:          retryNum,
+                                ErrRetryNum:       errRetryNum,
+                                ErrRetryInterval:  errRetryInterval,
+                                OnlyCurrentDir:    onlyCurrentDir,
+                                DisableAllSymlink: disableAllSymlink,
+                                EnableSymlinkDir:  enableSymlinkDir,
+                                DisableCrc64:      disableCrc64,
+                                SnapshotPath:      snapshotPath,
+                                Delete:            delete,
+                                BackupDir:         backupDir,
+                                Force:             force,
+                        },
+                        Monitor:   &amp;util.FileProcessMonitor{},
+                        Config:    &amp;config,
+                        Param:     &amp;param,
+                        ErrOutput: &amp;util.ErrOutput{},
+                        CpType:    getCommandType(srcUrl, destUrl),
+                        Command:   util.CommandSync,
+                }
+
+                // 快照db实例化
+                util.InitSnapshotDb(srcUrl, destUrl, fo)
+                startT := time.Now().UnixNano() / 1000 / 1000
+                if srcUrl.IsFileUrl() &amp;&amp; destUrl.IsCosUrl() </span><span class="cov0" title="0">{
+                        // 检查错误输出日志是否是本地路径的子集
+                        err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
+                        if err != nil </span><span class="cov0" title="0">{
+                                logger.Fatalln(err)
+                        }</span>
+                        // 格式化上传路径
+                        <span class="cov0" title="0">util.FormatUploadPath(srcUrl, destUrl, fo)
+                        // 实例化cos client
+                        bucketName := destUrl.(*util.CosUrl).Bucket
+                        c := util.NewClient(fo.Config, fo.Param, bucketName)
+                        // 是否关闭crc64
+                        if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
+                                c.Conf.EnableCRC = false
+                        }</span>
+                        // 上传
+                        <span class="cov0" title="0">util.SyncUpload(c, srcUrl, destUrl, fo)</span>
+                } else<span class="cov0" title="0"> if srcUrl.IsCosUrl() &amp;&amp; destUrl.IsFileUrl() </span><span class="cov0" title="0">{
+                        // 检查错误输出日志是否是本地路径的子集
+                        err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
+                        if err != nil </span><span class="cov0" title="0">{
+                                logger.Fatalln(err)
+                        }</span>
+
+                        <span class="cov0" title="0">if fo.Operation.Delete </span><span class="cov0" title="0">{
+                                // 检查备份路径
+                                err = util.CheckBackupDir(destUrl, fo)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        logger.Fatalln(err)
+                                }</span>
+                        }
+
+                        <span class="cov0" title="0">bucketName := srcUrl.(*util.CosUrl).Bucket
+                        c := util.NewClient(fo.Config, fo.Param, bucketName)
+                        // 判断桶是否是ofs桶
+                        s, _ := c.Bucket.Head(context.Background())
+                        // 根据s.Header判断是否是融合桶或者普通桶
+                        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+                                fo.BucketType = "OFS"
+                        }</span>
+                        // 是否关闭crc64
+                        <span class="cov0" title="0">if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
+                                c.Conf.EnableCRC = false
+                        }</span>
+                        // 格式化下载路径
+                        <span class="cov0" title="0">util.FormatDownloadPath(srcUrl, destUrl, fo, c)
+
+                        // 下载
+                        util.SyncDownload(c, srcUrl, destUrl, fo)</span>
+                } else<span class="cov0" title="0"> if srcUrl.IsCosUrl() &amp;&amp; destUrl.IsCosUrl() </span><span class="cov0" title="0">{
+                        // 实例化来源 cos client
+                        srcBucketName := srcUrl.(*util.CosUrl).Bucket
+                        srcClient := util.NewClient(fo.Config, fo.Param, srcBucketName)
+
+                        // 实例化目标 cos client
+                        destBucketName := destUrl.(*util.CosUrl).Bucket
+                        destClient := util.NewClient(fo.Config, fo.Param, destBucketName)
+
+                        // 判断桶是否是ofs桶
+                        s, _ := srcClient.Bucket.Head(context.Background())
+                        // 根据s.Header判断是否是融合桶或者普通桶
+                        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+                                fo.BucketType = "OFS"
+                        }</span>
+
+                        // 是否关闭crc64
+                        <span class="cov0" title="0">if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
+                                destClient.Conf.EnableCRC = false
+                        }</span>
+
+                        // 格式化copy路径
+                        <span class="cov0" title="0">util.FormatCopyPath(srcUrl, destUrl, fo, srcClient, destClient)
+                        // 拷贝
+                        util.SyncCosCopy(srcClient, destClient, srcUrl, destUrl, fo)</span>
+                } else<span class="cov0" title="0"> {
+                        logger.Fatalln("cospath needs to contain cos://")
+                }</span>
+                <span class="cov0" title="0">util.CloseErrorOutputFile(fo)
+                endT := time.Now().UnixNano() / 1000 / 1000
+                util.PrintCostTime(startT, endT)</span>
+        },
+}
+
+func init() <span class="cov8" title="1">{
+        rootCmd.AddCommand(syncCmd)
+
+        syncCmd.Flags().BoolP("recursive", "r", false, "Synchronize objects recursively")
+        syncCmd.Flags().String("include", "", "List files that meet the specified criteria")
+        syncCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+        syncCmd.Flags().String("storage-class", "", "Specifying a storage class")
+        syncCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
+        syncCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
+        syncCmd.Flags().Int("thread-num", 5, "Specifies the number of concurrent upload or download threads")
+        syncCmd.Flags().String("meta", "",
+                "Set the meta information of the file, "+
+                        "the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
+        syncCmd.Flags().String("snapshot-path", "", "This option is used to accelerate the incremental"+
+                " upload of batch files or download objects in certain scenarios."+
+                " If you use the option when upload files or download objects,"+
+                " coscli will generate files to record the snapshot information in the specified directory."+
+                " When the next time you upload files or download objects with the option, "+
+                "coscli will read the snapshot information under the specified directory for incremental upload or incremental download. "+
+                "The snapshot-path you specified must be a local file system directory can be written in, "+
+                "if the directory does not exist, coscli creates the files for recording snapshot information, "+
+                "else coscli will read snapshot information from the path for "+
+                "incremental upload(coscli will only upload the files which haven't not been successfully uploaded to oss or"+
+                " been locally modified) or incremental download(coscli will only download the objects which have not"+
+                " been successfully downloaded or have been modified),"+
+                " and update the snapshot information to the directory. "+
+                "Note: The option record the lastModifiedTime of local files "+
+                "which have been successfully uploaded in local file system or lastModifiedTime of objects which have been successfully"+
+                " downloaded, and compare the lastModifiedTime of local files or objects in the next cp to decided whether to"+
+                " skip the file or object. "+
+                "In addition, coscli does not automatically delete snapshot-path snapshot information, "+
+                "in order to avoid too much snapshot information, when the snapshot information is useless, "+
+                "please clean up your own snapshot-path on your own immediately.")
+        syncCmd.Flags().Bool("delete", false, "Delete any other files in the specified destination path, only keeping the files synced this time. It is recommended to enable version control before using the --delete option to prevent accidental data deletion.")
+        syncCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-10 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
+        syncCmd.Flags().Int("err-retry-num", 0, "Error retry attempts. Specify 1-10 times, or 0 for no retry.")
+        syncCmd.Flags().Int("err-retry-interval", 0, "Retry interval (available only when specifying error retry attempts 1-10). Specify an interval of 1-10 seconds, or if not specified or set to 0, a random interval within 1-10 seconds will be used for each retry.")
+        syncCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
+        syncCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
+        syncCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
+        syncCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
+        syncCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
+        syncCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
+        syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
+        syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
+        syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
+}</span>
+
+func syncCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) <span class="cov0" title="0">{
+        bucketName1, cosPath1 := util.ParsePath(args[0])
+        bucketName2, cosPath2 := util.ParsePath(args[1])
+        c2 := util.NewClient(&amp;config, &amp;param, bucketName2)
+        c1 := util.NewClient(&amp;config, &amp;param, bucketName1)
+
+        if recursive </span><span class="cov0" title="0">{
+                // 路径分隔符
+                // 记录是否是代码添加的路径分隔符
+                isAddSeparator := false
+                // 源路径若不以路径分隔符结尾，则添加
+                if !strings.HasSuffix(cosPath1, "/") &amp;&amp; cosPath1 != "" </span><span class="cov0" title="0">{
+                        isAddSeparator = true
+                        cosPath1 += "/"
+                }</span>
+                // 判断cosDir是否是文件夹
+                <span class="cov0" title="0">isDir := util.CheckCosPathType(c1, cosPath1, 0, nil)
+
+                if isDir </span><span class="cov0" title="0">{
+                        // cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加
+                        if cosPath2 != "" &amp;&amp; !strings.HasSuffix(cosPath2, string(filepath.Separator)) </span><span class="cov0" title="0">{
+                                cosPath2 += string(filepath.Separator)
+                        }</span> else<span class="cov0" title="0"> {
+                                // 若cosPath2以路径分隔符结尾，且cosPath1传入时不以路径分隔符结尾，则需将cos路径的最终文件拼接至local路径最后
+                                if isAddSeparator </span><span class="cov0" title="0">{
+                                        fileName := filepath.Base(cosPath1)
+                                        cosPath2 += fileName
+                                        cosPath2 += string(filepath.Separator)
+                                }</span>
+                        }
+                } else<span class="cov0" title="0"> {
+                        // cosPath1不是文件夹且路径分隔符为代码添加,则去掉路径分隔符
+                        if isAddSeparator </span><span class="cov0" title="0">{
+                                cosPath1 = strings.TrimSuffix(cosPath1, "/")
+                        }</span>
+                }
+
+                <span class="cov0" title="0">objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
+                opt := &amp;cos.ObjectCopyOptions{
+                        ObjectCopyHeaderOptions: &amp;cos.ObjectCopyHeaderOptions{
+                                CacheControl:       meta.CacheControl,
+                                ContentDisposition: meta.ContentDisposition,
+                                ContentEncoding:    meta.ContentEncoding,
+                                ContentType:        meta.ContentType,
+                                Expires:            meta.Expires,
+                                XCosStorageClass:   storageClass,
+                                XCosMetaXXX:        meta.XCosMetaXXX,
+                        },
+                }
+
+                if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
+                        meta.ContentType != "" || meta.Expires != "" || meta.MetaChange </span>{<span class="cov0" title="0">
+                }</span>
+                <span class="cov0" title="0">{
+                        opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
+                }</span>
+                <span class="cov0" title="0">for _, o := range objects </span><span class="cov0" title="0">{
+                        srcKey := o.Key
+                        objName := srcKey[len(cosPath1):]
+
+                        // 格式化文件名
+                        dstKey := cosPath2 + objName
+                        if objName == "" &amp;&amp; (strings.HasSuffix(cosPath2, "/") || cosPath2 == "") </span><span class="cov0" title="0">{
+                                fileName := filepath.Base(o.Key)
+                                dstKey = cosPath2 + fileName
+                        }</span>
+
+                        <span class="cov0" title="0">if dstKey == "" </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov0" title="0">srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
+                        dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
+
+                        headOpt := &amp;cos.ObjectHeadOptions{
+                                IfModifiedSince:       "",
+                                XCosSSECustomerAglo:   "",
+                                XCosSSECustomerKey:    "",
+                                XCosSSECustomerKeyMD5: "",
+                                XOptionHeader:         nil,
+                        }
+                        resp, err := c2.Object.Head(context.Background(), dstKey, headOpt)
+
+                        // 不存在，则拷贝
+                        if err != nil </span><span class="cov0" title="0">{
+                                if resp != nil &amp;&amp; resp.StatusCode == 404 </span><span class="cov0" title="0">{
+                                        logger.Infoln("Copy", srcPath, "=&gt;", dstPath)
+
+                                        url := util.GenURL(&amp;config, &amp;param, bucketName1)
+                                        srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
+
+                                        _, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
+                                        if err != nil </span><span class="cov0" title="0">{
+                                                logger.Fatalln(err)
+                                                os.Exit(1)
+                                        }</span>
+                                } else<span class="cov0" title="0"> {
+                                        logger.Fatalln(err)
+                                        os.Exit(1)
+                                }</span>
+                        } else<span class="cov0" title="0"> {
+                                // 存在，判断crc64
+                                crc1, _, _ := util.ShowHash(c1, srcKey, "crc64")
+                                crc2, _, _ := util.ShowHash(c2, dstKey, "crc64")
+                                if crc1 == crc2 </span><span class="cov0" title="0">{
+                                        logger.Infoln("Skip", srcPath)
+                                }</span> else<span class="cov0" title="0"> {
+                                        logger.Infoln("Copy", srcPath, "=&gt;", dstPath)
+
+                                        url := util.GenURL(&amp;config, &amp;param, bucketName1)
+                                        srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
+
+                                        _, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
+                                        if err != nil </span><span class="cov0" title="0">{
+                                                logger.Fatalln(err)
+                                                os.Exit(1)
+                                        }</span>
+                                }
+                        }
+                }
+        } else<span class="cov0" title="0"> { // 非递归，单个拷贝
+
+                if len(cosPath1) == 0 </span><span class="cov0" title="0">{
+                        logger.Errorln("Invalid srcPath")
+                        os.Exit(1)
+                }</span>
+
+                <span class="cov0" title="0">if strings.HasSuffix(cosPath1, "/") </span><span class="cov0" title="0">{
+                        logger.Errorln("srcPath is a dir")
+                        os.Exit(1)
+                }</span>
+
+                <span class="cov0" title="0">if cosPath2 == "" || strings.HasSuffix(cosPath2, "/") </span><span class="cov0" title="0">{
+                        fileName := filepath.Base(cosPath1)
+                        cosPath2 = filepath.Join(cosPath2, fileName)
+                        args[1] = filepath.Join(args[1], fileName)
+                }</span>
+
+                <span class="cov0" title="0">headOpt := &amp;cos.ObjectHeadOptions{
+                        IfModifiedSince:       "",
+                        XCosSSECustomerAglo:   "",
+                        XCosSSECustomerKey:    "",
+                        XCosSSECustomerKeyMD5: "",
+                        XOptionHeader:         nil,
+                }
+                resp, err := c2.Object.Head(context.Background(), cosPath2, headOpt)
+                opt := &amp;cos.ObjectCopyOptions{
+                        ObjectCopyHeaderOptions: &amp;cos.ObjectCopyHeaderOptions{
+                                CacheControl:       meta.CacheControl,
+                                ContentDisposition: meta.ContentDisposition,
+                                ContentEncoding:    meta.ContentEncoding,
+                                ContentType:        meta.ContentType,
+                                Expires:            meta.Expires,
+                                XCosStorageClass:   storageClass,
+                                XCosMetaXXX:        meta.XCosMetaXXX,
+                        },
+                }
+
+                if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
+                        meta.ContentType != "" || meta.Expires != "" || meta.MetaChange </span>{<span class="cov0" title="0">
+                }</span>
+                <span class="cov0" title="0">{
+                        opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
+                }</span>
+                // 不存在，则拷贝
+                <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                        if resp != nil &amp;&amp; resp.StatusCode == 404 </span><span class="cov0" title="0">{
+                                logger.Infoln("Copy", args[0], "=&gt;", args[1])
+                                url := util.GenURL(&amp;config, &amp;param, bucketName1)
+                                srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
+
+                                _, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, opt)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        logger.Fatalln(err)
+                                        os.Exit(1)
+                                }</span>
+                        } else<span class="cov0" title="0"> {
+                                logger.Fatalln(err)
+                                os.Exit(1)
+                        }</span>
+                } else<span class="cov0" title="0"> {
+                        // 存在，判断crc64
+                        crc1, _, _ := util.ShowHash(c1, cosPath1, "crc64")
+                        crc2, _, _ := util.ShowHash(c2, cosPath2, "crc64")
+                        if crc1 == crc2 </span><span class="cov0" title="0">{
+                                logger.Infoln("Skip", args[0])
+                        }</span> else<span class="cov0" title="0"> {
+                                logger.Infoln("Copy", args[0], "=&gt;", args[1])
+
+                                url := util.GenURL(&amp;config, &amp;param, bucketName1)
+                                srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
+
+                                _, _, err = c2.Object.Copy(context.Background(), cosPath2, srcURL, opt)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        logger.Fatalln(err)
+                                        os.Exit(1)
+                                }</span>
+                        }
+                }
+        }
+}
+</pre>
+		
+		<pre class="file" id="file21" style="display: none">package cmd
+
+import (
+        "coscli/util"
+        "fmt"
+        "math/rand"
+        "os"
+        "time"
+
+        "github.com/mitchellh/go-homedir"
+        logger "github.com/sirupsen/logrus"
+        "github.com/spf13/viper"
+)
+
+var testDir = "test-tmp-dir"
+
+var appID string
+
+var testBucket = "coscli-test"
+var testAlias = "coscli-test-alias"
+var testEndpoint = "cos.ap-guangzhou.myqcloud.com"
+
+var testBucket1 = "coscli-test1"
+var testAlias1 = "coscli-test1-alias"
+var testEndpoint1 = "cos.ap-guangzhou.myqcloud.com"
+
+var testBucket2 = "coscli-test2"
+var testAlias2 = "coscli-test2-alias"
+var testEndpoint2 = "cos.ap-guangzhou.myqcloud.com"
+
+func init() <span class="cov8" title="1">{
+        // 读取配置文件
+        getConfig()
+        // 初始化 app-id
+        name := config.Buckets[0].Name
+        appID = name[len(name)-10:]
+}</span>
+
+func getConfig() <span class="cov8" title="1">{
+        home, err := homedir.Dir()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln(err)
+        }</span>
+        <span class="cov8" title="1">viper.SetConfigFile(home + "/.cos.yaml")
+
+        if err = viper.ReadInConfig(); err != nil </span><span class="cov0" title="0">{
+                logger.Errorln(err)
+        }</span>
+        <span class="cov8" title="1">if err = viper.UnmarshalKey("cos", &amp;config); err != nil </span><span class="cov0" title="0">{
+                logger.Errorln(err)
+        }</span>
+}
+
+func setUp(testBucket, testAlias, testEndpoint string) <span class="cov8" title="1">{
+        // 创建测试桶
+        logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
+        cmd := rootCmd
+        args := []string{"mb",
+                fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+        cmd.SetArgs(args)
+        err := cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("SetUp error: 创建测试桶失败")
+        }</span>
+
+        // 更新配置文件
+        <span class="cov8" title="1">logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
+        args = []string{"config", "add", "-b",
+                fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
+        cmd.SetArgs(args)
+        err = cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("SetUp error: 更新配置文件失败")
+        }</span>
+
+        // 更新 Config
+        <span class="cov8" title="1">getConfig()</span>
+}
+
+func tearDown(testBucket, testAlias, testEndpoint string) <span class="cov8" title="1">{
+        // 清空测试桶
+        logger.Infoln(fmt.Sprintf("清空测试桶：%s", testAlias))
+        cmd := rootCmd
+        args := []string{"rm",
+                fmt.Sprintf("cos://%s", testAlias), "-r", "-f"}
+        cmd.SetArgs(args)
+        err := cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("TearDown error: 清空测试桶失败")
+        }</span>
+        <span class="cov8" title="1">args = []string{"abort",
+                fmt.Sprintf("cos://%s", testAlias)}
+        cmd.SetArgs(args)
+        err = cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("TearDown error: 清空测试桶失败")
+        }</span>
+
+        // 删除测试桶
+        <span class="cov8" title="1">logger.Infoln(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testEndpoint))
+        args = []string{"rb",
+                fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+        cmd.SetArgs(args)
+        err = cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("TearDown error: 删除测试桶失败")
+        }</span>
+
+        // 更新配置文件
+        <span class="cov8" title="1">logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
+        args = []string{"config", "delete", "-a",
+                fmt.Sprintf("%s", testAlias)}
+        cmd.SetArgs(args)
+        err = cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("TearDown error: 更新配置文件失败")
+        }</span>
+}
+
+func createTestBucket(testBucket, testEndpoint string) <span class="cov8" title="1">{
+        logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
+        cmd := rootCmd
+        args := []string{"mb",
+                fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+        cmd.SetArgs(args)
+        err := cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("SetUp error: 创建测试桶失败")
+        }</span>
+}
+
+func deleteTestBucket(testBucket, testEndpoint string) <span class="cov8" title="1">{
+        logger.Infoln(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testEndpoint))
+        cmd := rootCmd
+        args := []string{"rb",
+                fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+        cmd.SetArgs(args)
+        err := cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("TearDown error: 删除测试桶失败")
+        }</span>
+}
+
+func addConfig(testBucket, testEndpoint string) <span class="cov8" title="1">{
+        cmd := rootCmd
+        args := []string{"config", "add", "-b",
+                fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint}
+        cmd.SetArgs(args)
+        err := cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("SetUp error: 更新配置文件失败")
+        }</span>
+
+        // 更新 Config
+        <span class="cov8" title="1">getConfig()</span>
+}
+
+// func addConfig_alias(testBucket, testAlias, testEndpoint string) {
+//         cmd := rootCmd
+//         args := []string{"config", "add", "-b",
+//                 fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
+//         cmd.SetArgs(args)
+//         err := cmd.Execute()
+//         if err != nil {
+//                 logger.Errorln("SetUp error: 更新配置文件失败")
+//         }
+
+//         // 更新 Config
+//         getConfig()
+// }
+
+func deleteConfig(testBucket string) <span class="cov8" title="1">{
+        cmd := rootCmd
+        args := []string{"config", "delete", "-a",
+                fmt.Sprintf("%s-%s", testBucket, appID)}
+        cmd.SetArgs(args)
+        err := cmd.Execute()
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("TearDown error: 更新配置文件失败")
+        }</span>
+
+        // 更新 Config
+        <span class="cov8" title="1">getConfig()</span>
+}
+
+// func deleteConfig_alias(testAlias string) {
+//         cmd := rootCmd
+//         args := []string{"config", "delete", "-a", testAlias}
+//         cmd.SetArgs(args)
+//         err := cmd.Execute()
+//         if err != nil {
+//                 logger.Errorln("TearDown error: 更新配置文件失败")
+//         }
+
+//         // 更新 Config
+//         getConfig()
+// }
+
+// 创建文件
+func genFile(fileName string, size int) <span class="cov8" title="1">{
+        data := make([]byte, 0)
+
+        rand.Seed(time.Now().Unix())
+        for i := 0; i &lt; size; i++ </span><span class="cov8" title="1">{
+                u := uint8(rand.Intn(256))
+                data = append(data, u)
+        }</span>
+
+        <span class="cov8" title="1">f, err := os.Create(fileName)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("genFile error: 创建文件失败")
+        }</span>
+        <span class="cov8" title="1">defer f.Close()
+
+        n, err := f.Write(data)
+        if err != nil || n != size </span><span class="cov0" title="0">{
+                logger.Errorln("genFile error: 数据写入失败")
+        }</span>
+}
+
+// 创建目录，有 num 个小文件和3个大文件
+func genDir(dirName string, num int) <span class="cov8" title="1">{
+        if err := os.MkdirAll(fmt.Sprintf("%s/small-file", dirName), os.ModePerm); err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("genDir error: 创建文件夹失败")
+        }</span>
+        <span class="cov8" title="1">if err := os.MkdirAll(fmt.Sprintf("%s/big-file", dirName), os.ModePerm); err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("genDir error: 创建文件夹失败")
+        }</span>
+
+        <span class="cov8" title="1">logger.Infoln(fmt.Sprintf("生成小文件：%s/small-file", dirName))
+        for i := 0; i &lt; num; i++ </span><span class="cov8" title="1">{
+                genFile(fmt.Sprintf("%s/small-file/%d", dirName, i), 30*1024)
+        }</span>
+        <span class="cov8" title="1">logger.Infoln(fmt.Sprintf("生成大文件：%s/big-file", dirName))
+        for i := 0; i &lt; 3; i++ </span><span class="cov8" title="1">{
+                genFile(fmt.Sprintf("%s/big-file/%d", dirName, i), 5*1024*1024)
+        }</span>
+}
+
+func delDir(dirName string) <span class="cov8" title="1">{
+        logger.Infoln(fmt.Sprintf("删除测试临时文件夹：%s", dirName))
+        if err := os.RemoveAll(dirName); err != nil </span><span class="cov0" title="0">{
+                logger.Errorln("delDir error: 删除文件夹失败")
+        }</span>
+}
+
+// 获取 hash 值
+func getCRC(cosPath string) string <span class="cov0" title="0">{
+        bucketName, key := util.ParsePath(cosPath)
+        param.Endpoint = "cos.ap-guangzhou.myqcloud.com"
+        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        h, _, _ := util.ShowHash(c, key, "crc64")
+        return h
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

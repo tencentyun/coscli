@@ -2,17 +2,18 @@ package cmd
 
 import (
 	"fmt"
-	"os/exec"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestConfigCmd(t *testing.T) {
+	fmt.Println("TestConfigCmd")
 	Convey("Test coscli config", t, func() {
-		cmd := exec.Command("../coscli", "config")
-		output, e := cmd.Output()
-		fmt.Println(string(output))
+		cmd := rootCmd
+		args := []string{"config"}
+		cmd.SetArgs(args)
+		e := cmd.Execute()
 		So(e, ShouldBeNil)
 	})
 }
