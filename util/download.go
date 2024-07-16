@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -24,7 +23,7 @@ type DownloadOptions struct {
 	SnapshotPath string
 }
 
-func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
+func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
 
 	startT := time.Now().UnixNano() / 1000 / 1000
 
@@ -46,9 +45,9 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				// 文件不在cos上
-				logger.Fatalf("Object not found : %v", err)
+				return fmt.Errorf("Object not found : %v", err)
 			}
-			logger.Fatalf("Head object err : %v", err)
+			return fmt.Errorf("Head object err : %v", err)
 		}
 
 		fo.Monitor.updateScanSizeNum(resp.ContentLength, 1)
@@ -59,7 +58,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 		skip, err, isDir, size, _, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl)
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
-			logger.Fatalf("%s failed: %v", msg, err)
+			return fmt.Errorf("%s failed: %v", msg, err)
 		}
 	} else {
 		// 多对象下载
@@ -71,6 +70,8 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 
 	endT := time.Now().UnixNano() / 1000 / 1000
 	PrintTransferStats(startT, endT, fo)
+
+	return nil
 }
 
 func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {

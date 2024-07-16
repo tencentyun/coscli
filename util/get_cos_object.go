@@ -3,10 +3,8 @@ package util
 import (
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/url"
-	"os"
 	"strings"
 )
 
@@ -43,9 +41,9 @@ func ReadCosKeys(keys map[string]string, cosUrl StorageUrl, chObjects <-chan obj
 	chFinish <- nil
 }
 
-func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperations) (isDir bool) {
+func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperations) (isDir bool, err error) {
 	if prefix == "" {
-		return true
+		return true, nil
 	}
 
 	// cos路径若不以路径分隔符结尾，则添加
@@ -65,8 +63,7 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 
 	res, err := tryGetBucket(c, opt, retries)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return isDir, err
 	}
 
 	isDir = false
@@ -77,20 +74,20 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 		isDir = true
 	}
 
-	return isDir
+	return isDir, nil
 }
 
-func CheckCosObjectExist(c *cos.Client, prefix string) (exist bool) {
+func CheckCosObjectExist(c *cos.Client, prefix string) (exist bool, err error) {
 	if prefix == "" {
-		return false
+		return false, nil
 	}
 
-	exist, err := c.Object.IsExist(context.Background(), prefix)
+	exist, err = c.Object.IsExist(context.Background(), prefix)
 	if err != nil {
-		logger.Fatalln(err)
+		return exist, err
 	}
 
-	return exist
+	return exist, nil
 }
 
 func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool, withFinishSignal bool) {

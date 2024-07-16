@@ -150,14 +150,6 @@ func delDir(dirName string) {
 	}
 }
 
-func getCRC(cosPath string) string {
-	bucketName, key := util.ParsePath(cosPath)
-	param.Endpoint = "cos.ap-guangzhou.myqcloud.com"
-	c := util.NewClient(&config, &param, bucketName)
-	h, _ ,_:= util.ShowHash(c, key, "crc64")
-	return h
-}
-
 func TestCpCmd(t *testing.T) {
 	setUp(testBucket1, testAlias1, testEndpoint1)
 	defer tearDown(testBucket1, testAlias1, testEndpoint1)
@@ -304,13 +296,13 @@ func TestCpCmd(t *testing.T) {
 
 		Convey("Hash", func() {
 			Convey("单个小文件哈希校验", func() {
-				hash1, _ := util.CalculateHash(fmt.Sprintf("%s/small-file/0", testDir), "crc64")
-				hash2, _ := util.CalculateHash(fmt.Sprintf("%s/download/single-small", testDir), "crc64")
+				hash1, _, _ := util.CalculateHash(fmt.Sprintf("%s/small-file/0", testDir), "crc64")
+				hash2, _, _ := util.CalculateHash(fmt.Sprintf("%s/download/single-small", testDir), "crc64")
 				So(hash1, ShouldEqual, hash2)
 			})
 			Convey("单个大文件哈希校验", func() {
-				hash1, _ := util.CalculateHash(fmt.Sprintf("%s/big-file/0", testDir), "crc64")
-				hash2, _ := util.CalculateHash(fmt.Sprintf("%s/download/single-big", testDir), "crc64")
+				hash1, _, _ := util.CalculateHash(fmt.Sprintf("%s/big-file/0", testDir), "crc64")
+				hash2, _, _ := util.CalculateHash(fmt.Sprintf("%s/download/single-big", testDir), "crc64")
 				So(hash1, ShouldEqual, hash2)
 			})
 			Convey("多个小文件哈希校验", func() {
@@ -318,8 +310,8 @@ func TestCpCmd(t *testing.T) {
 				fileList2 := util.GetLocalFilesListRecursive(fmt.Sprintf("%s/download/small-file", testDir), "", "")
 				So(len(fileList1), ShouldEqual, len(fileList2))
 				for i := 0; i < len(fileList1); i++ {
-					hash1, _ := util.CalculateHash(fmt.Sprintf("%s/small-file/%s", testDir, fileList1[i]), "crc64")
-					hash2, _ := util.CalculateHash(fmt.Sprintf("%s/download/small-file/%s", testDir, fileList2[i]), "crc64")
+					hash1, _, _ := util.CalculateHash(fmt.Sprintf("%s/small-file/%s", testDir, fileList1[i]), "crc64")
+					hash2, _, _ := util.CalculateHash(fmt.Sprintf("%s/download/small-file/%s", testDir, fileList2[i]), "crc64")
 					So(hash1, ShouldEqual, hash2)
 				}
 			})
@@ -328,8 +320,8 @@ func TestCpCmd(t *testing.T) {
 				fileList2 := util.GetLocalFilesListRecursive(fmt.Sprintf("%s/download/big-file", testDir), "", "")
 				So(len(fileList1), ShouldEqual, len(fileList2))
 				for i := 0; i < len(fileList1); i++ {
-					hash1, _ := util.CalculateHash(fmt.Sprintf("%s/big-file/%s", testDir, fileList1[i]), "crc64")
-					hash2, _ := util.CalculateHash(fmt.Sprintf("%s/download/big-file/%s", testDir, fileList2[i]), "crc64")
+					hash1, _, _ := util.CalculateHash(fmt.Sprintf("%s/big-file/%s", testDir, fileList1[i]), "crc64")
+					hash2, _, _ := util.CalculateHash(fmt.Sprintf("%s/download/big-file/%s", testDir, fileList2[i]), "crc64")
 					So(hash1, ShouldEqual, hash2)
 				}
 			})

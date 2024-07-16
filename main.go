@@ -17,9 +17,14 @@ package main
 
 import (
 	"coscli/cmd"
+	logger "github.com/sirupsen/logrus"
+	"os"
 )
 
 func main() {
-
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		logger.Errorln(err)
+		//logger.Infoln(cmd.UsageString())
+		os.Exit(1)
+	}
 }

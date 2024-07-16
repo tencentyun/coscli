@@ -3,9 +3,9 @@ package cmd
 import (
 	"context"
 	"coscli/util"
+	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	logger "github.com/sirupsen/logrus"
@@ -24,13 +24,16 @@ Format:
 Example:
   ./coscli signurl cos://examplebucket/test.jpg -t 100`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		time, _ := cmd.Flags().GetInt("time")
+		var err error
 		if util.IsCosPath(args[0]) {
-			GetSignedURL(args[0], time)
+			err = GetSignedURL(args[0], time)
 		} else {
-			logger.Fatalln("cospath needs to contain cos://")
+			return fmt.Errorf("cospath needs to contain cos://")
 		}
+
+		return err
 	},
 }
 
@@ -40,9 +43,12 @@ func init() {
 	signurlCmd.Flags().IntP("time", "t", 10000, "Set the validity time of the signature(Default 10000)")
 }
 
-func GetSignedURL(path string, t int) {
+func GetSignedURL(path string, t int) error {
 	bucketName, cosPath := util.ParsePath(path)
-	c := util.NewClient(&config, &param, bucketName)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 
 	opt := &cos.PresignedURLOptions{
 		Query:  &url.Values{},
@@ -68,10 +74,11 @@ func GetSignedURL(path string, t int) {
 	presignedURL, err := c.Object.GetPresignedURL(context.Background(), http.MethodGet, cosPath,
 		secretID, secretKey, time.Second*time.Duration(t), opt)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
 	}
 
 	logger.Infoln("Signed URL:")
 	logger.Infoln(presignedURL)
+
+	return nil
 }

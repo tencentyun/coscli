@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"os"
-
 	"coscli/util"
+	"fmt"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -32,8 +30,9 @@ Example:
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		createBucket(cmd, args)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		err := createBucket(cmd, args)
+		return err
 	},
 }
 
@@ -44,7 +43,7 @@ func init() {
 	mbCmd.Flags().BoolP("ofs", "o", false, "Ofs")
 }
 
-func createBucket(cmd *cobra.Command, args []string) {
+func createBucket(cmd *cobra.Command, args []string) error {
 	flagRegion, _ := cmd.Flags().GetString("region")
 	flagOfs, _ := cmd.Flags().GetBool("ofs")
 	if param.Endpoint == "" && flagRegion != "" {
@@ -52,8 +51,10 @@ func createBucket(cmd *cobra.Command, args []string) {
 	}
 	bucketIDName, _ := util.ParsePath(args[0])
 
-	c := util.CreateClient(&config, &param, bucketIDName)
-
+	c, err := util.CreateClient(&config, &param, bucketIDName)
+	if err != nil {
+		return err
+	}
 	opt := &cos.BucketPutOptions{
 		XCosACL:                   "",
 		XCosGrantRead:             "",
@@ -70,10 +71,10 @@ func createBucket(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	_, err := c.Bucket.Put(context.Background(), opt)
+	_, err = c.Bucket.Put(context.Background(), opt)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return err
 	}
 	logger.Infof("Create a new bucket! name: %s\n", bucketIDName)
+	return nil
 }

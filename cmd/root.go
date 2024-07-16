@@ -31,8 +31,9 @@ var rootCmd = &cobra.Command{
 	Version: util.Version,
 }
 
-func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
+func Execute() error {
+	rootCmd.SilenceErrors = true
+	return rootCmd.Execute()
 }
 
 func init() {

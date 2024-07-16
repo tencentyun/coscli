@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"coscli/util"
-	logger "github.com/sirupsen/logrus"
+	"fmt"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +18,7 @@ Format:
 Example:
   ./coscli ls cos://examplebucket/test/ -r`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		limit, _ := cmd.Flags().GetInt("limit")
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		include, _ := cmd.Flags().GetString("include")
@@ -27,7 +27,7 @@ Example:
 		if limit == 0 {
 			limit = 10000
 		} else if limit < 0 {
-			logger.Fatalln("Flag --limit should be greater than 0")
+			return fmt.Errorf("Flag --limit should be greater than 0")
 		}
 
 		cosPath := ""
@@ -37,30 +37,41 @@ Example:
 
 		cosUrl, err := util.FormatUrl(cosPath)
 		if err != nil {
-			logger.Fatalf("cos url format error:%v", err)
+			return fmt.Errorf("cos url format error:%v", err)
 		}
 
 		// 无参数，则列出当前账号下的所有存储桶
 		if cosPath == "" {
 			// 实例化cos client
-			c := util.NewClient(&config, &param, "")
-			util.ListBuckets(c, limit)
+			c, err := util.NewClient(&config, &param, "")
+			if err != nil {
+				return err
+			}
+			err = util.ListBuckets(c, limit)
 		} else if cosUrl.IsCosUrl() {
 			// 实例化cos client
 			bucketName := cosUrl.(*util.CosUrl).Bucket
-			c := util.NewClient(&config, &param, bucketName)
+			c, err := util.NewClient(&config, &param, bucketName)
+			if err != nil {
+				return err
+			}
 			_, filters := util.GetFilter(include, exclude)
 			// 根据s.Header判断是否是融合桶或者普通桶
 			s, _ := c.Bucket.Head(context.Background())
 			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-				util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
+				err = util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
 			} else {
-				util.ListObjects(c, cosUrl, limit, recursive, filters)
+				err = util.ListObjects(c, cosUrl, limit, recursive, filters)
+			}
+
+			if err != nil {
+				return err
 			}
 
 		} else {
-			logger.Fatalln("cospath needs to contain cos://")
+			return fmt.Errorf("cospath needs to contain cos://")
 		}
+		return nil
 	},
 }
 

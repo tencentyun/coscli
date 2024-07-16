@@ -3,8 +3,6 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
-	"os"
-
 	"github.com/spf13/viper"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -21,11 +19,12 @@ Format:
 
 Example:
   ./coscli config init`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if cmdCnt >= 1 {
-			return
+			return nil
 		}
-		initConfigFile(true)
+		err := initConfigFile(true)
+		return err
 	},
 }
 
@@ -34,7 +33,7 @@ func init() {
 }
 
 // cfgFlag: 是否允许用户自定义配置文件的输出路径
-func initConfigFile(cfgFlag bool) {
+func initConfigFile(cfgFlag bool) error {
 	var (
 		configFile string
 		config     util.Config
@@ -102,8 +101,8 @@ func initConfigFile(cfgFlag bool) {
 	viper.Set("cos", config)
 
 	if err := viper.WriteConfigAs(configFile); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return err
 	}
 	fmt.Printf("\nThe configuration file is initialized successfully! \nYou can use \"./coscli config show [-c <Config File Path>]\" show the contents of the specified configuration file\n")
+	return nil
 }

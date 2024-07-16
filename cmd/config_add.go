@@ -22,8 +22,9 @@ Format:
 
 Example:
   ./coscli config add -b example-1234567890 -r ap-shanghai -a example`,
-	Run: func(cmd *cobra.Command, args []string) {
-		addBucketConfig(cmd)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		err := addBucketConfig(cmd)
+		return err
 	},
 }
 
@@ -40,16 +41,16 @@ func init() {
 	// _ = configAddCmd.MarkFlagRequired("endpoint")
 }
 
-func addBucketConfig(cmd *cobra.Command) {
+func addBucketConfig(cmd *cobra.Command) error {
 	name, _ := cmd.Flags().GetString("bucket")
 	endpoint, _ := cmd.Flags().GetString("endpoint")
 	region, _ := cmd.Flags().GetString("region")
 	alias, _ := cmd.Flags().GetString("alias")
 	ofs, _ := cmd.Flags().GetBool("ofs")
+
 	if alias == "" {
 		alias = name
 	}
-
 	bucket := util.Bucket{
 		Name:     name,
 		Endpoint: endpoint,
@@ -60,14 +61,11 @@ func addBucketConfig(cmd *cobra.Command) {
 
 	for _, b := range config.Buckets {
 		if name == b.Name {
-			logger.Fatalln("The bucket already exists, fail to add!")
-			os.Exit(1)
+			return fmt.Errorf("The bucket already exists, fail to add!")
 		} else if alias == b.Name {
-			logger.Fatalln("The alias cannot be the same as other bucket's name")
-			os.Exit(1)
+			return fmt.Errorf("The alias cannot be the same as other bucket's name")
 		} else if alias == b.Alias {
-			logger.Fatalln("The alias already exists, fail to add!")
-			os.Exit(1)
+			return fmt.Errorf("The alias already exists, fail to add!")
 		}
 	}
 
@@ -89,14 +87,13 @@ func addBucketConfig(cmd *cobra.Command) {
 	_, err = os.Stat(configFile)
 	if os.IsNotExist(err) || cfgFile != "" {
 		if err := viper.WriteConfigAs(configFile); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return err
 		}
 	} else {
 		if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
+			return err
 		}
 	}
 	logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n, ofs: %t\n", name, endpoint, alias, ofs)
+	return nil
 }

@@ -22,8 +22,9 @@ Format:
 Example:
   ./coscli config set -t example-token`,
 	Args: cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		setConfigItem(cmd)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		err := setConfigItem(cmd)
+		return err
 	},
 }
 
@@ -38,7 +39,7 @@ func init() {
 	configSetCmd.Flags().StringP("close_auto_switch_host", "", "", "Close Auto Switch Host")
 }
 
-func setConfigItem(cmd *cobra.Command) {
+func setConfigItem(cmd *cobra.Command) error {
 	flag := false
 	secretID, _ := cmd.Flags().GetString("secret_id")
 	secretKey, _ := cmd.Flags().GetString("secret_key")
@@ -73,9 +74,7 @@ func setConfigItem(cmd *cobra.Command) {
 	if mode != "" {
 		flag = true
 		if mode != "SecretKey" && mode != "CvmRole" {
-			logger.Fatalln("Please Enter Mode As SecretKey Or CvmRole!")
-			logger.Infoln(cmd.UsageString())
-			os.Exit(1)
+			return fmt.Errorf("Please Enter Mode As SecretKey Or CvmRole!")
 		} else {
 			config.Base.Mode = mode
 		}
@@ -99,9 +98,7 @@ func setConfigItem(cmd *cobra.Command) {
 	}
 
 	if !flag {
-		logger.Fatalln("Enter at least one configuration item to be modified!")
-		logger.Infoln(cmd.UsageString())
-		os.Exit(1)
+		return fmt.Errorf("Enter at least one configuration item to be modified!")
 	}
 	// 默认加密存储
 	config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
@@ -124,16 +121,15 @@ func setConfigItem(cmd *cobra.Command) {
 	if os.IsNotExist(err) || cfgFile != "" {
 		viper.Set("cos.base", config.Base)
 		if err := viper.WriteConfigAs(configFile); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return err
 		}
 	} else {
 		viper.Set("cos.base", config.Base)
 		if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
+			return err
 		}
 	}
 
 	logger.Infoln("Modify successfully!")
+	return nil
 }

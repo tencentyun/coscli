@@ -23,18 +23,19 @@ Format:
 Example:
   ./coscli restore cos://examplebucket/test/ -r -d 3 -m Expedited`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
 		days, _ := cmd.Flags().GetInt("days")
 		mode, _ := cmd.Flags().GetString("mode")
-
+		var err error
 		if recursive {
-			restoreObjects(args[0], days, mode, include, exclude)
+			err = restoreObjects(args[0], days, mode, include, exclude)
 		} else {
-			restoreObject(args[0], days, mode)
+			err = restoreObject(args[0], days, mode)
 		}
+		return err
 	},
 }
 
@@ -50,7 +51,10 @@ func init() {
 
 func restoreObject(arg string, days int, mode string) error {
 	bucketName, cosPath := util.ParsePath(arg)
-	c := util.NewClient(&config, &param, bucketName)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 
 	opt := &cos.ObjectRestoreOptions{
 		XMLName:       xml.Name{},
@@ -60,7 +64,7 @@ func restoreObject(arg string, days int, mode string) error {
 	}
 
 	logger.Infof("Restore cos://%s/%s\n", bucketName, cosPath)
-	_, err := c.Object.PostRestore(context.Background(), cosPath, opt)
+	_, err = c.Object.PostRestore(context.Background(), cosPath, opt)
 	if err != nil {
 		logger.Errorln(err)
 		return err
@@ -68,11 +72,17 @@ func restoreObject(arg string, days int, mode string) error {
 	return nil
 }
 
-func restoreObjects(arg string, days int, mode string, include string, exclude string) {
+func restoreObjects(arg string, days int, mode string, include string, exclude string) error {
 	bucketName, cosPath := util.ParsePath(arg)
-	c := util.NewClient(&config, &param, bucketName)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
 
-	objects, _ := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+	objects, _, err := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+	if err != nil {
+		return err
+	}
 	succeed_num := 0
 	failed_num := 0
 
@@ -84,4 +94,5 @@ func restoreObjects(arg string, days int, mode string, include string, exclude s
 			succeed_num += 1
 		}
 	}
+	return nil
 }

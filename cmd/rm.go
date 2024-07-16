@@ -30,7 +30,7 @@ Example:
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		force, _ := cmd.Flags().GetBool("force")
 		onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
@@ -57,12 +57,13 @@ Example:
 			Param:     &param,
 			ErrOutput: &util.ErrOutput{},
 		}
-
+		var err error
 		if recursive {
-			util.RemoveObjects(args, fo)
+			err = util.RemoveObjects(args, fo)
 		} else {
-			util.RemoveObject(args, fo)
+			err = util.RemoveObject(args, fo)
 		}
+		return err
 	},
 }
 
@@ -80,8 +81,11 @@ func init() {
 }
 
 // 获取所有文件和目录
-func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string) {
-	objects, _, _, commonPrefixes := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
+	objects, _, _, commonPrefixes, err := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+	if err != nil {
+		return files, err
+	}
 	tempFiles := make([]string, 0)
 	tempFiles = append(tempFiles, cosDir)
 	for _, v := range objects {
@@ -89,9 +93,13 @@ func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include st
 	}
 	if len(commonPrefixes) > 0 {
 		for _, v := range commonPrefixes {
-			files = append(files, getFilesAndDirs(c, v, nextMarker, include, exclude)...)
+			subFiles, err := getFilesAndDirs(c, v, nextMarker, include, exclude)
+			if err != nil {
+				return files, err
+			}
+			tempFiles = append(tempFiles, subFiles...)
 		}
 	}
 	files = append(files, tempFiles...)
-	return files
+	return files, nil
 }

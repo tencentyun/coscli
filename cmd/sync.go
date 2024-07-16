@@ -3,16 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"coscli/util"
 
-	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 var syncCmd = &cobra.Command{
@@ -36,12 +31,11 @@ Example:
 		}
 		storageClass, _ := cmd.Flags().GetString("storage-class")
 		if storageClass != "" && util.IsCosPath(args[0]) {
-			logger.Fatalln("--storage-class can only use in upload")
-			os.Exit(1)
+			return fmt.Errorf("--storage-class can only use in upload")
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
@@ -67,36 +61,33 @@ Example:
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
-			logger.Fatalln("Sync invalid meta, reason: " + err.Error())
+			return fmt.Errorf("Sync invalid meta, reason: " + err.Error())
 		}
 
 		if retryNum < 0 || retryNum > 10 {
-			logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
-			return
+			return fmt.Errorf("retry-num must be between 0 and 10 (inclusive)")
 		}
 
 		if errRetryNum < 0 || errRetryNum > 10 {
-			logger.Fatalln("err-retry-num must be between 0 and 10 (inclusive)")
-			return
+			return fmt.Errorf("err-retry-num must be between 0 and 10 (inclusive)")
 		}
 
 		if errRetryInterval < 0 || errRetryInterval > 10 {
-			logger.Fatalln("err-retry-interval must be between 0 and 10 (inclusive)")
-			return
+			return fmt.Errorf("err-retry-interval must be between 0 and 10 (inclusive)")
 		}
 
 		srcUrl, err := util.FormatUrl(args[0])
 		if err != nil {
-			logger.Fatalf("format srcURL error,%v", err)
+			return fmt.Errorf("format srcURL error,%v", err)
 		}
 
 		destUrl, err := util.FormatUrl(args[1])
 		if err != nil {
-			logger.Fatalf("format destURL error,%v", err)
+			return fmt.Errorf("format destURL error,%v", err)
 		}
 
 		if srcUrl.IsFileUrl() && destUrl.IsFileUrl() {
-			logger.Fatalln("not support cp between local directory")
+			return fmt.Errorf("not support cp between local directory")
 		}
 
 		_, filters := util.GetFilter(include, exclude)
@@ -134,42 +125,57 @@ Example:
 		}
 
 		// 快照db实例化
-		util.InitSnapshotDb(srcUrl, destUrl, fo)
+		err = util.InitSnapshotDb(srcUrl, destUrl, fo)
+		if err != nil {
+			return err
+		}
 		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
-				logger.Fatalln(err)
+				return err
 			}
 			// 格式化上传路径
-			util.FormatUploadPath(srcUrl, destUrl, fo)
+			err = util.FormatUploadPath(srcUrl, destUrl, fo)
+			if err != nil {
+				return err
+			}
 			// 实例化cos client
 			bucketName := destUrl.(*util.CosUrl).Bucket
-			c := util.NewClient(fo.Config, fo.Param, bucketName)
+			c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+			if err != nil {
+				return err
+			}
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				c.Conf.EnableCRC = false
 			}
 			// 上传
-			util.SyncUpload(c, srcUrl, destUrl, fo)
+			err = util.SyncUpload(c, srcUrl, destUrl, fo)
+			if err != nil {
+				return err
+			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
-				logger.Fatalln(err)
+				return err
 			}
 
 			if fo.Operation.Delete {
 				// 检查备份路径
 				err = util.CheckBackupDir(destUrl, fo)
 				if err != nil {
-					logger.Fatalln(err)
+					return err
 				}
 			}
 
 			bucketName := srcUrl.(*util.CosUrl).Bucket
-			c := util.NewClient(fo.Config, fo.Param, bucketName)
+			c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+			if err != nil {
+				return err
+			}
 			// 判断桶是否是ofs桶
 			s, _ := c.Bucket.Head(context.Background())
 			// 根据s.Header判断是否是融合桶或者普通桶
@@ -181,18 +187,29 @@ Example:
 				c.Conf.EnableCRC = false
 			}
 			// 格式化下载路径
-			util.FormatDownloadPath(srcUrl, destUrl, fo, c)
-
+			err = util.FormatDownloadPath(srcUrl, destUrl, fo, c)
+			if err != nil {
+				return err
+			}
 			// 下载
-			util.SyncDownload(c, srcUrl, destUrl, fo)
+			err = util.SyncDownload(c, srcUrl, destUrl, fo)
+			if err != nil {
+				return err
+			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
 			// 实例化来源 cos client
 			srcBucketName := srcUrl.(*util.CosUrl).Bucket
-			srcClient := util.NewClient(fo.Config, fo.Param, srcBucketName)
+			srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
+			if err != nil {
+				return err
+			}
 
 			// 实例化目标 cos client
 			destBucketName := destUrl.(*util.CosUrl).Bucket
-			destClient := util.NewClient(fo.Config, fo.Param, destBucketName)
+			destClient, err := util.NewClient(fo.Config, fo.Param, destBucketName)
+			if err != nil {
+				return err
+			}
 
 			// 判断桶是否是ofs桶
 			s, _ := srcClient.Bucket.Head(context.Background())
@@ -207,15 +224,23 @@ Example:
 			}
 
 			// 格式化copy路径
-			util.FormatCopyPath(srcUrl, destUrl, fo, srcClient, destClient)
+			err = util.FormatCopyPath(srcUrl, destUrl, fo, srcClient)
+			if err != nil {
+				return err
+			}
 			// 拷贝
-			util.SyncCosCopy(srcClient, destClient, srcUrl, destUrl, fo)
+			err = util.SyncCosCopy(srcClient, destClient, srcUrl, destUrl, fo)
+			if err != nil {
+				return err
+			}
 		} else {
-			logger.Fatalln("cospath needs to contain cos://")
+			return fmt.Errorf("cospath needs to contain cos://")
 		}
 		util.CloseErrorOutputFile(fo)
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
+
+		return nil
 	},
 }
 
@@ -265,205 +290,4 @@ func init() {
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
-}
-
-func syncCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) {
-	bucketName1, cosPath1 := util.ParsePath(args[0])
-	bucketName2, cosPath2 := util.ParsePath(args[1])
-	c2 := util.NewClient(&config, &param, bucketName2)
-	c1 := util.NewClient(&config, &param, bucketName1)
-
-	if recursive {
-		// 路径分隔符
-		// 记录是否是代码添加的路径分隔符
-		isAddSeparator := false
-		// 源路径若不以路径分隔符结尾，则添加
-		if !strings.HasSuffix(cosPath1, "/") && cosPath1 != "" {
-			isAddSeparator = true
-			cosPath1 += "/"
-		}
-		// 判断cosDir是否是文件夹
-		isDir := util.CheckCosPathType(c1, cosPath1, 0, nil)
-
-		if isDir {
-			// cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加
-			if cosPath2 != "" && !strings.HasSuffix(cosPath2, string(filepath.Separator)) {
-				cosPath2 += string(filepath.Separator)
-			} else {
-				// 若cosPath2以路径分隔符结尾，且cosPath1传入时不以路径分隔符结尾，则需将cos路径的最终文件拼接至local路径最后
-				if isAddSeparator {
-					fileName := filepath.Base(cosPath1)
-					cosPath2 += fileName
-					cosPath2 += string(filepath.Separator)
-				}
-			}
-		} else {
-			// cosPath1不是文件夹且路径分隔符为代码添加,则去掉路径分隔符
-			if isAddSeparator {
-				cosPath1 = strings.TrimSuffix(cosPath1, "/")
-			}
-		}
-
-		objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
-		opt := &cos.ObjectCopyOptions{
-			ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{
-				CacheControl:       meta.CacheControl,
-				ContentDisposition: meta.ContentDisposition,
-				ContentEncoding:    meta.ContentEncoding,
-				ContentType:        meta.ContentType,
-				Expires:            meta.Expires,
-				XCosStorageClass:   storageClass,
-				XCosMetaXXX:        meta.XCosMetaXXX,
-			},
-		}
-
-		if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
-			meta.ContentType != "" || meta.Expires != "" || meta.MetaChange {
-		}
-		{
-			opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
-		}
-		for _, o := range objects {
-			srcKey := o.Key
-			objName := srcKey[len(cosPath1):]
-
-			// 格式化文件名
-			dstKey := cosPath2 + objName
-			if objName == "" && (strings.HasSuffix(cosPath2, "/") || cosPath2 == "") {
-				fileName := filepath.Base(o.Key)
-				dstKey = cosPath2 + fileName
-			}
-
-			if dstKey == "" {
-				continue
-			}
-			srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
-			dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
-
-			headOpt := &cos.ObjectHeadOptions{
-				IfModifiedSince:       "",
-				XCosSSECustomerAglo:   "",
-				XCosSSECustomerKey:    "",
-				XCosSSECustomerKeyMD5: "",
-				XOptionHeader:         nil,
-			}
-			resp, err := c2.Object.Head(context.Background(), dstKey, headOpt)
-
-			// 不存在，则拷贝
-			if err != nil {
-				if resp != nil && resp.StatusCode == 404 {
-					logger.Infoln("Copy", srcPath, "=>", dstPath)
-
-					url := util.GenURL(&config, &param, bucketName1)
-					srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
-
-					_, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
-					if err != nil {
-						logger.Fatalln(err)
-						os.Exit(1)
-					}
-				} else {
-					logger.Fatalln(err)
-					os.Exit(1)
-				}
-			} else {
-				// 存在，判断crc64
-				crc1, _, _ := util.ShowHash(c1, srcKey, "crc64")
-				crc2, _, _ := util.ShowHash(c2, dstKey, "crc64")
-				if crc1 == crc2 {
-					logger.Infoln("Skip", srcPath)
-				} else {
-					logger.Infoln("Copy", srcPath, "=>", dstPath)
-
-					url := util.GenURL(&config, &param, bucketName1)
-					srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
-
-					_, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
-					if err != nil {
-						logger.Fatalln(err)
-						os.Exit(1)
-					}
-				}
-			}
-		}
-	} else { // 非递归，单个拷贝
-
-		if len(cosPath1) == 0 {
-			logger.Errorln("Invalid srcPath")
-			os.Exit(1)
-		}
-
-		if strings.HasSuffix(cosPath1, "/") {
-			logger.Errorln("srcPath is a dir")
-			os.Exit(1)
-		}
-
-		if cosPath2 == "" || strings.HasSuffix(cosPath2, "/") {
-			fileName := filepath.Base(cosPath1)
-			cosPath2 = filepath.Join(cosPath2, fileName)
-			args[1] = filepath.Join(args[1], fileName)
-		}
-
-		headOpt := &cos.ObjectHeadOptions{
-			IfModifiedSince:       "",
-			XCosSSECustomerAglo:   "",
-			XCosSSECustomerKey:    "",
-			XCosSSECustomerKeyMD5: "",
-			XOptionHeader:         nil,
-		}
-		resp, err := c2.Object.Head(context.Background(), cosPath2, headOpt)
-		opt := &cos.ObjectCopyOptions{
-			ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{
-				CacheControl:       meta.CacheControl,
-				ContentDisposition: meta.ContentDisposition,
-				ContentEncoding:    meta.ContentEncoding,
-				ContentType:        meta.ContentType,
-				Expires:            meta.Expires,
-				XCosStorageClass:   storageClass,
-				XCosMetaXXX:        meta.XCosMetaXXX,
-			},
-		}
-
-		if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
-			meta.ContentType != "" || meta.Expires != "" || meta.MetaChange {
-		}
-		{
-			opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
-		}
-		// 不存在，则拷贝
-		if err != nil {
-			if resp != nil && resp.StatusCode == 404 {
-				logger.Infoln("Copy", args[0], "=>", args[1])
-				url := util.GenURL(&config, &param, bucketName1)
-				srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
-
-				_, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, opt)
-				if err != nil {
-					logger.Fatalln(err)
-					os.Exit(1)
-				}
-			} else {
-				logger.Fatalln(err)
-				os.Exit(1)
-			}
-		} else {
-			// 存在，判断crc64
-			crc1, _, _ := util.ShowHash(c1, cosPath1, "crc64")
-			crc2, _, _ := util.ShowHash(c2, cosPath2, "crc64")
-			if crc1 == crc2 {
-				logger.Infoln("Skip", args[0])
-			} else {
-				logger.Infoln("Copy", args[0], "=>", args[1])
-
-				url := util.GenURL(&config, &param, bucketName1)
-				srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
-
-				_, _, err = c2.Object.Copy(context.Background(), cosPath2, srcURL, opt)
-				if err != nil {
-					logger.Fatalln(err)
-					os.Exit(1)
-				}
-			}
-		}
-	}
 }

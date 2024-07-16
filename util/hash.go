@@ -11,11 +11,10 @@ import (
 	"io"
 	"os"
 
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func ShowHash(c *cos.Client, path string, hashType string) (h string, b string, resp *cos.Response) {
+func ShowHash(c *cos.Client, path string, hashType string) (h string, b string, resp *cos.Response, err error) {
 	opt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",
 		XCosSSECustomerAglo:   "",
@@ -24,10 +23,9 @@ func ShowHash(c *cos.Client, path string, hashType string) (h string, b string, 
 		XOptionHeader:         nil,
 	}
 
-	resp, err := c.Object.Head(context.Background(), path, opt)
+	resp, err = c.Object.Head(context.Background(), path, opt)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return "", "", nil, err
 	}
 
 	switch hashType {
@@ -40,16 +38,15 @@ func ShowHash(c *cos.Client, path string, hashType string) (h string, b string, 
 		encode, _ := hex.DecodeString(h)
 		b = base64.StdEncoding.EncodeToString(encode)
 	default:
-		logger.Infoln("Wrong args!")
+		return "", "", nil, fmt.Errorf("--type can only be selected between MD5 and CRC64")
 	}
-	return h, b, resp
+	return h, b, resp, nil
 }
 
-func CalculateHash(path string, hashType string) (h string, b string) {
+func CalculateHash(path string, hashType string) (h string, b string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		logger.Fatalln(err)
-		os.Exit(1)
+		return "", "", err
 	}
 	defer f.Close()
 	_, _ = f.Seek(0, 0)
@@ -59,8 +56,7 @@ func CalculateHash(path string, hashType string) (h string, b string) {
 		ecma := crc64.New(crc64.MakeTable(crc64.ECMA))
 		w, _ := ecma.(hash.Hash)
 		if _, err := io.Copy(w, f); err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
+			return "", "", err
 		}
 
 		res := ecma.Sum64()
@@ -69,17 +65,16 @@ func CalculateHash(path string, hashType string) (h string, b string) {
 		m := md5.New()
 		w, _ := m.(hash.Hash)
 		if _, err := io.Copy(w, f); err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
+			return "", "", err
 		}
 
 		res := m.Sum(nil)
 		h = fmt.Sprintf("%x", res)
 		b = base64.StdEncoding.EncodeToString(res)
 	default:
-		return "", ""
+		return "", "", fmt.Errorf("Wrong args!")
 	}
-	return h, b
+	return h, b, nil
 }
 
 func getHead(c *cos.Client, cosPath string) (*cos.Response, error) {

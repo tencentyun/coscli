@@ -332,15 +332,18 @@ func moveFileToPath(srcName, destName string) error {
 	}
 }
 
-func RemoveObjects(args []string, fo *FileOperations) {
+func RemoveObjects(args []string, fo *FileOperations) error {
 	for _, arg := range args {
 		cosUrl, err := FormatUrl(arg)
 		if err != nil {
-			logger.Fatalf("format cosUrl error,%v", err)
+			return fmt.Errorf("format cosUrl error,%v", err)
 		}
 		bucketName := cosUrl.(*CosUrl).Bucket
 
-		c := NewClient(fo.Config, fo.Param, bucketName)
+		c, err := NewClient(fo.Config, fo.Param, bucketName)
+		if err != nil {
+			return err
+		}
 
 		// 根据s.Header判断是否是融合桶或者普通桶
 		s, _ := c.Bucket.Head(context.Background())
@@ -350,17 +353,23 @@ func RemoveObjects(args []string, fo *FileOperations) {
 
 		if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
 			prefix := cosUrl.(*CosUrl).Object
-			RemoveOfsObjects("", c, cosUrl, prefix, fo)
+			err = RemoveOfsObjects("", c, cosUrl, prefix, fo)
 		} else {
-			RemoveCosObjects("", c, cosUrl, fo)
+			err = RemoveCosObjects("", c, cosUrl, fo)
+		}
+
+		if err != nil {
+			return err
 		}
 
 	}
 	// 打印一个空行
 	fmt.Println()
+
+	return nil
 }
 
-func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix string, fo *FileOperations) {
+func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix string, fo *FileOperations) error {
 	var err error
 	isTruncated := true
 	var objects []cos.Object
@@ -371,7 +380,7 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 		err, objects, commonPrefixes, isTruncated, marker = getOfsObjectListForLs(c, prefix, marker, 0, true)
 
 		if err != nil {
-			logger.Fatalf("list objects error : %v", err)
+			return fmt.Errorf("list objects error : %v", err)
 		}
 
 		keysToDelete = make(map[string]string)
@@ -388,12 +397,18 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 				keysToDelete[objKey] = objPrefix
 			}
 		}
-		DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+		err = DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+		if err != nil {
+			return err
+		}
 
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
 				commonPrefix, _ = url.QueryUnescape(commonPrefix)
-				RemoveOfsObjects("", c, cosUrl, commonPrefix, fo)
+				err = RemoveOfsObjects("", c, cosUrl, commonPrefix, fo)
+				if err != nil {
+					return err
+				}
 			}
 
 			keysToDelete = make(map[string]string)
@@ -410,12 +425,16 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 					keysToDelete[objKey] = objPrefix
 				}
 			}
-			DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+			err = DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileOperations) {
+func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	var objects []cos.Object
 	isTruncated := true
@@ -423,7 +442,7 @@ func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileO
 		err, objects, _, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, 0, true)
 
 		if err != nil {
-			logger.Fatalf("list objects error : %v", err)
+			return fmt.Errorf("list objects error : %v", err)
 		}
 
 		keysToDelete := make(map[string]string)
@@ -441,28 +460,40 @@ func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileO
 			}
 		}
 
-		DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+		err = DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
-func RemoveObject(args []string, fo *FileOperations) {
+func RemoveObject(args []string, fo *FileOperations) error {
 	for _, arg := range args {
 
 		cosUrl, err := FormatUrl(arg)
 		if err != nil {
-			logger.Fatalf("format cosUrl error,%v", err)
+			return fmt.Errorf("format cosUrl error,%v", err)
 		}
 		bucketName := cosUrl.(*CosUrl).Bucket
 		cosPath := cosUrl.(*CosUrl).Object
 
 		if cosPath == "" || strings.HasSuffix(cosPath, CosSeparator) {
-			logger.Fatalf("cosPath:%v is dir, please use --recursive option", cosPath)
+			return fmt.Errorf("cosPath:%v is dir, please use --recursive option", cosPath)
 		}
 
-		c := NewClient(fo.Config, fo.Param, bucketName)
+		c, err := NewClient(fo.Config, fo.Param, bucketName)
+		if err != nil {
+			return err
+		}
 		// 查询对象是否存在
-		if !CheckCosObjectExist(c, cosPath) {
-			logger.Fatalf("cos object not found:%s", cosPath)
+		fileExist, err := CheckCosObjectExist(c, cosPath)
+		if err != nil {
+			return err
+		}
+		if !fileExist {
+			return fmt.Errorf("cos object not found:%s", cosPath)
 		}
 
 		opt := &cos.ObjectDeleteOptions{
@@ -480,18 +511,17 @@ func RemoveObject(args []string, fo *FileOperations) {
 			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
 				_, err = c.Object.Delete(context.Background(), cosPath, opt)
 				if err != nil {
-					logger.Fatalln(err)
-					os.Exit(1)
+					return err
 				}
 				logger.Infoln("Delete", arg, "successfully!")
 			}
 		} else {
 			_, err = c.Object.Delete(context.Background(), cosPath, opt)
 			if err != nil {
-				logger.Fatalln(err)
-				os.Exit(1)
+				return err
 			}
 			logger.Infoln("Delete", arg, "successfully!")
 		}
 	}
+	return nil
 }

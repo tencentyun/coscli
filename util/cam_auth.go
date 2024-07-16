@@ -3,10 +3,9 @@ package util
 import (
 	"context"
 	"encoding/json"
-	logger "github.com/sirupsen/logrus"
+	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -25,10 +24,9 @@ type Data struct {
 
 var data Data
 
-func CamAuth(roleName string) Data {
+func CamAuth(roleName string) (data Data, err error) {
 	if roleName == "" {
-		logger.Fatalln("Get cam auth error : roleName not set")
-		os.Exit(1)
+		return data, fmt.Errorf("Get cam auth error : roleName not set")
 	}
 
 	// 创建HTTP客户端
@@ -41,8 +39,7 @@ func CamAuth(roleName string) Data {
 	// 创建一个HTTP GET请求并将上下文与其关联
 	req, err := http.NewRequest("GET", CamUrl+roleName, nil)
 	if err != nil {
-		logger.Fatalln("Get cam auth error : create request error", err)
-		os.Exit(1)
+		return data, fmt.Errorf("Get cam auth error : create request error", err)
 	}
 	req = req.WithContext(ctx)
 
@@ -51,31 +48,27 @@ func CamAuth(roleName string) Data {
 	if err != nil {
 		// 检查是否超时错误
 		if ctx.Err() == context.DeadlineExceeded {
-			logger.Fatalln("Get cam auth timeout", ctx.Err())
+			return data, fmt.Errorf("Get cam auth timeout", ctx.Err())
 		} else {
-			logger.Fatalln("Get cam auth error : request error", err)
+			return data, fmt.Errorf("Get cam auth error : request error", err)
 		}
-		os.Exit(1)
 	}
 
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		logger.Fatalln("Get cam auth error : get response error", err)
-		os.Exit(1)
+		return data, fmt.Errorf("Get cam auth error : get response error", err)
 	}
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		logger.Fatalln("Get cam auth error : auth error")
-		os.Exit(1)
+		return data, fmt.Errorf("Get cam auth error : auth error")
 	}
 
 	if data.Code != "Success" {
-		logger.Fatalln("Get cam auth error : response error", err)
-		os.Exit(1)
+		return data, fmt.Errorf("Get cam auth error : response error", err)
 	}
 
-	return data
+	return data, nil
 }
