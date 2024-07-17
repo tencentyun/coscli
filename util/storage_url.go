@@ -208,10 +208,11 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 		return fmt.Errorf("cosPath:%v is dir, please use --recursive option", cosPath)
 	}
 
+	var err error
 	isDir := false
 	if fo.Operation.Recursive {
 		// 判断cosPath是否是文件夹
-		isDir, err := CheckCosPathType(c, cosPath, 1, fo)
+		isDir, err = CheckCosPathType(c, cosPath, 1, fo)
 		if err != nil {
 			return err
 		}
@@ -277,10 +278,11 @@ func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, s
 		return fmt.Errorf("srcPath:%v is dir, please use --recursive option", srcPath)
 	}
 
+	var err error
 	isDir := false
 	if fo.Operation.Recursive {
 		// 判断src路径是否是文件夹
-		isDir, err := CheckCosPathType(srcClient, srcPath, 1, fo)
+		isDir, err = CheckCosPathType(srcClient, srcPath, 1, fo)
 		if err != nil {
 			return err
 		}

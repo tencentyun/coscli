@@ -85,10 +85,11 @@ func calculateHash(path string, hashType string) (h string, err error) {
 			return "", fmt.Errorf("MD5 of large files is not supported")
 		}
 
-		h, b, err := util.CalculateHash(path, "md5")
+		hash, b, err := util.CalculateHash(path, "md5")
 		if err != nil {
 			return "", err
 		}
+		h = hash
 		logger.Infof("md5:     %s\n", h)
 		logger.Infoln("base64: ", b)
 	default:
