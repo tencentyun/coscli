@@ -275,7 +275,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
 			cosPath1 += "/"
 		}
 		// 判断cosDir是否是文件夹
-		isDir, err := util.CheckCosPathType(c1, cosPath1, 0, nil)
+		isDir, err := util.CheckCosPathType(c1, cosPath1, 0, &util.FileOperations{})
 		if err != nil {
 			return err
 		}
