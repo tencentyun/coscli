@@ -37,6 +37,6 @@ func TestCam_auth_true(t *testing.T) {
 		return res, nil
 	})
 	defer guard.Unpatch()
-	data := CamAuth(roleName)
+	data, _ := CamAuth(roleName)
 	assert.Equal(t, "Success", data.Code, "they should be equal")
 }

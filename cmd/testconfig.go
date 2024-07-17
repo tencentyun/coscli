@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"coscli/util"
 	"fmt"
 	"math/rand"
 	"os"
@@ -27,6 +26,8 @@ var testEndpoint1 = "cos.ap-guangzhou.myqcloud.com"
 var testBucket2 = "coscli-test2"
 var testAlias2 = "coscli-test2-alias"
 var testEndpoint2 = "cos.ap-guangzhou.myqcloud.com"
+
+var testOfsBucket = "ofstest"
 
 func init() {
 	// 读取配置文件
@@ -155,19 +156,19 @@ func addConfig(testBucket, testEndpoint string) {
 	getConfig()
 }
 
-// func addConfig_alias(testBucket, testAlias, testEndpoint string) {
-// 	cmd := rootCmd
-// 	args := []string{"config", "add", "-b",
-// 		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
-// 	cmd.SetArgs(args)
-// 	err := cmd.Execute()
-// 	if err != nil {
-// 		logger.Errorln("SetUp error: 更新配置文件失败")
-// 	}
+func addConfig_alias(testBucket, testAlias, testEndpoint string) {
+	cmd := rootCmd
+	args := []string{"config", "add", "-b",
+		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
+		logger.Errorln("SetUp error: 更新配置文件失败")
+	}
 
-// 	// 更新 Config
-// 	getConfig()
-// }
+	// 更新 Config
+	getConfig()
+}
 
 func deleteConfig(testBucket string) {
 	cmd := rootCmd
@@ -183,18 +184,18 @@ func deleteConfig(testBucket string) {
 	getConfig()
 }
 
-// func deleteConfig_alias(testAlias string) {
-// 	cmd := rootCmd
-// 	args := []string{"config", "delete", "-a", testAlias}
-// 	cmd.SetArgs(args)
-// 	err := cmd.Execute()
-// 	if err != nil {
-// 		logger.Errorln("TearDown error: 更新配置文件失败")
-// 	}
+func deleteConfig_alias(testAlias string) {
+	cmd := rootCmd
+	args := []string{"config", "delete", "-a", testAlias}
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
+		logger.Errorln("TearDown error: 更新配置文件失败")
+	}
 
-// 	// 更新 Config
-// 	getConfig()
-// }
+	// 更新 Config
+	getConfig()
+}
 
 // 创建文件
 func genFile(fileName string, size int) {
@@ -242,13 +243,4 @@ func delDir(dirName string) {
 	if err := os.RemoveAll(dirName); err != nil {
 		logger.Errorln("delDir error: 删除文件夹失败")
 	}
-}
-
-// 获取 hash 值
-func getCRC(cosPath string) string {
-	bucketName, key := util.ParsePath(cosPath)
-	param.Endpoint = "cos.ap-guangzhou.myqcloud.com"
-	c := util.NewClient(&config, &param, bucketName)
-	h, _, _ := util.ShowHash(c, key, "crc64")
-	return h
 }

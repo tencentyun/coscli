@@ -24,7 +24,8 @@ func TestNewClient_Cvm(t *testing.T) {
 		},
 	}
 	param := &Param{}
-	got := NewClient(config, param, "cos-bucket").BaseURL.BucketURL
+	res, _ := NewClient(config, param, "")
+	got := res.BaseURL.BucketURL
 	assert.Equal(t, got, (*url.URL)(nil), "they should be equal")
 }
 
@@ -43,7 +44,8 @@ func TestCreateClient_Cvm(t *testing.T) {
 		},
 	}
 	param := &Param{}
-	got := CreateClient(config, param, "").BaseURL.BucketURL
+	res, _ := CreateClient(config, param, "")
+	got := res.BaseURL.BucketURL
 	assert.Equal(t, got, (*url.URL)(nil), "they should be equal")
 }
 
@@ -63,7 +65,8 @@ func TestNewClient(t *testing.T) {
 		return nil
 	})
 	defer guard.Unpatch()
-	got := NewClient(config, param, "").BaseURL.BucketURL
+	res, _ := NewClient(config, param, "")
+	got := res.BaseURL.BucketURL
 	assert.Equal(t, got, (*url.URL)(nil), "they should be equal")
 }
 
@@ -84,6 +87,7 @@ func TestCreateClient(t *testing.T) {
 		return nil
 	})
 	defer guard.Unpatch()
-	got := CreateClient(config, param, "").BaseURL.BucketURL
+	res, _ := CreateClient(config, param, "")
+	got := res.BaseURL.BucketURL
 	assert.Equal(t, got, (*url.URL)(nil), "they should be equal")
 }
