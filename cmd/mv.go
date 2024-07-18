@@ -79,7 +79,10 @@ func move(args []string, recursive bool, include string, exclude string, meta ut
 	if err != nil {
 		return err
 	}
-	s, _ := c.Bucket.Head(context.Background())
+	s, err := c.Bucket.Head(context.Background())
+	if err != nil {
+		return err
+	}
 	// 根据s.Header判断是否是融合桶或者普通桶
 	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
 		srcPath := fmt.Sprintf("cos://%s/%s", bucketName, cosPath1)

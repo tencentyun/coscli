@@ -58,9 +58,9 @@ Example:
 			}
 			_, filters := util.GetFilter(include, exclude)
 			// 根据s.Header判断是否是融合桶或者普通桶
-			s, e := c.Bucket.Head(context.Background())
-			if e != nil {
-				fmt.Println(e)
+			s, err := c.Bucket.Head(context.Background())
+			if err != nil {
+				return err
 			}
 			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
 				err = util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
