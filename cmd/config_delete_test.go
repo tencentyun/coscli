@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -10,9 +11,11 @@ import (
 func TestConfigDeleteCmd(t *testing.T) {
 	fmt.Println("TestConfigDeleteCmd")
 	addConfig(testBucket, testEndpoint)
+	cmd := rootCmd
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
 	Convey("Test coscil config delete", t, func() {
 		Convey("success", func() {
-			cmd := rootCmd
 			args := []string{"config", "delete", "-a",
 				fmt.Sprintf("%s-%s", testBucket, appID)}
 			cmd.SetArgs(args)
@@ -26,4 +29,5 @@ func TestConfigDeleteCmd(t *testing.T) {
 		// 	So(e, ShouldBeError)
 		// })
 	})
+	time.Sleep(1 * time.Second)
 }

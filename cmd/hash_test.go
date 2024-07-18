@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -13,13 +14,14 @@ func TestHashCmd(t *testing.T) {
 	defer tearDown(testBucket, testAlias, testEndpoint)
 	genDir(testDir, 3)
 	defer delDir(testDir)
+	time.Sleep(2 * time.Second)
 	localFileName := fmt.Sprintf("%s/small-file", testDir)
 	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
 	cmd := rootCmd
 	args := []string{"cp", localFileName, cosFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
-
+	time.Sleep(1 * time.Second)
 	Convey("Test coscli hash", t, func() {
 		Convey("local file", func() {
 			Convey("crc64", func() {
@@ -50,4 +52,5 @@ func TestHashCmd(t *testing.T) {
 			})
 		})
 	})
+	time.Sleep(1 * time.Second)
 }

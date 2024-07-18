@@ -4,6 +4,7 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -57,7 +58,10 @@ Example:
 			}
 			_, filters := util.GetFilter(include, exclude)
 			// 根据s.Header判断是否是融合桶或者普通桶
-			s, _ := c.Bucket.Head(context.Background())
+			s, e := c.Bucket.Head(context.Background())
+			if e != nil {
+				fmt.Println(e)
+			}
 			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
 				err = util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
 			} else {

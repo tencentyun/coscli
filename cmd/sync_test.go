@@ -8,8 +8,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestCpCmd(t *testing.T) {
-	fmt.Println("TestCpCmd")
+func TestSyncCmd(t *testing.T) {
+	fmt.Println("TestSyncCmd")
 	setUp(testBucket1, testAlias1, testEndpoint1)
 	defer tearDown(testBucket1, testAlias1, testEndpoint1)
 	setUp(testBucket2, testAlias2, testEndpoint2)
@@ -25,7 +25,7 @@ func TestCpCmd(t *testing.T) {
 				localFileName := fmt.Sprintf("%s/small-file/0", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "single-small")
 				cmd := rootCmd
-				args := []string{"cp", localFileName, cosFileName}
+				args := []string{"sync", localFileName, cosFileName}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -34,7 +34,7 @@ func TestCpCmd(t *testing.T) {
 				localFileName := fmt.Sprintf("%s/small-file", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-small")
 				cmd := rootCmd
-				args := []string{"cp", localFileName, cosFileName, "-r"}
+				args := []string{"sync", localFileName, cosFileName, "-r"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -42,7 +42,7 @@ func TestCpCmd(t *testing.T) {
 			Convey("上传单个大文件", func() {
 				localFileName := fmt.Sprintf("%s/big-file/0", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
-				args := []string{"cp", localFileName, cosFileName}
+				args := []string{"sync", localFileName, cosFileName}
 				cmd := rootCmd
 				cmd.SetArgs(args)
 				e := cmd.Execute()
@@ -51,7 +51,7 @@ func TestCpCmd(t *testing.T) {
 			Convey("上传多个大文件", func() {
 				localFileName := fmt.Sprintf("%s/big-file", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"cp", localFileName, cosFileName, "-r"}
+				args := []string{"sync", localFileName, cosFileName, "-r"}
 				cmd := rootCmd
 				cmd.SetArgs(args)
 				e := cmd.Execute()
@@ -62,7 +62,7 @@ func TestCpCmd(t *testing.T) {
 			Convey("桶内拷贝单个文件", func() {
 				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
 				dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
-				args := []string{"cp", srcPath, dstPath}
+				args := []string{"sync", srcPath, dstPath}
 				cmd := rootCmd
 				cmd.SetArgs(args)
 				e := cmd.Execute()
@@ -71,7 +71,7 @@ func TestCpCmd(t *testing.T) {
 			Convey("桶内拷贝多个文件", func() {
 				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
 				dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-copy")
-				args := []string{"cp", srcPath, dstPath, "-r"}
+				args := []string{"sync", srcPath, dstPath, "-r"}
 				cmd := rootCmd
 				cmd.SetArgs(args)
 				e := cmd.Execute()
@@ -81,7 +81,7 @@ func TestCpCmd(t *testing.T) {
 				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-small")
 				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-small")
 				cmd := rootCmd
-				args := []string{"cp", srcPath, dstPath}
+				args := []string{"sync", srcPath, dstPath}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -90,7 +90,7 @@ func TestCpCmd(t *testing.T) {
 				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-small")
 				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-small")
 				cmd := rootCmd
-				args := []string{"cp", srcPath, dstPath, "-r"}
+				args := []string{"sync", srcPath, dstPath, "-r"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -99,7 +99,7 @@ func TestCpCmd(t *testing.T) {
 				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
 				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-big")
 				cmd := rootCmd
-				args := []string{"cp", srcPath, dstPath}
+				args := []string{"sync", srcPath, dstPath}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -108,7 +108,7 @@ func TestCpCmd(t *testing.T) {
 				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
 				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
 				cmd := rootCmd
-				args := []string{"cp", srcPath, dstPath, "-r"}
+				args := []string{"sync", srcPath, dstPath, "-r"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -119,7 +119,7 @@ func TestCpCmd(t *testing.T) {
 				localFileName := fmt.Sprintf("%s/download/single-small", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-small")
 				cmd := rootCmd
-				args := []string{"cp", cosFileName, localFileName}
+				args := []string{"sync", cosFileName, localFileName}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -128,7 +128,7 @@ func TestCpCmd(t *testing.T) {
 				localFileName := fmt.Sprintf("%s/download/small-file", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-small")
 				cmd := rootCmd
-				args := []string{"cp", cosFileName, localFileName, "-r"}
+				args := []string{"sync", cosFileName, localFileName, "-r"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -137,7 +137,7 @@ func TestCpCmd(t *testing.T) {
 				localFileName := fmt.Sprintf("%s/download/single-big", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-big")
 				cmd := rootCmd
-				args := []string{"cp", cosFileName, localFileName}
+				args := []string{"sync", cosFileName, localFileName}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -146,7 +146,7 @@ func TestCpCmd(t *testing.T) {
 				localFileName := fmt.Sprintf("%s/download/big-file", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
 				cmd := rootCmd
-				args := []string{"cp", cosFileName, localFileName, "-r"}
+				args := []string{"sync", cosFileName, localFileName, "-r"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)

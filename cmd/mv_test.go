@@ -4,6 +4,7 @@ import (
 	"coscli/util"
 	"fmt"
 	"testing"
+	"time"
 
 	"bou.ke/monkey"
 	. "github.com/smartystreets/goconvey/convey"
@@ -15,15 +16,17 @@ func TestMvCmd(t *testing.T) {
 	defer tearDown(testBucket, testAlias, testEndpoint)
 	genDir(testDir, 3)
 	defer delDir(testDir)
+	time.Sleep(2 * time.Second)
 	localFileName := fmt.Sprintf("%s/small-file", testDir)
 	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
 	cmd := rootCmd
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
 	args := []string{"cp", localFileName, cosFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
+	time.Sleep(1 * time.Second)
 	// 融合桶，无法临时创建
-	addConfig_alias(testOfsBucket, testOfsBucket, testEndpoint)
-	defer deleteConfig_alias(testOfsBucket)
 	Convey("Test coscli mv", t, func() {
 		Convey("success", func() {
 			Convey("ofs", func() {
@@ -38,12 +41,12 @@ func TestMvCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
-			// Convey("not ofs but -r", func() {
-			// 	args := []string{"mv", cosFileName, fmt.Sprintf("cos://%s/%s", testAlias, "testmv"), "-r"}
-			// 	cmd.SetArgs(args)
-			// 	e := cmd.Execute()
-			// 	So(e, ShouldBeNil)
-			// })
+			Convey("not ofs but -r", func() {
+				args := []string{"mv", cosFileName, fmt.Sprintf("cos://%s/%s", testAlias, "testmv"), "-r"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
 		})
 		Convey("fail", func() {
 			Convey("not enough arguments", func() {
@@ -82,4 +85,5 @@ func TestMvCmd(t *testing.T) {
 			})
 		})
 	})
+	time.Sleep(1 * time.Second)
 }

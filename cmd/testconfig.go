@@ -15,26 +15,28 @@ var testDir = "test-tmp-dir"
 
 var appID string
 
-var testBucket = "coscli-test"
-var testAlias = "coscli-test-alias"
+var testBucket = "cosclitest"
+var testAlias = "cosclitest-alias"
 var testEndpoint = "cos.ap-guangzhou.myqcloud.com"
 
-var testBucket1 = "coscli-test1"
-var testAlias1 = "coscli-test1-alias"
+var testBucket1 = "cosclitest1"
+var testAlias1 = "cosclitest1-alias"
 var testEndpoint1 = "cos.ap-guangzhou.myqcloud.com"
 
-var testBucket2 = "coscli-test2"
-var testAlias2 = "coscli-test2-alias"
+var testBucket2 = "cosclitest2"
+var testAlias2 = "cosclitest2-alias"
 var testEndpoint2 = "cos.ap-guangzhou.myqcloud.com"
 
-var testOfsBucket = "ofstest"
+var testOfsBucket = "coscli-ofstest"
 
 func init() {
 	// 读取配置文件
 	getConfig()
 	// 初始化 app-id
 	name := config.Buckets[0].Name
-	appID = name[len(name)-10:]
+	if len(name) > 10 {
+		appID = name[len(name)-10:]
+	}
 }
 
 func getConfig() {
@@ -109,8 +111,7 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 
 	// 更新配置文件
 	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
-	args = []string{"config", "delete", "-a",
-		fmt.Sprintf("%s", testAlias)}
+	args = []string{"config", "delete", "-a", testAlias}
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
@@ -156,37 +157,10 @@ func addConfig(testBucket, testEndpoint string) {
 	getConfig()
 }
 
-func addConfig_alias(testBucket, testAlias, testEndpoint string) {
-	cmd := rootCmd
-	args := []string{"config", "add", "-b",
-		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
-		logger.Errorln("SetUp error: 更新配置文件失败")
-	}
-
-	// 更新 Config
-	getConfig()
-}
-
 func deleteConfig(testBucket string) {
 	cmd := rootCmd
 	args := []string{"config", "delete", "-a",
 		fmt.Sprintf("%s-%s", testBucket, appID)}
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
-		logger.Errorln("TearDown error: 更新配置文件失败")
-	}
-
-	// 更新 Config
-	getConfig()
-}
-
-func deleteConfig_alias(testAlias string) {
-	cmd := rootCmd
-	args := []string{"config", "delete", "-a", testAlias}
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	if err != nil {

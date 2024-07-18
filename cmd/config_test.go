@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -16,4 +17,5 @@ func TestConfigCmd(t *testing.T) {
 		e := cmd.Execute()
 		So(e, ShouldBeNil)
 	})
+	time.Sleep(1 * time.Second)
 }

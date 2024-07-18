@@ -57,47 +57,47 @@
 				
 				<option value="file0">coscli/cmd/abort.go (66.7%)</option>
 				
-				<option value="file1">coscli/cmd/bucket_tagging.go (69.2%)</option>
+				<option value="file1">coscli/cmd/bucket_tagging.go (81.5%)</option>
 				
 				<option value="file2">coscli/cmd/config.go (100.0%)</option>
 				
-				<option value="file3">coscli/cmd/config_add.go (65.9%)</option>
+				<option value="file3">coscli/cmd/config_add.go (78.0%)</option>
 				
-				<option value="file4">coscli/cmd/config_delete.go (70.6%)</option>
+				<option value="file4">coscli/cmd/config_delete.go (82.4%)</option>
 				
 				<option value="file5">coscli/cmd/config_init.go (1.9%)</option>
 				
-				<option value="file6">coscli/cmd/config_set.go (51.4%)</option>
+				<option value="file6">coscli/cmd/config_set.go (57.4%)</option>
 				
 				<option value="file7">coscli/cmd/config_show.go (100.0%)</option>
 				
-				<option value="file8">coscli/cmd/cp.go (53.2%)</option>
+				<option value="file8">coscli/cmd/cp.go (75.4%)</option>
 				
-				<option value="file9">coscli/cmd/du.go (100.0%)</option>
+				<option value="file9">coscli/cmd/du.go (85.2%)</option>
 				
-				<option value="file10">coscli/cmd/hash.go (80.0%)</option>
+				<option value="file10">coscli/cmd/hash.go (79.1%)</option>
 				
-				<option value="file11">coscli/cmd/ls.go (83.9%)</option>
+				<option value="file11">coscli/cmd/ls.go (77.5%)</option>
 				
-				<option value="file12">coscli/cmd/lsparts.go (18.2%)</option>
+				<option value="file12">coscli/cmd/lsparts.go (85.2%)</option>
 				
-				<option value="file13">coscli/cmd/mb.go (75.0%)</option>
+				<option value="file13">coscli/cmd/mb.go (81.5%)</option>
 				
-				<option value="file14">coscli/cmd/mv.go (5.9%)</option>
+				<option value="file14">coscli/cmd/mv.go (73.9%)</option>
 				
-				<option value="file15">coscli/cmd/rb.go (84.8%)</option>
+				<option value="file15">coscli/cmd/rb.go (80.0%)</option>
 				
-				<option value="file16">coscli/cmd/restore.go (18.2%)</option>
+				<option value="file16">coscli/cmd/restore.go (81.0%)</option>
 				
-				<option value="file17">coscli/cmd/rm.go (66.7%)</option>
+				<option value="file17">coscli/cmd/rm.go (60.9%)</option>
 				
-				<option value="file18">coscli/cmd/root.go (51.5%)</option>
+				<option value="file18">coscli/cmd/root.go (50.7%)</option>
 				
-				<option value="file19">coscli/cmd/signurl.go (7.7%)</option>
+				<option value="file19">coscli/cmd/signurl.go (70.0%)</option>
 				
-				<option value="file20">coscli/cmd/sync.go (10.7%)</option>
+				<option value="file20">coscli/cmd/sync.go (37.7%)</option>
 				
-				<option value="file21">coscli/cmd/testconfig.go (78.5%)</option>
+				<option value="file21">coscli/cmd/testconfig.go (84.5%)</option>
 				
 				</select>
 			</div>
@@ -132,11 +132,12 @@ Format:
 Example:
   ./coscli abort cos://examplebucket/test/`,
         Args: cobra.ExactArgs(1),
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 include, _ := cmd.Flags().GetString("include")
                 exclude, _ := cmd.Flags().GetString("exclude")
 
-                abortParts(args[0], include, exclude)
+                err := abortParts(args[0], include, exclude)
+                return err
         }</span>,
 }
 
@@ -147,13 +148,18 @@ func init() <span class="cov8" title="1">{
         abortCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 }</span>
 
-func abortParts(arg string, include string, exclude string) <span class="cov8" title="1">{
+func abortParts(arg string, include string, exclude string) error <span class="cov8" title="1">{
         bucketName, cosPath := util.ParsePath(arg)
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">uploads, err := util.GetUploadsListRecursive(c, cosPath, 0, include, exclude)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        uploads := util.GetUploadsListRecursive(c, cosPath, 0, include, exclude)
-
-        successCnt, failCnt := 0, 0
+        <span class="cov8" title="1">successCnt, failCnt := 0, 0
         for _, u := range uploads </span><span class="cov0" title="0">{
                 _, err := c.Object.AbortMultipartUpload(context.Background(), u.Key, u.UploadID)
                 if err != nil </span><span class="cov0" title="0">{
@@ -164,7 +170,8 @@ func abortParts(arg string, include string, exclude string) <span class="cov8" t
                         successCnt++
                 }</span>
         }
-        <span class="cov8" title="1">logger.Infoln("Total:", len(uploads), ",", successCnt, "Success,", failCnt, "Fail")</span>
+        <span class="cov8" title="1">logger.Infoln("Total:", len(uploads), ",", successCnt, "Success,", failCnt, "Fail")
+        return nil</span>
 }
 </pre>
 		
@@ -173,11 +180,11 @@ func abortParts(arg string, include string, exclude string) <span class="cov8" t
 import (
         "context"
         "coscli/util"
+        "fmt"
         "os"
         "strings"
 
         "github.com/olekukonko/tablewriter"
-        logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
         "github.com/tencentyun/cos-go-sdk-v5"
 )
@@ -194,31 +201,32 @@ Example:
         ./coscli bucket-tagging --method put cos://examplebucket tag1#test1 tag2#test2
         ./coscli bucket-tagging --method get cos://examplebucket
         ./coscli bucket-tagging --method delete cos://examplebucket`,
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 method, _ := cmd.Flags().GetString("method")
 
+                var err error
                 if method == "put" </span><span class="cov8" title="1">{
                         if len(args) &lt; 2 </span><span class="cov0" title="0">{
-                                logger.Fatalln("not enough arguments in call to put bucket tagging")
+                                return fmt.Errorf("not enough arguments in call to put bucket tagging")
                         }</span>
-                        <span class="cov8" title="1">putBucketTagging(args[0], args[1:])</span>
+                        <span class="cov8" title="1">err = putBucketTagging(args[0], args[1:])</span>
                 }
 
                 <span class="cov8" title="1">if method == "get" </span><span class="cov8" title="1">{
                         if len(args) &lt; 1 </span><span class="cov0" title="0">{
-                                logger.Fatalln("not enough arguments in call to get bucket tagging")
-                                os.Exit(1)
+                                return fmt.Errorf("not enough arguments in call to get bucket tagging")
                         }</span>
-                        <span class="cov8" title="1">getBucketTagging(args[0])</span>
+                        <span class="cov8" title="1">err = getBucketTagging(args[0])</span>
                 }
 
                 <span class="cov8" title="1">if method == "delete" </span><span class="cov8" title="1">{
                         if len(args) &lt; 1 </span><span class="cov0" title="0">{
-                                logger.Fatalln("not enough arguments in call to get bucket tagging")
-                                os.Exit(1)
+                                return fmt.Errorf("not enough arguments in call to delete bucket tagging")
                         }</span>
-                        <span class="cov8" title="1">deleteBucketTagging(args[0])</span>
+                        <span class="cov8" title="1">err = deleteBucketTagging(args[0])</span>
                 }
+
+                <span class="cov8" title="1">return err</span>
         },
 }
 
@@ -227,37 +235,40 @@ func init() <span class="cov8" title="1">{
         bucketTaggingCmd.Flags().String("method", "", "put/get/delete")
 }</span>
 
-func putBucketTagging(cosPath string, tags []string) <span class="cov8" title="1">{
+func putBucketTagging(cosPath string, tags []string) error <span class="cov8" title="1">{
         bucketName, _ := util.ParsePath(cosPath)
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
-        tg := &amp;cos.BucketPutTaggingOptions{}
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">tg := &amp;cos.BucketPutTaggingOptions{}
         for i := 0; i &lt; len(tags); i += 1 </span><span class="cov8" title="1">{
                 tmp := strings.Split(tags[i], "#")
                 if len(tmp) &gt;= 2 </span><span class="cov8" title="1">{
                         tg.TagSet = append(tg.TagSet, cos.BucketTaggingTag{Key: tmp[0], Value: tmp[1]})
                 }</span> else<span class="cov0" title="0"> {
-                        logger.Fatalln("invalid tag")
-                        os.Exit(1)
+                        return fmt.Errorf("invalid tag")
                 }</span>
         }
 
-        <span class="cov8" title="1">_, err := c.Bucket.PutTagging(context.Background(), tg)
+        <span class="cov8" title="1">_, err = c.Bucket.PutTagging(context.Background(), tg)
         if err != nil </span><span class="cov0" title="0">{
-                logger.Infoln(err.Error())
-                logger.Fatalln(err)
-                os.Exit(1)
+                return err
         }</span>
+
+        <span class="cov8" title="1">return nil</span>
 }
 
-func getBucketTagging(cosPath string) <span class="cov8" title="1">{
+func getBucketTagging(cosPath string) error <span class="cov8" title="1">{
         bucketName, _ := util.ParsePath(cosPath)
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
-
-        v, _, err := c.Bucket.GetTagging(context.Background())
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
         if err != nil </span><span class="cov0" title="0">{
-                logger.Infoln(err.Error())
-                logger.Fatalln(err)
-                os.Exit(1)
+                return err
+        }</span>
+
+        <span class="cov8" title="1">v, _, err := c.Bucket.GetTagging(context.Background())
+        if err != nil </span><span class="cov0" title="0">{
+                return err
         }</span>
         <span class="cov8" title="1">table := tablewriter.NewWriter(os.Stdout)
         table.SetHeader([]string{"Key", "Value"})
@@ -266,19 +277,23 @@ func getBucketTagging(cosPath string) <span class="cov8" title="1">{
         }</span>
         <span class="cov8" title="1">table.SetBorder(false)
         table.SetAlignment(tablewriter.ALIGN_RIGHT)
-        table.Render()</span>
+        table.Render()
+
+        return nil</span>
 }
 
-func deleteBucketTagging(cosPath string) <span class="cov8" title="1">{
+func deleteBucketTagging(cosPath string) error <span class="cov8" title="1">{
         bucketName, _ := util.ParsePath(cosPath)
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
-
-        _, err := c.Bucket.DeleteTagging(context.Background())
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
         if err != nil </span><span class="cov0" title="0">{
-                logger.Infoln(err.Error())
-                logger.Fatalln(err)
-                os.Exit(1)
+                return err
         }</span>
+
+        <span class="cov8" title="1">_, err = c.Bucket.DeleteTagging(context.Background())
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">return nil</span>
 }
 </pre>
 		
@@ -326,8 +341,9 @@ Format:
 
 Example:
   ./coscli config add -b example-1234567890 -r ap-shanghai -a example`,
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
-                addBucketConfig(cmd)
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                err := addBucketConfig(cmd)
+                return err
         }</span>,
 }
 
@@ -344,16 +360,16 @@ func init() <span class="cov8" title="1">{
         // _ = configAddCmd.MarkFlagRequired("endpoint")
 }</span>
 
-func addBucketConfig(cmd *cobra.Command) <span class="cov8" title="1">{
+func addBucketConfig(cmd *cobra.Command) error <span class="cov8" title="1">{
         name, _ := cmd.Flags().GetString("bucket")
         endpoint, _ := cmd.Flags().GetString("endpoint")
         region, _ := cmd.Flags().GetString("region")
         alias, _ := cmd.Flags().GetString("alias")
         ofs, _ := cmd.Flags().GetBool("ofs")
+
         if alias == "" </span><span class="cov0" title="0">{
                 alias = name
         }</span>
-
         <span class="cov8" title="1">bucket := util.Bucket{
                 Name:     name,
                 Endpoint: endpoint,
@@ -363,15 +379,12 @@ func addBucketConfig(cmd *cobra.Command) <span class="cov8" title="1">{
         }
 
         for _, b := range config.Buckets </span><span class="cov8" title="1">{
-                if name == b.Name </span><span class="cov0" title="0">{
-                        logger.Fatalln("The bucket already exists, fail to add!")
-                        os.Exit(1)
+                if name == b.Name </span><span class="cov8" title="1">{
+                        return fmt.Errorf("The bucket already exists, fail to add!")
                 }</span> else<span class="cov8" title="1"> if alias == b.Name </span><span class="cov0" title="0">{
-                        logger.Fatalln("The alias cannot be the same as other bucket's name")
-                        os.Exit(1)
+                        return fmt.Errorf("The alias cannot be the same as other bucket's name")
                 }</span> else<span class="cov8" title="1"> if alias == b.Alias </span><span class="cov0" title="0">{
-                        logger.Fatalln("The alias already exists, fail to add!")
-                        os.Exit(1)
+                        return fmt.Errorf("The alias already exists, fail to add!")
                 }</span>
         }
 
@@ -393,16 +406,15 @@ func addBucketConfig(cmd *cobra.Command) <span class="cov8" title="1">{
         <span class="cov8" title="1">_, err = os.Stat(configFile)
         if os.IsNotExist(err) || cfgFile != "" </span><span class="cov0" title="0">{
                 if err := viper.WriteConfigAs(configFile); err != nil </span><span class="cov0" title="0">{
-                        fmt.Println(err)
-                        os.Exit(1)
+                        return err
                 }</span>
         } else<span class="cov8" title="1"> {
                 if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalln(err)
-                        os.Exit(1)
+                        return err
                 }</span>
         }
-        <span class="cov8" title="1">logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n, ofs: %t\n", name, endpoint, alias, ofs)</span>
+        <span class="cov8" title="1">logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n, ofs: %t\n", name, endpoint, alias, ofs)
+        return nil</span>
 }
 </pre>
 		
@@ -410,8 +422,7 @@ func addBucketConfig(cmd *cobra.Command) <span class="cov8" title="1">{
 
 import (
         "coscli/util"
-        "os"
-
+        "fmt"
         logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
         "github.com/spf13/viper"
@@ -427,8 +438,9 @@ Format:
 
 Example:
   ./coscli config delete -a example`,
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
-                deleteBucketConfig(cmd)
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                err := deleteBucketConfig(cmd)
+                return err
         }</span>,
 }
 
@@ -440,25 +452,24 @@ func init() <span class="cov8" title="1">{
         _ = configDeleteCmd.MarkFlagRequired("alias")
 }</span>
 
-func deleteBucketConfig(cmd *cobra.Command) <span class="cov8" title="1">{
+func deleteBucketConfig(cmd *cobra.Command) error <span class="cov8" title="1">{
         alias, _ := cmd.Flags().GetString("alias")
         b, i, err := util.FindBucket(&amp;config, alias)
         if err != nil </span><span class="cov0" title="0">{
-                logger.Fatalln(err)
-                os.Exit(1)
+                return err
         }</span>
 
         <span class="cov8" title="1">if i &lt; 0 </span><span class="cov0" title="0">{
-                logger.Fatalln("Bucket not exist in config file!")
+                return fmt.Errorf("Bucket not exist in config file!")
         }</span>
         <span class="cov8" title="1">config.Buckets = append(config.Buckets[:i], config.Buckets[i+1:]...)
 
         viper.Set("cos.buckets", config.Buckets)
         if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil </span><span class="cov0" title="0">{
-                logger.Fatalln(err)
-                os.Exit(1)
+                return err
         }</span>
-        <span class="cov8" title="1">logger.Infof("Delete successfully! name: %s, endpoint: %s, alias: %s", b.Name, b.Endpoint, b.Alias)</span>
+        <span class="cov8" title="1">logger.Infof("Delete successfully! name: %s, endpoint: %s, alias: %s", b.Name, b.Endpoint, b.Alias)
+        return nil</span>
 }
 </pre>
 		
@@ -467,8 +478,6 @@ func deleteBucketConfig(cmd *cobra.Command) <span class="cov8" title="1">{
 import (
         "coscli/util"
         "fmt"
-        "os"
-
         "github.com/spf13/viper"
 
         homedir "github.com/mitchellh/go-homedir"
@@ -485,11 +494,12 @@ Format:
 
 Example:
   ./coscli config init`,
-        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
                 if cmdCnt &gt;= 1 </span><span class="cov0" title="0">{
-                        return
+                        return nil
                 }</span>
-                <span class="cov0" title="0">initConfigFile(true)</span>
+                <span class="cov0" title="0">err := initConfigFile(true)
+                return err</span>
         },
 }
 
@@ -498,7 +508,7 @@ func init() <span class="cov8" title="1">{
 }</span>
 
 // cfgFlag: 是否允许用户自定义配置文件的输出路径
-func initConfigFile(cfgFlag bool) <span class="cov0" title="0">{
+func initConfigFile(cfgFlag bool) error <span class="cov0" title="0">{
         var (
                 configFile string
                 config     util.Config
@@ -566,10 +576,10 @@ func initConfigFile(cfgFlag bool) <span class="cov0" title="0">{
         viper.Set("cos", config)
 
         if err := viper.WriteConfigAs(configFile); err != nil </span><span class="cov0" title="0">{
-                fmt.Println(err)
-                os.Exit(1)
+                return err
         }</span>
-        <span class="cov0" title="0">fmt.Printf("\nThe configuration file is initialized successfully! \nYou can use \"./coscli config show [-c &lt;Config File Path&gt;]\" show the contents of the specified configuration file\n")</span>
+        <span class="cov0" title="0">fmt.Printf("\nThe configuration file is initialized successfully! \nYou can use \"./coscli config show [-c &lt;Config File Path&gt;]\" show the contents of the specified configuration file\n")
+        return nil</span>
 }
 </pre>
 		
@@ -597,8 +607,9 @@ Format:
 Example:
   ./coscli config set -t example-token`,
         Args: cobra.ExactArgs(0),
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
-                setConfigItem(cmd)
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                err := setConfigItem(cmd)
+                return err
         }</span>,
 }
 
@@ -613,7 +624,7 @@ func init() <span class="cov8" title="1">{
         configSetCmd.Flags().StringP("close_auto_switch_host", "", "", "Close Auto Switch Host")
 }</span>
 
-func setConfigItem(cmd *cobra.Command) <span class="cov8" title="1">{
+func setConfigItem(cmd *cobra.Command) error <span class="cov8" title="1">{
         flag := false
         secretID, _ := cmd.Flags().GetString("secret_id")
         secretKey, _ := cmd.Flags().GetString("secret_key")
@@ -648,9 +659,7 @@ func setConfigItem(cmd *cobra.Command) <span class="cov8" title="1">{
         <span class="cov8" title="1">if mode != "" </span><span class="cov0" title="0">{
                 flag = true
                 if mode != "SecretKey" &amp;&amp; mode != "CvmRole" </span><span class="cov0" title="0">{
-                        logger.Fatalln("Please Enter Mode As SecretKey Or CvmRole!")
-                        logger.Infoln(cmd.UsageString())
-                        os.Exit(1)
+                        return fmt.Errorf("Please Enter Mode As SecretKey Or CvmRole!")
                 }</span> else<span class="cov0" title="0"> {
                         config.Base.Mode = mode
                 }</span>
@@ -674,9 +683,7 @@ func setConfigItem(cmd *cobra.Command) <span class="cov8" title="1">{
         }
 
         <span class="cov8" title="1">if !flag </span><span class="cov0" title="0">{
-                logger.Fatalln("Enter at least one configuration item to be modified!")
-                logger.Infoln(cmd.UsageString())
-                os.Exit(1)
+                return fmt.Errorf("Enter at least one configuration item to be modified!")
         }</span>
         // 默认加密存储
         <span class="cov8" title="1">config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
@@ -699,18 +706,17 @@ func setConfigItem(cmd *cobra.Command) <span class="cov8" title="1">{
         if os.IsNotExist(err) || cfgFile != "" </span><span class="cov0" title="0">{
                 viper.Set("cos.base", config.Base)
                 if err := viper.WriteConfigAs(configFile); err != nil </span><span class="cov0" title="0">{
-                        fmt.Println(err)
-                        os.Exit(1)
+                        return err
                 }</span>
         } else<span class="cov8" title="1"> {
                 viper.Set("cos.base", config.Base)
                 if err := viper.WriteConfigAs(viper.ConfigFileUsed()); err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalln(err)
-                        os.Exit(1)
+                        return err
                 }</span>
         }
 
-        <span class="cov8" title="1">logger.Infoln("Modify successfully!")</span>
+        <span class="cov8" title="1">logger.Infoln("Modify successfully!")
+        return nil</span>
 }
 </pre>
 		
@@ -771,7 +777,6 @@ import (
         "context"
         "coscli/util"
         "fmt"
-        "os"
         "path/filepath"
         "strings"
         "time"
@@ -803,12 +808,11 @@ Example:
                 }</span>
                 <span class="cov8" title="1">storageClass, _ := cmd.Flags().GetString("storage-class")
                 if storageClass != "" &amp;&amp; util.IsCosPath(args[0]) </span><span class="cov0" title="0">{
-                        logger.Fatalln("--storage-class can only use in upload")
-                        os.Exit(1)
+                        return fmt.Errorf("--storage-class can only use in upload")
                 }</span>
                 <span class="cov8" title="1">return nil</span>
         },
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 recursive, _ := cmd.Flags().GetBool("recursive")
                 include, _ := cmd.Flags().GetString("include")
                 exclude, _ := cmd.Flags().GetString("exclude")
@@ -829,37 +833,34 @@ Example:
                 disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
 
                 meta, err := util.MetaStringToHeader(metaString)
-                if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalln("Copy invalid meta " + err.Error())
+                if err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("Copy invalid meta " + err.Error())
                 }</span>
 
                 <span class="cov8" title="1">if retryNum &lt; 0 || retryNum &gt; 10 </span><span class="cov0" title="0">{
-                        logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
-                        return
+                        return fmt.Errorf("retry-num must be between 0 and 10 (inclusive)")
                 }</span>
 
                 <span class="cov8" title="1">if errRetryNum &lt; 0 || errRetryNum &gt; 10 </span><span class="cov0" title="0">{
-                        logger.Fatalln("err-retry-num must be between 0 and 10 (inclusive)")
-                        return
+                        return fmt.Errorf("err-retry-num must be between 0 and 10 (inclusive)")
                 }</span>
 
                 <span class="cov8" title="1">if errRetryInterval &lt; 0 || errRetryInterval &gt; 10 </span><span class="cov0" title="0">{
-                        logger.Fatalln("err-retry-interval must be between 0 and 10 (inclusive)")
-                        return
+                        return fmt.Errorf("err-retry-interval must be between 0 and 10 (inclusive)")
                 }</span>
 
                 <span class="cov8" title="1">srcUrl, err := util.FormatUrl(args[0])
                 if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalf("format srcURL error,%v", err)
+                        return fmt.Errorf("format srcURL error,%v", err)
                 }</span>
 
                 <span class="cov8" title="1">destUrl, err := util.FormatUrl(args[1])
                 if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalf("format destURL error,%v", err)
+                        return fmt.Errorf("format destURL error,%v", err)
                 }</span>
 
                 <span class="cov8" title="1">if srcUrl.IsFileUrl() &amp;&amp; destUrl.IsFileUrl() </span><span class="cov0" title="0">{
-                        logger.Fatalln("not support cp between local directory")
+                        return fmt.Errorf("not support cp between local directory")
                 }</span>
 
                 <span class="cov8" title="1">_, filters := util.GetFilter(include, exclude)
@@ -894,7 +895,7 @@ Example:
                 }
 
                 if !fo.Operation.Recursive &amp;&amp; len(fo.Operation.Filters) &gt; 0 </span><span class="cov0" title="0">{
-                        logger.Fatalln("--include or --exclude only work with --recursive")
+                        return fmt.Errorf("--include or --exclude only work with --recursive")
                 }</span>
 
                 <span class="cov8" title="1">startT := time.Now().UnixNano() / 1000 / 1000
@@ -902,29 +903,38 @@ Example:
                         // 检查错误输出日志是否是本地路径的子集
                         err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
                         if err != nil </span><span class="cov0" title="0">{
-                                logger.Fatalln(err)
+                                return err
                         }</span>
                         // 实例化cos client
                         <span class="cov8" title="1">bucketName := destUrl.(*util.CosUrl).Bucket
-                        c := util.NewClient(fo.Config, fo.Param, bucketName)
+                        c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 是否关闭crc64
-                        if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
+                        <span class="cov8" title="1">if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
                                 c.Conf.EnableCRC = false
                         }</span>
                         // 格式化上传路径
-                        <span class="cov8" title="1">util.FormatUploadPath(srcUrl, destUrl, fo)
+                        <span class="cov8" title="1">err = util.FormatUploadPath(srcUrl, destUrl, fo)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 上传
-                        util.Upload(c, srcUrl, destUrl, fo)</span>
+                        <span class="cov8" title="1">util.Upload(c, srcUrl, destUrl, fo)</span>
                 } else<span class="cov8" title="1"> if srcUrl.IsCosUrl() &amp;&amp; destUrl.IsFileUrl() </span><span class="cov8" title="1">{
                         // 检查错误输出日志是否是本地路径的子集
                         err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
                         if err != nil </span><span class="cov0" title="0">{
-                                logger.Fatalln(err)
+                                return err
                         }</span>
                         <span class="cov8" title="1">bucketName := srcUrl.(*util.CosUrl).Bucket
-                        c := util.NewClient(fo.Config, fo.Param, bucketName)
+                        c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 判断桶是否是ofs桶
-                        s, _ := c.Bucket.Head(context.Background())
+                        <span class="cov8" title="1">s, _ := c.Bucket.Head(context.Background())
                         // 根据s.Header判断是否是融合桶或者普通桶
                         if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
                                 fo.BucketType = "OFS"
@@ -934,20 +944,32 @@ Example:
                                 c.Conf.EnableCRC = false
                         }</span>
                         // 格式化下载路径
-                        <span class="cov8" title="1">util.FormatDownloadPath(srcUrl, destUrl, fo, c)
+                        <span class="cov8" title="1">err = util.FormatDownloadPath(srcUrl, destUrl, fo, c)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 下载
-                        util.Download(c, srcUrl, destUrl, fo)</span>
+                        <span class="cov8" title="1">err = util.Download(c, srcUrl, destUrl, fo)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                 } else<span class="cov8" title="1"> if srcUrl.IsCosUrl() &amp;&amp; destUrl.IsCosUrl() </span><span class="cov8" title="1">{
                         // 实例化来源 cos client
                         srcBucketName := srcUrl.(*util.CosUrl).Bucket
-                        srcClient := util.NewClient(fo.Config, fo.Param, srcBucketName)
+                        srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
 
                         // 实例化目标 cos client
-                        destBucketName := destUrl.(*util.CosUrl).Bucket
-                        destClient := util.NewClient(fo.Config, fo.Param, destBucketName)
+                        <span class="cov8" title="1">destBucketName := destUrl.(*util.CosUrl).Bucket
+                        destClient, err := util.NewClient(fo.Config, fo.Param, destBucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
 
                         // 判断桶是否是ofs桶
-                        s, _ := srcClient.Bucket.Head(context.Background())
+                        <span class="cov8" title="1">s, _ := srcClient.Bucket.Head(context.Background())
                         // 根据s.Header判断是否是融合桶或者普通桶
                         if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
                                 fo.BucketType = "OFS"
@@ -959,15 +981,23 @@ Example:
                         }</span>
 
                         // 格式化copy路径
-                        <span class="cov8" title="1">util.FormatCopyPath(srcUrl, destUrl, fo, srcClient, destClient)
+                        <span class="cov8" title="1">err = util.FormatCopyPath(srcUrl, destUrl, fo, srcClient)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 拷贝
-                        util.CosCopy(srcClient, destClient, srcUrl, destUrl, fo)</span>
+                        <span class="cov8" title="1">err = util.CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                 } else<span class="cov0" title="0"> {
-                        logger.Fatalf("cospath needs to contain %s", util.SchemePrefix)
+                        return fmt.Errorf("cospath needs to contain %s", util.SchemePrefix)
                 }</span>
                 <span class="cov8" title="1">util.CloseErrorOutputFile(fo)
                 endT := time.Now().UnixNano() / 1000 / 1000
-                util.PrintCostTime(startT, endT)</span>
+                util.PrintCostTime(startT, endT)
+
+                return nil</span>
         },
 }
 
@@ -996,27 +1026,36 @@ func init() <span class="cov8" title="1">{
         cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 }</span>
 
-func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) <span class="cov0" title="0">{
+func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error <span class="cov8" title="1">{
         bucketName1, cosPath1 := util.ParsePath(args[0])
         bucketName2, cosPath2 := util.ParsePath(args[1])
-        c2 := util.NewClient(&amp;config, &amp;param, bucketName2)
+        c2, err := util.NewClient(&amp;config, &amp;param, bucketName2)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        if recursive </span><span class="cov0" title="0">{
-                c1 := util.NewClient(&amp;config, &amp;param, bucketName1)
+        <span class="cov8" title="1">if recursive </span><span class="cov8" title="1">{
+                c1, err := util.NewClient(&amp;config, &amp;param, bucketName1)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
                 // 路径分隔符
                 // 记录是否是代码添加的路径分隔符
-                isAddSeparator := false
+                <span class="cov8" title="1">isAddSeparator := false
                 // 源路径若不以路径分隔符结尾，则添加
-                if !strings.HasSuffix(cosPath1, "/") &amp;&amp; cosPath1 != "" </span><span class="cov0" title="0">{
+                if !strings.HasSuffix(cosPath1, "/") &amp;&amp; cosPath1 != "" </span><span class="cov8" title="1">{
                         isAddSeparator = true
                         cosPath1 += "/"
                 }</span>
                 // 判断cosDir是否是文件夹
-                <span class="cov0" title="0">isDir := util.CheckCosPathType(c1, cosPath1, 0, nil)
+                <span class="cov8" title="1">isDir, err := util.CheckCosPathType(c1, cosPath1, 0, &amp;util.FileOperations{})
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
 
-                if isDir </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if isDir </span><span class="cov8" title="1">{
                         // cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加
-                        if cosPath2 != "" &amp;&amp; !strings.HasSuffix(cosPath2, string(filepath.Separator)) </span><span class="cov0" title="0">{
+                        if cosPath2 != "" &amp;&amp; !strings.HasSuffix(cosPath2, string(filepath.Separator)) </span><span class="cov8" title="1">{
                                 cosPath2 += string(filepath.Separator)
                         }</span> else<span class="cov0" title="0"> {
                                 // 若cosPath2以路径分隔符结尾，且cosPath1传入时不以路径分隔符结尾，则需将cos路径的最终文件拼接至local路径最后
@@ -1033,9 +1072,12 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
                         }</span>
                 }
 
-                <span class="cov0" title="0">objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
+                <span class="cov8" title="1">objects, _, err := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
 
-                opt := &amp;cos.ObjectCopyOptions{
+                <span class="cov8" title="1">opt := &amp;cos.ObjectCopyOptions{
                         ObjectCopyHeaderOptions: &amp;cos.ObjectCopyHeaderOptions{
                                 CacheControl:       meta.CacheControl,
                                 ContentDisposition: meta.ContentDisposition,
@@ -1050,11 +1092,11 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
                 if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
                         meta.ContentType != "" || meta.Expires != "" || meta.MetaChange </span>{<span class="cov0" title="0">
                 }</span>
-                <span class="cov0" title="0">{
+                <span class="cov8" title="1">{
                         opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
                 }</span>
 
-                <span class="cov0" title="0">for _, o := range objects </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">for _, o := range objects </span><span class="cov8" title="1">{
                         srcKey := o.Key
                         objName := srcKey[len(cosPath1):]
 
@@ -1065,51 +1107,55 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
                                 dstKey = cosPath2 + fileName
                         }</span>
 
-                        <span class="cov0" title="0">if dstKey == "" </span><span class="cov0" title="0">{
+                        <span class="cov8" title="1">if dstKey == "" </span><span class="cov0" title="0">{
                                 continue</span>
                         }
 
-                        <span class="cov0" title="0">srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
+                        <span class="cov8" title="1">srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
                         dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
                         logger.Infoln("Copy", srcPath, "=&gt;", dstPath)
 
-                        url := util.GenURL(&amp;config, &amp;param, bucketName1)
-                        srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
-
-                        _, _, err := c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
+                        url, err := util.GenURL(&amp;config, &amp;param, bucketName1)
                         if err != nil </span><span class="cov0" title="0">{
-                                logger.Fatalln(err)
-                                os.Exit(1)
+                                return err
+                        }</span>
+                        <span class="cov8" title="1">srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
+
+                        _, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
                         }</span>
                 }
-        } else<span class="cov0" title="0"> {
+        } else<span class="cov8" title="1"> {
 
                 if len(cosPath1) == 0 </span><span class="cov0" title="0">{
-                        logger.Errorln("Invalid srcPath")
-                        os.Exit(1)
+                        return fmt.Errorf("Invalid srcPath")
                 }</span>
 
-                <span class="cov0" title="0">if strings.HasSuffix(cosPath1, "/") </span><span class="cov0" title="0">{
-                        logger.Errorln("srcPath is a dir")
-                        os.Exit(1)
+                <span class="cov8" title="1">if strings.HasSuffix(cosPath1, "/") </span><span class="cov0" title="0">{
+                        return fmt.Errorf("srcPath is a dir")
                 }</span>
 
-                <span class="cov0" title="0">if cosPath2 == "" || strings.HasSuffix(cosPath2, "/") </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if cosPath2 == "" || strings.HasSuffix(cosPath2, "/") </span><span class="cov0" title="0">{
                         fileName := filepath.Base(cosPath1)
                         cosPath2 = filepath.Join(cosPath2, fileName)
                         args[1] = filepath.Join(args[1], fileName)
                 }</span>
 
-                <span class="cov0" title="0">logger.Infoln("Copy", args[0], "=&gt;", args[1])
-                url := util.GenURL(&amp;config, &amp;param, bucketName1)
-                srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
-
-                _, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)
+                <span class="cov8" title="1">logger.Infoln("Copy", args[0], "=&gt;", args[1])
+                url, err := util.GenURL(&amp;config, &amp;param, bucketName1)
                 if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalln(err)
-                        os.Exit(1)
+                        return err
+                }</span>
+                <span class="cov8" title="1">srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
+
+                _, _, err = c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
                 }</span>
         }
+
+        <span class="cov8" title="1">return nil</span>
 }
 
 func getCommandType(srcUrl util.StorageUrl, destUrl util.StorageUrl) util.CpType <span class="cov8" title="1">{
@@ -1142,15 +1188,17 @@ Format:
 Example:
   ./coscli du cos://examplebucket/test/`,
         Args: cobra.ExactArgs(1),
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 bucketName, cosPath := util.ParsePath(args[0])
                 include, _ := cmd.Flags().GetString("include")
                 exclude, _ := cmd.Flags().GetString("exclude")
+                var err error
                 if cosPath == "" </span><span class="cov8" title="1">{
-                        duBucket(bucketName, include, exclude)
+                        err = duBucket(bucketName, include, exclude)
                 }</span> else<span class="cov8" title="1"> {
-                        duObjects(bucketName, cosPath, include, exclude)
+                        err = duObjects(bucketName, cosPath, include, exclude)
                 }</span>
+                <span class="cov8" title="1">return err</span>
         },
 }
 
@@ -1160,28 +1208,42 @@ func init() <span class="cov8" title="1">{
         duCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 }</span>
 
-func duBucket(bucketName string, include string, exclude string) <span class="cov8" title="1">{
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
+func duBucket(bucketName string, include string, exclude string) error <span class="cov8" title="1">{
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        objects, _ := util.GetObjectsListRecursive(c, "", 0, include, exclude)
+        <span class="cov8" title="1">objects, _, err := util.GetObjectsListRecursive(c, "", 0, include, exclude)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">util.Statistic(objects)
+        return nil</span>
+}
 
-        util.Statistic(objects)
-}</span>
+func duObjects(bucketName string, cosPath string, include string, exclude string) error <span class="cov8" title="1">{
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-func duObjects(bucketName string, cosPath string, include string, exclude string) <span class="cov8" title="1">{
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
-
-        objects, _ := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
-
-        util.Statistic(objects)
-}</span>
+        <span class="cov8" title="1">objects, _, err := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">util.Statistic(objects)
+        return nil</span>
+}
 </pre>
 		
 		<pre class="file" id="file10" style="display: none">package cmd
 
 import (
         "coscli/util"
+        "fmt"
         "os"
+        "strings"
 
         logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
@@ -1198,15 +1260,18 @@ Format:
 Example:
   ./coscli hash cos://example --type md5`,
         Args: cobra.ExactArgs(1),
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 bucketName, path := util.ParsePath(args[0])
                 hashType, _ := cmd.Flags().GetString("type")
-
+                hashType = strings.ToLower(hashType)
+                var err error
                 if bucketName != "" </span><span class="cov8" title="1">{
-                        showHash(bucketName, path, hashType)
+                        err = showHash(bucketName, path, hashType)
                 }</span> else<span class="cov8" title="1"> {
-                        calculateHash(path, hashType)
+                        _, err = calculateHash(path, hashType)
                 }</span>
+
+                <span class="cov8" title="1">return err</span>
         },
 }
 
@@ -1216,45 +1281,60 @@ func init() <span class="cov8" title="1">{
         hashCmd.Flags().StringP("type", "", "crc64", "Choose the hash type(md5 or crc64)")
 }</span>
 
-func showHash(bucketName string, path string, hashType string) <span class="cov8" title="1">{
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
-        switch hashType </span>{
+func showHash(bucketName string, path string, hashType string) error <span class="cov8" title="1">{
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">switch hashType </span>{
         case "crc64":<span class="cov8" title="1">
-                h, _ ,_:= util.ShowHash(c, path, "crc64")
-                logger.Infoln("crc64-ecma:  ", h)</span>
+                h, _, _, err := util.ShowHash(c, path, "crc64")
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">logger.Infoln("crc64-ecma:  ", h)</span>
         case "md5":<span class="cov8" title="1">
-                h, b ,_:= util.ShowHash(c, path, "md5")
-                logger.Infoln("md5:    ", h)
+                h, b, _, err := util.ShowHash(c, path, "md5")
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">logger.Infoln("md5:    ", h)
                 logger.Infoln("base64: ", b)</span>
         default:<span class="cov0" title="0">
-                logger.Infoln("Wrong args!")</span>
+                return fmt.Errorf("--type can only be selected between MD5 and CRC64")</span>
         }
+        <span class="cov8" title="1">return nil</span>
 }
 
-func calculateHash(path string, hashType string) (h string) <span class="cov8" title="1">{
+func calculateHash(path string, hashType string) (h string, err error) <span class="cov8" title="1">{
         switch hashType </span>{
         case "crc64":<span class="cov8" title="1">
-                h, _ := util.CalculateHash(path, "crc64")
-                logger.Infoln("crc64-ecma:  ", h)</span>
+                h, _, err = util.CalculateHash(path, "crc64")
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", err
+                }</span>
+                <span class="cov8" title="1">logger.Infoln("crc64-ecma:  ", h)</span>
         case "md5":<span class="cov8" title="1">
                 f, err := os.Stat(path)
                 if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalln(err)
-                        os.Exit(1)
+                        return "", err
                 }</span>
 
                 <span class="cov8" title="1">if (float64(f.Size()) / 1024 / 1024) &gt; 32 </span><span class="cov0" title="0">{
-                        logger.Fatalln("MD5 of large files is not supported")
-                        os.Exit(1)
+                        return "", fmt.Errorf("MD5 of large files is not supported")
                 }</span>
 
-                <span class="cov8" title="1">h, b := util.CalculateHash(path, "md5")
+                <span class="cov8" title="1">hash, b, err := util.CalculateHash(path, "md5")
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", err
+                }</span>
+                <span class="cov8" title="1">h = hash
                 logger.Infof("md5:     %s\n", h)
                 logger.Infoln("base64: ", b)</span>
         default:<span class="cov0" title="0">
-                logger.Infoln("Wrong args!")</span>
+                return "", fmt.Errorf("--type can only be selected between MD5 and CRC64")</span>
         }
-        <span class="cov8" title="1">return h</span>
+        <span class="cov8" title="1">return h, err</span>
 }
 </pre>
 		
@@ -1263,7 +1343,8 @@ func calculateHash(path string, hashType string) (h string) <span class="cov8" t
 import (
         "context"
         "coscli/util"
-        logger "github.com/sirupsen/logrus"
+        "fmt"
+
         "github.com/spf13/cobra"
 )
 
@@ -1278,7 +1359,7 @@ Format:
 Example:
   ./coscli ls cos://examplebucket/test/ -r`,
         Args: cobra.MaximumNArgs(1),
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 limit, _ := cmd.Flags().GetInt("limit")
                 recursive, _ := cmd.Flags().GetBool("recursive")
                 include, _ := cmd.Flags().GetString("include")
@@ -1287,7 +1368,7 @@ Example:
                 if limit == 0 </span><span class="cov8" title="1">{
                         limit = 10000
                 }</span> else<span class="cov0" title="0"> if limit &lt; 0 </span><span class="cov0" title="0">{
-                        logger.Fatalln("Flag --limit should be greater than 0")
+                        return fmt.Errorf("Flag --limit should be greater than 0")
                 }</span>
 
                 <span class="cov8" title="1">cosPath := ""
@@ -1297,30 +1378,44 @@ Example:
 
                 <span class="cov8" title="1">cosUrl, err := util.FormatUrl(cosPath)
                 if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalf("cos url format error:%v", err)
+                        return fmt.Errorf("cos url format error:%v", err)
                 }</span>
 
                 // 无参数，则列出当前账号下的所有存储桶
                 <span class="cov8" title="1">if cosPath == "" </span><span class="cov8" title="1">{
                         // 实例化cos client
-                        c := util.NewClient(&amp;config, &amp;param, "")
-                        util.ListBuckets(c, limit)
-                }</span> else<span class="cov8" title="1"> if cosUrl.IsCosUrl() </span><span class="cov8" title="1">{
+                        c, err := util.NewClient(&amp;config, &amp;param, "")
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                        <span class="cov8" title="1">err = util.ListBuckets(c, limit)</span>
+                } else<span class="cov8" title="1"> if cosUrl.IsCosUrl() </span><span class="cov8" title="1">{
                         // 实例化cos client
                         bucketName := cosUrl.(*util.CosUrl).Bucket
-                        c := util.NewClient(&amp;config, &amp;param, bucketName)
-                        _, filters := util.GetFilter(include, exclude)
+                        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                        <span class="cov8" title="1">_, filters := util.GetFilter(include, exclude)
                         // 根据s.Header判断是否是融合桶或者普通桶
-                        s, _ := c.Bucket.Head(context.Background())
-                        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
-                                util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
+                        s, e := c.Bucket.Head(context.Background())
+                        if e != nil </span><span class="cov0" title="0">{
+                                fmt.Println(e)
+                        }</span>
+                        <span class="cov8" title="1">if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+                                err = util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
                         }</span> else<span class="cov8" title="1"> {
-                                util.ListObjects(c, cosUrl, limit, recursive, filters)
+                                err = util.ListObjects(c, cosUrl, limit, recursive, filters)
+                        }</span>
+
+                        <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                                return err
                         }</span>
 
                 } else<span class="cov0" title="0"> {
-                        logger.Fatalln("cospath needs to contain cos://")
+                        return fmt.Errorf("cospath needs to contain cos://")
                 }</span>
+                <span class="cov8" title="1">return nil</span>
         },
 }
 
@@ -1342,7 +1437,6 @@ import (
         "os"
 
         "github.com/olekukonko/tablewriter"
-        logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
 )
 
@@ -1357,16 +1451,16 @@ Format:
 Example:
   ./coscli lsparts cos://examplebucket/test/`,
         Args: cobra.ExactArgs(1),
-        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 limit, _ := cmd.Flags().GetInt("limit")
                 include, _ := cmd.Flags().GetString("include")
                 exclude, _ := cmd.Flags().GetString("exclude")
                 if limit &lt; 0 || limit &gt; 1000 </span><span class="cov0" title="0">{
-                        logger.Fatalln("Flag --limit should in range 0~1000")
-                        os.Exit(1)
+                        return fmt.Errorf("Flag --limit should in range 0~1000")
                 }</span>
 
-                <span class="cov0" title="0">listParts(args[0], limit, include, exclude)</span>
+                <span class="cov8" title="1">err := listParts(args[0], limit, include, exclude)
+                return err</span>
         },
 }
 
@@ -1378,21 +1472,28 @@ func init() <span class="cov8" title="1">{
         lspartsCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 }</span>
 
-func listParts(arg string, limit int, include string, exclude string) <span class="cov0" title="0">{
+func listParts(arg string, limit int, include string, exclude string) error <span class="cov8" title="1">{
         bucketName, cosPath := util.ParsePath(arg)
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        uploads := util.GetUploadsListRecursive(c, cosPath, limit, include, exclude)
+        <span class="cov8" title="1">uploads, err := util.GetUploadsListRecursive(c, cosPath, limit, include, exclude)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        table := tablewriter.NewWriter(os.Stdout)
+        <span class="cov8" title="1">table := tablewriter.NewWriter(os.Stdout)
         table.SetHeader([]string{"Key", "Upload ID", "Initiate time"})
         for _, u := range uploads </span><span class="cov0" title="0">{
                 table.Append([]string{u.Key, u.UploadID, u.Initiated})
         }</span>
-        <span class="cov0" title="0">table.SetBorder(false)
+        <span class="cov8" title="1">table.SetBorder(false)
         table.SetAlignment(tablewriter.ALIGN_RIGHT)
         table.SetFooter([]string{"", "", fmt.Sprintf("Total: %d", len(uploads))})
-        table.Render()</span>
+        table.Render()
+        return nil</span>
 }
 </pre>
 		
@@ -1400,10 +1501,8 @@ func listParts(arg string, limit int, include string, exclude string) <span clas
 
 import (
         "context"
-        "fmt"
-        "os"
-
         "coscli/util"
+        "fmt"
 
         logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
@@ -1430,8 +1529,9 @@ Example:
                 }</span>
                 <span class="cov8" title="1">return nil</span>
         },
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
-                createBucket(cmd, args)
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                err := createBucket(cmd, args)
+                return err
         }</span>,
 }
 
@@ -1442,7 +1542,7 @@ func init() <span class="cov8" title="1">{
         mbCmd.Flags().BoolP("ofs", "o", false, "Ofs")
 }</span>
 
-func createBucket(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+func createBucket(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
         flagRegion, _ := cmd.Flags().GetString("region")
         flagOfs, _ := cmd.Flags().GetBool("ofs")
         if param.Endpoint == "" &amp;&amp; flagRegion != "" </span><span class="cov0" title="0">{
@@ -1450,9 +1550,11 @@ func createBucket(cmd *cobra.Command, args []string) <span class="cov8" title="1
         }</span>
         <span class="cov8" title="1">bucketIDName, _ := util.ParsePath(args[0])
 
-        c := util.CreateClient(&amp;config, &amp;param, bucketIDName)
-
-        opt := &amp;cos.BucketPutOptions{
+        c, err := util.CreateClient(&amp;config, &amp;param, bucketIDName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">opt := &amp;cos.BucketPutOptions{
                 XCosACL:                   "",
                 XCosGrantRead:             "",
                 XCosGrantWrite:            "",
@@ -1468,12 +1570,12 @@ func createBucket(cmd *cobra.Command, args []string) <span class="cov8" title="1
                 }
         }</span>
 
-        <span class="cov8" title="1">_, err := c.Bucket.Put(context.Background(), opt)
-        if err != nil </span><span class="cov0" title="0">{
-                logger.Fatalln(err)
-                os.Exit(1)
+        <span class="cov8" title="1">_, err = c.Bucket.Put(context.Background(), opt)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
         }</span>
-        <span class="cov8" title="1">logger.Infof("Create a new bucket! name: %s\n", bucketIDName)</span>
+        <span class="cov8" title="1">logger.Infof("Create a new bucket! name: %s\n", bucketIDName)
+        return nil</span>
 }
 </pre>
 		
@@ -1481,11 +1583,9 @@ func createBucket(cmd *cobra.Command, args []string) <span class="cov8" title="1
 
 import (
         "context"
+        "coscli/util"
         "encoding/xml"
         "fmt"
-        "os"
-
-        "coscli/util"
         logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
         "github.com/tencentyun/cos-go-sdk-v5"
@@ -1502,41 +1602,41 @@ Format:
 Example: 
   Move:
     ./coscli mv ~/example.txt cos://examplebucket/example.txt`,
-        Args: func(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
-                if err := cobra.ExactArgs(2)(cmd, args); err != nil </span><span class="cov0" title="0">{
+        Args: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
+                if err := cobra.ExactArgs(2)(cmd, args); err != nil </span><span class="cov8" title="1">{
                         return err
                 }</span>
-                <span class="cov0" title="0">storageClass, _ := cmd.Flags().GetString("storage-class")
-                if storageClass != "" &amp;&amp; util.IsCosPath(args[0]) </span><span class="cov0" title="0">{
-                        logger.Fatalln("--storage-class can only use in upload")
-                        os.Exit(1)
+                <span class="cov8" title="1">storageClass, _ := cmd.Flags().GetString("storage-class")
+                if storageClass != "" &amp;&amp; util.IsCosPath(args[0]) </span><span class="cov8" title="1">{
+                        return fmt.Errorf("--storage-class can only use in upload")
                 }</span>
-                <span class="cov0" title="0">return nil</span>
+                <span class="cov8" title="1">return nil</span>
         },
-        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 recursive, _ := cmd.Flags().GetBool("recursive")
                 include, _ := cmd.Flags().GetString("include")
                 exclude, _ := cmd.Flags().GetString("exclude")
                 storageClass, _ := cmd.Flags().GetString("storage-class")
                 metaString, _ := cmd.Flags().GetString("meta")
                 meta, err := util.MetaStringToHeader(metaString)
-                if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalln("Move invalid meta " + err.Error())
+                if err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("Move invalid meta " + err.Error())
                 }</span>
                 // args[0]: 源地址
                 // args[1]: 目标地址
-                <span class="cov0" title="0">if util.IsCosPath(args[0]) &amp;&amp; util.IsCosPath(args[1]) </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if util.IsCosPath(args[0]) &amp;&amp; util.IsCosPath(args[1]) </span><span class="cov8" title="1">{
                         bucketIDNameSource, _ := util.ParsePath(args[0])
                         bucketIDNameDest, _ := util.ParsePath(args[1])
-                        if bucketIDNameSource == bucketIDNameDest </span><span class="cov0" title="0">{
+                        if bucketIDNameSource == bucketIDNameDest </span><span class="cov8" title="1">{
                                 // 移动
                                 move(args, recursive, include, exclude, meta, storageClass)
                         }</span> else<span class="cov0" title="0"> {
-                                logger.Fatalln("cospath needs the same bucket")
+                                return fmt.Errorf("cospath needs the same bucket")
                         }</span>
                 } else<span class="cov0" title="0"> {
-                        logger.Fatalln("cospath needs to contain cos://")
+                        return fmt.Errorf("cospath needs to contain cos://")
                 }</span>
+                <span class="cov8" title="1">return nil</span>
         },
 }
 
@@ -1552,88 +1652,108 @@ func init() <span class="cov8" title="1">{
                         "the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
 }</span>
 
-func move(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) <span class="cov0" title="0">{
+func move(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error <span class="cov8" title="1">{
         bucketName, cosPath1 := util.ParsePath(args[0])
         _, cosPath2 := util.ParsePath(args[1])
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
 
-        s, _ := c.Bucket.Head(context.Background())
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">s, _ := c.Bucket.Head(context.Background())
         // 根据s.Header判断是否是融合桶或者普通桶
-        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+        if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov8" title="1">{
                 srcPath := fmt.Sprintf("cos://%s/%s", bucketName, cosPath1)
                 dstPath := fmt.Sprintf("cos://%s/%s", bucketName, cosPath2)
                 logger.Infoln("Move", srcPath, "=&gt;", dstPath)
 
-                url := util.GenURL(&amp;config, &amp;param, bucketName)
-                dstURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath2)
+                url, err := util.GenURL(&amp;config, &amp;param, bucketName)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">dstURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath2)
 
                 var closeBody bool = true
 
                 //dstURL:tina-coscli-test-123/x
                 //cosPath1:ofs
-                _, err := util.PutRename(context.Background(), &amp;config, &amp;param, c, cosPath1, dstURL, closeBody)
-                if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalln(err)
-                        os.Exit(1)
+                _, err = util.PutRename(context.Background(), &amp;config, &amp;param, c, cosPath1, dstURL, closeBody)
+                if err != nil </span><span class="cov8" title="1">{
+                        return err
                 }</span>
                 <span class="cov0" title="0">logger.Infof("\nAll move successfully!\n")</span>
-        } else<span class="cov0" title="0"> {
-                cosCopy(args, recursive, include, exclude, meta, storageClass)
-                if recursive </span><span class="cov0" title="0">{
-                        moveObjects(args, include, exclude)
-                }</span> else<span class="cov0" title="0"> {
-                        moveObject(args)
+        } else<span class="cov8" title="1"> {
+                err = cosCopy(args, recursive, include, exclude, meta, storageClass)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">if recursive </span><span class="cov8" title="1">{
+                        err = moveObjects(args, include, exclude)
+                }</span> else<span class="cov8" title="1"> {
+                        err = moveObject(args)
+                }</span>
+                <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                        return err
                 }</span>
         }
+
+        <span class="cov8" title="1">return nil</span>
 }
 
-func moveObjects(args []string, include string, exclude string) <span class="cov0" title="0">{
+func moveObjects(args []string, include string, exclude string) error <span class="cov8" title="1">{
         bucketName, cosDir := util.ParsePath(args[0])
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        if cosDir != "" &amp;&amp; cosDir[len(cosDir)-1] != '/' </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if cosDir != "" &amp;&amp; cosDir[len(cosDir)-1] != '/' </span><span class="cov8" title="1">{
                 cosDir += "/"
         }</span>
 
-        <span class="cov0" title="0">isTruncated := true
+        <span class="cov8" title="1">isTruncated := true
         nextMarker := ""
         deleteOrNot := false
         errorOrNot := false
-        for isTruncated </span><span class="cov0" title="0">{
-                objects, t, m, commonPrefixes := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
-
-                if len(commonPrefixes) &gt; 0 </span><span class="cov0" title="0">{
-                        files := getFilesAndDirs(c, cosDir, nextMarker, include, exclude)
-
-                        for _, v := range files </span><span class="cov0" title="0">{
-                                recursivemoveObject(bucketName, v)
+        for isTruncated </span><span class="cov8" title="1">{
+                objects, t, m, commonPrefixes, err := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">if len(commonPrefixes) &gt; 0 </span><span class="cov0" title="0">{
+                        files, err := getFilesAndDirs(c, cosDir, nextMarker, include, exclude)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                        <span class="cov0" title="0">for _, v := range files </span><span class="cov0" title="0">{
+                                err = recursivemoveObject(bucketName, v)
+                                return err
                         }</span>
                         <span class="cov0" title="0">isTruncated = false</span>
-                } else<span class="cov0" title="0"> {
+                } else<span class="cov8" title="1"> {
                         isTruncated = t
                         nextMarker = m
                         var oKeys []cos.Object
-                        for _, o := range objects </span><span class="cov0" title="0">{
+                        for _, o := range objects </span><span class="cov8" title="1">{
                                 oKeys = append(oKeys, cos.Object{Key: o.Key})
                         }</span>
-                        <span class="cov0" title="0">if len(oKeys) &gt; 0 </span><span class="cov0" title="0">{
+                        <span class="cov8" title="1">if len(oKeys) &gt; 0 </span><span class="cov8" title="1">{
                                 deleteOrNot = true
                         }</span>
-                        <span class="cov0" title="0">opt := &amp;cos.ObjectDeleteMultiOptions{
+                        <span class="cov8" title="1">opt := &amp;cos.ObjectDeleteMultiOptions{
                                 XMLName: xml.Name{},
                                 Quiet:   false,
                                 Objects: oKeys,
                         }
                         res, _, err := c.Object.DeleteMulti(context.Background(), opt)
                         if err != nil </span><span class="cov0" title="0">{
-                                logger.Fatalln(err)
-                                os.Exit(1)
+                                return err
                         }</span>
 
-                        <span class="cov0" title="0">for _, o := range res.DeletedObjects </span><span class="cov0" title="0">{
+                        <span class="cov8" title="1">for _, o := range res.DeletedObjects </span><span class="cov8" title="1">{
                                 logger.Infoln("Delete ", o.Key)
                         }</span>
-                        <span class="cov0" title="0">if len(res.Errors) &gt; 0 </span><span class="cov0" title="0">{
+                        <span class="cov8" title="1">if len(res.Errors) &gt; 0 </span><span class="cov0" title="0">{
                                 errorOrNot = true
                                 logger.Infoln()
                                 for _, e := range res.Errors </span><span class="cov0" title="0">{
@@ -1644,36 +1764,43 @@ func moveObjects(args []string, include string, exclude string) <span class="cov
                 }
         }
 
-        <span class="cov0" title="0">if deleteOrNot == false </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if deleteOrNot == false </span><span class="cov0" title="0">{
                 logger.Infoln("No objects were deleted!")
         }</span>
-        <span class="cov0" title="0">if errorOrNot == false </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if errorOrNot == false </span><span class="cov8" title="1">{
                 logger.Infof("\nAll move successfully!\n")
         }</span>
+        <span class="cov8" title="1">return nil</span>
 }
-func moveObject(args []string) <span class="cov0" title="0">{
+func moveObject(args []string) error <span class="cov8" title="1">{
         bucketName, cosPath := util.ParsePath(args[0])
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        opt := &amp;cos.ObjectDeleteOptions{
+        <span class="cov8" title="1">opt := &amp;cos.ObjectDeleteOptions{
                 XCosSSECustomerAglo:   "",
                 XCosSSECustomerKey:    "",
                 XCosSSECustomerKeyMD5: "",
                 XOptionHeader:         nil,
                 VersionId:             "",
         }
-        _, err := c.Object.Delete(context.Background(), cosPath, opt)
+        _, err = c.Object.Delete(context.Background(), cosPath, opt)
         if err != nil </span><span class="cov0" title="0">{
-                logger.Fatalln(err)
-                os.Exit(1)
+                return err
         }</span>
-        <span class="cov0" title="0">logger.Infoln("Delete", args[0], "successfully!")
-        logger.Infof("\n Move successfully!\n")</span>
+        <span class="cov8" title="1">logger.Infoln("Delete", args[0], "successfully!")
+        logger.Infof("\n Move successfully!\n")
+        return nil</span>
 }
 
-func recursivemoveObject(bucketName string, cosPath string) <span class="cov0" title="0">{
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
-        opt := &amp;cos.ObjectDeleteOptions{
+func recursivemoveObject(bucketName string, cosPath string) error <span class="cov0" title="0">{
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">opt := &amp;cos.ObjectDeleteOptions{
                 XCosSSECustomerAglo:   "",
                 XCosSSECustomerKey:    "",
                 XCosSSECustomerKeyMD5: "",
@@ -1681,11 +1808,8 @@ func recursivemoveObject(bucketName string, cosPath string) <span class="cov0" t
                 VersionId:             "",
         }
 
-        _, err := c.Object.Delete(context.Background(), cosPath, opt)
-        if err != nil </span><span class="cov0" title="0">{
-                logger.Fatalln(err)
-                os.Exit(1)
-        }</span>
+        _, err = c.Object.Delete(context.Background(), cosPath, opt)
+        return err</span>
 }
 </pre>
 		
@@ -1695,8 +1819,6 @@ import (
         "context"
         "coscli/util"
         "fmt"
-        "os"
-
         logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
 )
@@ -1721,7 +1843,7 @@ Example:
                 }</span>
                 <span class="cov8" title="1">return nil</span>
         },
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 bucketIDName, _ := util.ParsePath(args[0])
                 flagRegion, _ := cmd.Flags().GetString("region")
                 Force, _ := cmd.Flags().GetBool("force")
@@ -1729,6 +1851,7 @@ Example:
                         param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
                 }</span>
                 <span class="cov8" title="1">var choice string
+                var err error
                 if Force </span><span class="cov8" title="1">{
                         logger.Infof("Do you want to clear all inside the bucket and delete bucket %s ? (y/n)", bucketIDName)
                         _, _ = fmt.Scanf("%s\n", &amp;choice)
@@ -1742,18 +1865,31 @@ Example:
                                         Param:     &amp;param,
                                         ErrOutput: &amp;util.ErrOutput{},
                                 }
-                                util.RemoveObjects(args, fo)
-                                abortParts(args[0], "", "")
-                                removeBucket(bucketIDName)
-                        }</span>
+                                err = util.RemoveObjects(args, fo)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        return err
+                                }</span>
+
+                                <span class="cov8" title="1">err = abortParts(args[0], "", "")
+                                if err != nil </span><span class="cov0" title="0">{
+                                        return err
+                                }</span>
+                                <span class="cov8" title="1">err = removeBucket(bucketIDName)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        return err
+                                }</span>
+                        }
                 } else<span class="cov8" title="1"> {
                         logger.Infof("Do you want to delete %s? (y/n)", bucketIDName)
                         _, _ = fmt.Scanf("%s\n", &amp;choice)
                         if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" </span><span class="cov8" title="1">{
-                                removeBucket(bucketIDName)
-                        }</span>
+                                err = removeBucket(bucketIDName)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        return err
+                                }</span>
+                        }
                 }
-
+                <span class="cov8" title="1">return nil</span>
         },
 }
 
@@ -1763,14 +1899,17 @@ func init() <span class="cov8" title="1">{
         rbCmd.Flags().StringP("region", "r", "", "Region")
 }</span>
 
-func removeBucket(bucketIDName string) <span class="cov8" title="1">{
-        c := util.NewClient(&amp;config, &amp;param, bucketIDName)
-        _, err := c.Bucket.Delete(context.Background())
+func removeBucket(bucketIDName string) error <span class="cov8" title="1">{
+        c, err := util.NewClient(&amp;config, &amp;param, bucketIDName)
         if err != nil </span><span class="cov0" title="0">{
-                logger.Fatalln(err)
-                os.Exit(1)
+                return err
         }</span>
-        <span class="cov8" title="1">logger.Infof("Delete a empty bucket! name: %s\n", bucketIDName)</span>
+        <span class="cov8" title="1">_, err = c.Bucket.Delete(context.Background())
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">logger.Infof("Delete a empty bucket! name: %s\n", bucketIDName)
+        return nil</span>
 }
 </pre>
 		
@@ -1799,18 +1938,19 @@ Format:
 Example:
   ./coscli restore cos://examplebucket/test/ -r -d 3 -m Expedited`,
         Args: cobra.ExactArgs(1),
-        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 recursive, _ := cmd.Flags().GetBool("recursive")
                 include, _ := cmd.Flags().GetString("include")
                 exclude, _ := cmd.Flags().GetString("exclude")
                 days, _ := cmd.Flags().GetInt("days")
                 mode, _ := cmd.Flags().GetString("mode")
-
-                if recursive </span><span class="cov0" title="0">{
-                        restoreObjects(args[0], days, mode, include, exclude)
-                }</span> else<span class="cov0" title="0"> {
-                        restoreObject(args[0], days, mode)
+                var err error
+                if recursive </span><span class="cov8" title="1">{
+                        err = restoreObjects(args[0], days, mode, include, exclude)
+                }</span> else<span class="cov8" title="1"> {
+                        err = restoreObject(args[0], days, mode)
                 }</span>
+                <span class="cov8" title="1">return err</span>
         },
 }
 
@@ -1824,11 +1964,14 @@ func init() <span class="cov8" title="1">{
         restoreCmd.Flags().StringP("mode", "m", "Standard", "Specifies the mode for fetching temporary files")
 }</span>
 
-func restoreObject(arg string, days int, mode string) error <span class="cov0" title="0">{
+func restoreObject(arg string, days int, mode string) error <span class="cov8" title="1">{
         bucketName, cosPath := util.ParsePath(arg)
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        opt := &amp;cos.ObjectRestoreOptions{
+        <span class="cov8" title="1">opt := &amp;cos.ObjectRestoreOptions{
                 XMLName:       xml.Name{},
                 Days:          days,
                 Tier:          &amp;cos.CASJobParameters{Tier: mode},
@@ -1836,20 +1979,26 @@ func restoreObject(arg string, days int, mode string) error <span class="cov0" t
         }
 
         logger.Infof("Restore cos://%s/%s\n", bucketName, cosPath)
-        _, err := c.Object.PostRestore(context.Background(), cosPath, opt)
-        if err != nil </span><span class="cov0" title="0">{
+        _, err = c.Object.PostRestore(context.Background(), cosPath, opt)
+        if err != nil </span><span class="cov8" title="1">{
                 logger.Errorln(err)
                 return err
         }</span>
         <span class="cov0" title="0">return nil</span>
 }
 
-func restoreObjects(arg string, days int, mode string, include string, exclude string) <span class="cov0" title="0">{
+func restoreObjects(arg string, days int, mode string, include string, exclude string) error <span class="cov8" title="1">{
         bucketName, cosPath := util.ParsePath(arg)
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        objects, _ := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
-        succeed_num := 0
+        <span class="cov8" title="1">objects, _, err := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">succeed_num := 0
         failed_num := 0
 
         for _, o := range objects </span><span class="cov0" title="0">{
@@ -1860,6 +2009,7 @@ func restoreObjects(arg string, days int, mode string, include string, exclude s
                         succeed_num += 1
                 }</span>
         }
+        <span class="cov8" title="1">return nil</span>
 }
 </pre>
 		
@@ -1895,7 +2045,7 @@ Example:
                 }
                 <span class="cov8" title="1">return nil</span>
         },
-        Run: func(cmd *cobra.Command, args []string) <span class="cov8" title="1">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 recursive, _ := cmd.Flags().GetBool("recursive")
                 force, _ := cmd.Flags().GetBool("force")
                 onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
@@ -1922,12 +2072,13 @@ Example:
                         Param:     &amp;param,
                         ErrOutput: &amp;util.ErrOutput{},
                 }
-
+                var err error
                 if recursive </span><span class="cov8" title="1">{
-                        util.RemoveObjects(args, fo)
+                        err = util.RemoveObjects(args, fo)
                 }</span> else<span class="cov0" title="0"> {
-                        util.RemoveObject(args, fo)
+                        err = util.RemoveObject(args, fo)
                 }</span>
+                <span class="cov8" title="1">return err</span>
         },
 }
 
@@ -1945,20 +2096,27 @@ func init() <span class="cov8" title="1">{
 }</span>
 
 // 获取所有文件和目录
-func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string) <span class="cov0" title="0">{
-        objects, _, _, commonPrefixes := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
-        tempFiles := make([]string, 0)
+func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) <span class="cov0" title="0">{
+        objects, _, _, commonPrefixes, err := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+        if err != nil </span><span class="cov0" title="0">{
+                return files, err
+        }</span>
+        <span class="cov0" title="0">tempFiles := make([]string, 0)
         tempFiles = append(tempFiles, cosDir)
         for _, v := range objects </span><span class="cov0" title="0">{
                 files = append(files, v.Key)
         }</span>
         <span class="cov0" title="0">if len(commonPrefixes) &gt; 0 </span><span class="cov0" title="0">{
                 for _, v := range commonPrefixes </span><span class="cov0" title="0">{
-                        files = append(files, getFilesAndDirs(c, v, nextMarker, include, exclude)...)
-                }</span>
+                        subFiles, err := getFilesAndDirs(c, v, nextMarker, include, exclude)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return files, err
+                        }</span>
+                        <span class="cov0" title="0">tempFiles = append(tempFiles, subFiles...)</span>
+                }
         }
         <span class="cov0" title="0">files = append(files, tempFiles...)
-        return files</span>
+        return files, nil</span>
 }
 </pre>
 		
@@ -1995,8 +2153,9 @@ var rootCmd = &amp;cobra.Command{
         Version: util.Version,
 }
 
-func Execute() <span class="cov0" title="0">{
-        cobra.CheckErr(rootCmd.Execute())
+func Execute() error <span class="cov0" title="0">{
+        rootCmd.SilenceErrors = true
+        return rootCmd.Execute()
 }</span>
 
 func init() <span class="cov8" title="1">{
@@ -2109,9 +2268,9 @@ func initConfig() <span class="cov8" title="1">{
 import (
         "context"
         "coscli/util"
+        "fmt"
         "net/http"
         "net/url"
-        "os"
         "time"
 
         logger "github.com/sirupsen/logrus"
@@ -2130,13 +2289,16 @@ Format:
 Example:
   ./coscli signurl cos://examplebucket/test.jpg -t 100`,
         Args: cobra.ExactArgs(1),
-        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 time, _ := cmd.Flags().GetInt("time")
-                if util.IsCosPath(args[0]) </span><span class="cov0" title="0">{
-                        GetSignedURL(args[0], time)
+                var err error
+                if util.IsCosPath(args[0]) </span><span class="cov8" title="1">{
+                        err = GetSignedURL(args[0], time)
                 }</span> else<span class="cov0" title="0"> {
-                        logger.Fatalln("cospath needs to contain cos://")
+                        return fmt.Errorf("cospath needs to contain cos://")
                 }</span>
+
+                <span class="cov8" title="1">return err</span>
         },
 }
 
@@ -2146,11 +2308,14 @@ func init() <span class="cov8" title="1">{
         signurlCmd.Flags().IntP("time", "t", 10000, "Set the validity time of the signature(Default 10000)")
 }</span>
 
-func GetSignedURL(path string, t int) <span class="cov0" title="0">{
+func GetSignedURL(path string, t int) error <span class="cov8" title="1">{
         bucketName, cosPath := util.ParsePath(path)
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
+        c, err := util.NewClient(&amp;config, &amp;param, bucketName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
 
-        opt := &amp;cos.PresignedURLOptions{
+        <span class="cov8" title="1">opt := &amp;cos.PresignedURLOptions{
                 Query:  &amp;url.Values{},
                 Header: &amp;http.Header{},
         }
@@ -2160,26 +2325,27 @@ func GetSignedURL(path string, t int) <span class="cov0" title="0">{
                 secretID = param.SecretID
                 secretToken = ""
         }</span>
-        <span class="cov0" title="0">if param.SecretKey != "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if param.SecretKey != "" </span><span class="cov0" title="0">{
                 secretKey = param.SecretKey
                 secretToken = ""
         }</span>
-        <span class="cov0" title="0">if param.SessionToken != "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if param.SessionToken != "" </span><span class="cov0" title="0">{
                 secretToken = param.SessionToken
         }</span>
-        <span class="cov0" title="0">if secretToken != "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if secretToken != "" </span><span class="cov0" title="0">{
                 opt.Query.Add("x-cos-security-token", secretToken)
         }</span>
 
-        <span class="cov0" title="0">presignedURL, err := c.Object.GetPresignedURL(context.Background(), http.MethodGet, cosPath,
+        <span class="cov8" title="1">presignedURL, err := c.Object.GetPresignedURL(context.Background(), http.MethodGet, cosPath,
                 secretID, secretKey, time.Second*time.Duration(t), opt)
         if err != nil </span><span class="cov0" title="0">{
-                logger.Fatalln(err)
-                os.Exit(1)
+                return err
         }</span>
 
-        <span class="cov0" title="0">logger.Infoln("Signed URL:")
-        logger.Infoln(presignedURL)</span>
+        <span class="cov8" title="1">logger.Infoln("Signed URL:")
+        logger.Infoln(presignedURL)
+
+        return nil</span>
 }
 </pre>
 		
@@ -2188,16 +2354,11 @@ func GetSignedURL(path string, t int) <span class="cov0" title="0">{
 import (
         "context"
         "fmt"
-        "os"
-        "path/filepath"
-        "strings"
         "time"
 
         "coscli/util"
 
-        logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
-        "github.com/tencentyun/cos-go-sdk-v5"
 )
 
 var syncCmd = &amp;cobra.Command{
@@ -2215,18 +2376,17 @@ Example:
     ./coscli sync cos://examplebucket/example.txt ~/example.txt
   Sync Copy:
     ./coscli sync cos://examplebucket1/example1.txt cos://examplebucket2/example2.txt`,
-        Args: func(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        Args: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 if err := cobra.ExactArgs(2)(cmd, args); err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
-                <span class="cov0" title="0">storageClass, _ := cmd.Flags().GetString("storage-class")
+                <span class="cov8" title="1">storageClass, _ := cmd.Flags().GetString("storage-class")
                 if storageClass != "" &amp;&amp; util.IsCosPath(args[0]) </span><span class="cov0" title="0">{
-                        logger.Fatalln("--storage-class can only use in upload")
-                        os.Exit(1)
+                        return fmt.Errorf("--storage-class can only use in upload")
                 }</span>
-                <span class="cov0" title="0">return nil</span>
+                <span class="cov8" title="1">return nil</span>
         },
-        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+        RunE: func(cmd *cobra.Command, args []string) error <span class="cov8" title="1">{
                 recursive, _ := cmd.Flags().GetBool("recursive")
                 include, _ := cmd.Flags().GetString("include")
                 exclude, _ := cmd.Flags().GetString("exclude")
@@ -2251,37 +2411,34 @@ Example:
                 force, _ := cmd.Flags().GetBool("force")
 
                 meta, err := util.MetaStringToHeader(metaString)
-                if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalln("Sync invalid meta, reason: " + err.Error())
+                if err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("Sync invalid meta, reason: " + err.Error())
                 }</span>
 
                 <span class="cov0" title="0">if retryNum &lt; 0 || retryNum &gt; 10 </span><span class="cov0" title="0">{
-                        logger.Fatalln("retry-num must be between 0 and 10 (inclusive)")
-                        return
+                        return fmt.Errorf("retry-num must be between 0 and 10 (inclusive)")
                 }</span>
 
                 <span class="cov0" title="0">if errRetryNum &lt; 0 || errRetryNum &gt; 10 </span><span class="cov0" title="0">{
-                        logger.Fatalln("err-retry-num must be between 0 and 10 (inclusive)")
-                        return
+                        return fmt.Errorf("err-retry-num must be between 0 and 10 (inclusive)")
                 }</span>
 
                 <span class="cov0" title="0">if errRetryInterval &lt; 0 || errRetryInterval &gt; 10 </span><span class="cov0" title="0">{
-                        logger.Fatalln("err-retry-interval must be between 0 and 10 (inclusive)")
-                        return
+                        return fmt.Errorf("err-retry-interval must be between 0 and 10 (inclusive)")
                 }</span>
 
                 <span class="cov0" title="0">srcUrl, err := util.FormatUrl(args[0])
                 if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalf("format srcURL error,%v", err)
+                        return fmt.Errorf("format srcURL error,%v", err)
                 }</span>
 
                 <span class="cov0" title="0">destUrl, err := util.FormatUrl(args[1])
                 if err != nil </span><span class="cov0" title="0">{
-                        logger.Fatalf("format destURL error,%v", err)
+                        return fmt.Errorf("format destURL error,%v", err)
                 }</span>
 
                 <span class="cov0" title="0">if srcUrl.IsFileUrl() &amp;&amp; destUrl.IsFileUrl() </span><span class="cov0" title="0">{
-                        logger.Fatalln("not support cp between local directory")
+                        return fmt.Errorf("not support cp between local directory")
                 }</span>
 
                 <span class="cov0" title="0">_, filters := util.GetFilter(include, exclude)
@@ -2319,44 +2476,59 @@ Example:
                 }
 
                 // 快照db实例化
-                util.InitSnapshotDb(srcUrl, destUrl, fo)
-                startT := time.Now().UnixNano() / 1000 / 1000
+                err = util.InitSnapshotDb(srcUrl, destUrl, fo)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov0" title="0">startT := time.Now().UnixNano() / 1000 / 1000
                 if srcUrl.IsFileUrl() &amp;&amp; destUrl.IsCosUrl() </span><span class="cov0" title="0">{
                         // 检查错误输出日志是否是本地路径的子集
                         err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
                         if err != nil </span><span class="cov0" title="0">{
-                                logger.Fatalln(err)
+                                return err
                         }</span>
                         // 格式化上传路径
-                        <span class="cov0" title="0">util.FormatUploadPath(srcUrl, destUrl, fo)
+                        <span class="cov0" title="0">err = util.FormatUploadPath(srcUrl, destUrl, fo)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 实例化cos client
-                        bucketName := destUrl.(*util.CosUrl).Bucket
-                        c := util.NewClient(fo.Config, fo.Param, bucketName)
+                        <span class="cov0" title="0">bucketName := destUrl.(*util.CosUrl).Bucket
+                        c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 是否关闭crc64
-                        if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
+                        <span class="cov0" title="0">if fo.Operation.DisableCrc64 </span><span class="cov0" title="0">{
                                 c.Conf.EnableCRC = false
                         }</span>
                         // 上传
-                        <span class="cov0" title="0">util.SyncUpload(c, srcUrl, destUrl, fo)</span>
+                        <span class="cov0" title="0">err = util.SyncUpload(c, srcUrl, destUrl, fo)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                 } else<span class="cov0" title="0"> if srcUrl.IsCosUrl() &amp;&amp; destUrl.IsFileUrl() </span><span class="cov0" title="0">{
                         // 检查错误输出日志是否是本地路径的子集
                         err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
                         if err != nil </span><span class="cov0" title="0">{
-                                logger.Fatalln(err)
+                                return err
                         }</span>
 
                         <span class="cov0" title="0">if fo.Operation.Delete </span><span class="cov0" title="0">{
                                 // 检查备份路径
                                 err = util.CheckBackupDir(destUrl, fo)
                                 if err != nil </span><span class="cov0" title="0">{
-                                        logger.Fatalln(err)
+                                        return err
                                 }</span>
                         }
 
                         <span class="cov0" title="0">bucketName := srcUrl.(*util.CosUrl).Bucket
-                        c := util.NewClient(fo.Config, fo.Param, bucketName)
+                        c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 判断桶是否是ofs桶
-                        s, _ := c.Bucket.Head(context.Background())
+                        <span class="cov0" title="0">s, _ := c.Bucket.Head(context.Background())
                         // 根据s.Header判断是否是融合桶或者普通桶
                         if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
                                 fo.BucketType = "OFS"
@@ -2366,21 +2538,32 @@ Example:
                                 c.Conf.EnableCRC = false
                         }</span>
                         // 格式化下载路径
-                        <span class="cov0" title="0">util.FormatDownloadPath(srcUrl, destUrl, fo, c)
-
+                        <span class="cov0" title="0">err = util.FormatDownloadPath(srcUrl, destUrl, fo, c)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 下载
-                        util.SyncDownload(c, srcUrl, destUrl, fo)</span>
+                        <span class="cov0" title="0">err = util.SyncDownload(c, srcUrl, destUrl, fo)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                 } else<span class="cov0" title="0"> if srcUrl.IsCosUrl() &amp;&amp; destUrl.IsCosUrl() </span><span class="cov0" title="0">{
                         // 实例化来源 cos client
                         srcBucketName := srcUrl.(*util.CosUrl).Bucket
-                        srcClient := util.NewClient(fo.Config, fo.Param, srcBucketName)
+                        srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
 
                         // 实例化目标 cos client
-                        destBucketName := destUrl.(*util.CosUrl).Bucket
-                        destClient := util.NewClient(fo.Config, fo.Param, destBucketName)
+                        <span class="cov0" title="0">destBucketName := destUrl.(*util.CosUrl).Bucket
+                        destClient, err := util.NewClient(fo.Config, fo.Param, destBucketName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
 
                         // 判断桶是否是ofs桶
-                        s, _ := srcClient.Bucket.Head(context.Background())
+                        <span class="cov0" title="0">s, _ := srcClient.Bucket.Head(context.Background())
                         // 根据s.Header判断是否是融合桶或者普通桶
                         if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
                                 fo.BucketType = "OFS"
@@ -2392,15 +2575,23 @@ Example:
                         }</span>
 
                         // 格式化copy路径
-                        <span class="cov0" title="0">util.FormatCopyPath(srcUrl, destUrl, fo, srcClient, destClient)
+                        <span class="cov0" title="0">err = util.FormatCopyPath(srcUrl, destUrl, fo, srcClient)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                         // 拷贝
-                        util.SyncCosCopy(srcClient, destClient, srcUrl, destUrl, fo)</span>
+                        <span class="cov0" title="0">err = util.SyncCosCopy(srcClient, destClient, srcUrl, destUrl, fo)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
                 } else<span class="cov0" title="0"> {
-                        logger.Fatalln("cospath needs to contain cos://")
+                        return fmt.Errorf("cospath needs to contain cos://")
                 }</span>
                 <span class="cov0" title="0">util.CloseErrorOutputFile(fo)
                 endT := time.Now().UnixNano() / 1000 / 1000
-                util.PrintCostTime(startT, endT)</span>
+                util.PrintCostTime(startT, endT)
+
+                return nil</span>
         },
 }
 
@@ -2451,213 +2642,11 @@ func init() <span class="cov8" title="1">{
         syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
         syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
 }</span>
-
-func syncCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) <span class="cov0" title="0">{
-        bucketName1, cosPath1 := util.ParsePath(args[0])
-        bucketName2, cosPath2 := util.ParsePath(args[1])
-        c2 := util.NewClient(&amp;config, &amp;param, bucketName2)
-        c1 := util.NewClient(&amp;config, &amp;param, bucketName1)
-
-        if recursive </span><span class="cov0" title="0">{
-                // 路径分隔符
-                // 记录是否是代码添加的路径分隔符
-                isAddSeparator := false
-                // 源路径若不以路径分隔符结尾，则添加
-                if !strings.HasSuffix(cosPath1, "/") &amp;&amp; cosPath1 != "" </span><span class="cov0" title="0">{
-                        isAddSeparator = true
-                        cosPath1 += "/"
-                }</span>
-                // 判断cosDir是否是文件夹
-                <span class="cov0" title="0">isDir := util.CheckCosPathType(c1, cosPath1, 0, nil)
-
-                if isDir </span><span class="cov0" title="0">{
-                        // cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加
-                        if cosPath2 != "" &amp;&amp; !strings.HasSuffix(cosPath2, string(filepath.Separator)) </span><span class="cov0" title="0">{
-                                cosPath2 += string(filepath.Separator)
-                        }</span> else<span class="cov0" title="0"> {
-                                // 若cosPath2以路径分隔符结尾，且cosPath1传入时不以路径分隔符结尾，则需将cos路径的最终文件拼接至local路径最后
-                                if isAddSeparator </span><span class="cov0" title="0">{
-                                        fileName := filepath.Base(cosPath1)
-                                        cosPath2 += fileName
-                                        cosPath2 += string(filepath.Separator)
-                                }</span>
-                        }
-                } else<span class="cov0" title="0"> {
-                        // cosPath1不是文件夹且路径分隔符为代码添加,则去掉路径分隔符
-                        if isAddSeparator </span><span class="cov0" title="0">{
-                                cosPath1 = strings.TrimSuffix(cosPath1, "/")
-                        }</span>
-                }
-
-                <span class="cov0" title="0">objects, _ := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
-                opt := &amp;cos.ObjectCopyOptions{
-                        ObjectCopyHeaderOptions: &amp;cos.ObjectCopyHeaderOptions{
-                                CacheControl:       meta.CacheControl,
-                                ContentDisposition: meta.ContentDisposition,
-                                ContentEncoding:    meta.ContentEncoding,
-                                ContentType:        meta.ContentType,
-                                Expires:            meta.Expires,
-                                XCosStorageClass:   storageClass,
-                                XCosMetaXXX:        meta.XCosMetaXXX,
-                        },
-                }
-
-                if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
-                        meta.ContentType != "" || meta.Expires != "" || meta.MetaChange </span>{<span class="cov0" title="0">
-                }</span>
-                <span class="cov0" title="0">{
-                        opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
-                }</span>
-                <span class="cov0" title="0">for _, o := range objects </span><span class="cov0" title="0">{
-                        srcKey := o.Key
-                        objName := srcKey[len(cosPath1):]
-
-                        // 格式化文件名
-                        dstKey := cosPath2 + objName
-                        if objName == "" &amp;&amp; (strings.HasSuffix(cosPath2, "/") || cosPath2 == "") </span><span class="cov0" title="0">{
-                                fileName := filepath.Base(o.Key)
-                                dstKey = cosPath2 + fileName
-                        }</span>
-
-                        <span class="cov0" title="0">if dstKey == "" </span><span class="cov0" title="0">{
-                                continue</span>
-                        }
-                        <span class="cov0" title="0">srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
-                        dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
-
-                        headOpt := &amp;cos.ObjectHeadOptions{
-                                IfModifiedSince:       "",
-                                XCosSSECustomerAglo:   "",
-                                XCosSSECustomerKey:    "",
-                                XCosSSECustomerKeyMD5: "",
-                                XOptionHeader:         nil,
-                        }
-                        resp, err := c2.Object.Head(context.Background(), dstKey, headOpt)
-
-                        // 不存在，则拷贝
-                        if err != nil </span><span class="cov0" title="0">{
-                                if resp != nil &amp;&amp; resp.StatusCode == 404 </span><span class="cov0" title="0">{
-                                        logger.Infoln("Copy", srcPath, "=&gt;", dstPath)
-
-                                        url := util.GenURL(&amp;config, &amp;param, bucketName1)
-                                        srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
-
-                                        _, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
-                                        if err != nil </span><span class="cov0" title="0">{
-                                                logger.Fatalln(err)
-                                                os.Exit(1)
-                                        }</span>
-                                } else<span class="cov0" title="0"> {
-                                        logger.Fatalln(err)
-                                        os.Exit(1)
-                                }</span>
-                        } else<span class="cov0" title="0"> {
-                                // 存在，判断crc64
-                                crc1, _, _ := util.ShowHash(c1, srcKey, "crc64")
-                                crc2, _, _ := util.ShowHash(c2, dstKey, "crc64")
-                                if crc1 == crc2 </span><span class="cov0" title="0">{
-                                        logger.Infoln("Skip", srcPath)
-                                }</span> else<span class="cov0" title="0"> {
-                                        logger.Infoln("Copy", srcPath, "=&gt;", dstPath)
-
-                                        url := util.GenURL(&amp;config, &amp;param, bucketName1)
-                                        srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
-
-                                        _, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
-                                        if err != nil </span><span class="cov0" title="0">{
-                                                logger.Fatalln(err)
-                                                os.Exit(1)
-                                        }</span>
-                                }
-                        }
-                }
-        } else<span class="cov0" title="0"> { // 非递归，单个拷贝
-
-                if len(cosPath1) == 0 </span><span class="cov0" title="0">{
-                        logger.Errorln("Invalid srcPath")
-                        os.Exit(1)
-                }</span>
-
-                <span class="cov0" title="0">if strings.HasSuffix(cosPath1, "/") </span><span class="cov0" title="0">{
-                        logger.Errorln("srcPath is a dir")
-                        os.Exit(1)
-                }</span>
-
-                <span class="cov0" title="0">if cosPath2 == "" || strings.HasSuffix(cosPath2, "/") </span><span class="cov0" title="0">{
-                        fileName := filepath.Base(cosPath1)
-                        cosPath2 = filepath.Join(cosPath2, fileName)
-                        args[1] = filepath.Join(args[1], fileName)
-                }</span>
-
-                <span class="cov0" title="0">headOpt := &amp;cos.ObjectHeadOptions{
-                        IfModifiedSince:       "",
-                        XCosSSECustomerAglo:   "",
-                        XCosSSECustomerKey:    "",
-                        XCosSSECustomerKeyMD5: "",
-                        XOptionHeader:         nil,
-                }
-                resp, err := c2.Object.Head(context.Background(), cosPath2, headOpt)
-                opt := &amp;cos.ObjectCopyOptions{
-                        ObjectCopyHeaderOptions: &amp;cos.ObjectCopyHeaderOptions{
-                                CacheControl:       meta.CacheControl,
-                                ContentDisposition: meta.ContentDisposition,
-                                ContentEncoding:    meta.ContentEncoding,
-                                ContentType:        meta.ContentType,
-                                Expires:            meta.Expires,
-                                XCosStorageClass:   storageClass,
-                                XCosMetaXXX:        meta.XCosMetaXXX,
-                        },
-                }
-
-                if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
-                        meta.ContentType != "" || meta.Expires != "" || meta.MetaChange </span>{<span class="cov0" title="0">
-                }</span>
-                <span class="cov0" title="0">{
-                        opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
-                }</span>
-                // 不存在，则拷贝
-                <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
-                        if resp != nil &amp;&amp; resp.StatusCode == 404 </span><span class="cov0" title="0">{
-                                logger.Infoln("Copy", args[0], "=&gt;", args[1])
-                                url := util.GenURL(&amp;config, &amp;param, bucketName1)
-                                srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
-
-                                _, _, err := c2.Object.Copy(context.Background(), cosPath2, srcURL, opt)
-                                if err != nil </span><span class="cov0" title="0">{
-                                        logger.Fatalln(err)
-                                        os.Exit(1)
-                                }</span>
-                        } else<span class="cov0" title="0"> {
-                                logger.Fatalln(err)
-                                os.Exit(1)
-                        }</span>
-                } else<span class="cov0" title="0"> {
-                        // 存在，判断crc64
-                        crc1, _, _ := util.ShowHash(c1, cosPath1, "crc64")
-                        crc2, _, _ := util.ShowHash(c2, cosPath2, "crc64")
-                        if crc1 == crc2 </span><span class="cov0" title="0">{
-                                logger.Infoln("Skip", args[0])
-                        }</span> else<span class="cov0" title="0"> {
-                                logger.Infoln("Copy", args[0], "=&gt;", args[1])
-
-                                url := util.GenURL(&amp;config, &amp;param, bucketName1)
-                                srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
-
-                                _, _, err = c2.Object.Copy(context.Background(), cosPath2, srcURL, opt)
-                                if err != nil </span><span class="cov0" title="0">{
-                                        logger.Fatalln(err)
-                                        os.Exit(1)
-                                }</span>
-                        }
-                }
-        }
-}
 </pre>
 		
 		<pre class="file" id="file21" style="display: none">package cmd
 
 import (
-        "coscli/util"
         "fmt"
         "math/rand"
         "os"
@@ -2672,25 +2661,29 @@ var testDir = "test-tmp-dir"
 
 var appID string
 
-var testBucket = "coscli-test"
-var testAlias = "coscli-test-alias"
+var testBucket = "cosclitest"
+var testAlias = "cosclitest-alias"
 var testEndpoint = "cos.ap-guangzhou.myqcloud.com"
 
-var testBucket1 = "coscli-test1"
-var testAlias1 = "coscli-test1-alias"
+var testBucket1 = "cosclitest1"
+var testAlias1 = "cosclitest1-alias"
 var testEndpoint1 = "cos.ap-guangzhou.myqcloud.com"
 
-var testBucket2 = "coscli-test2"
-var testAlias2 = "coscli-test2-alias"
+var testBucket2 = "cosclitest2"
+var testAlias2 = "cosclitest2-alias"
 var testEndpoint2 = "cos.ap-guangzhou.myqcloud.com"
+
+var testOfsBucket = "coscli-ofstest"
 
 func init() <span class="cov8" title="1">{
         // 读取配置文件
         getConfig()
         // 初始化 app-id
         name := config.Buckets[0].Name
-        appID = name[len(name)-10:]
-}</span>
+        if len(name) &gt; 10 </span><span class="cov8" title="1">{
+                appID = name[len(name)-10:]
+        }</span>
+}
 
 func getConfig() <span class="cov8" title="1">{
         home, err := homedir.Dir()
@@ -2725,7 +2718,7 @@ func setUp(testBucket, testAlias, testEndpoint string) <span class="cov8" title=
                 fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
         cmd.SetArgs(args)
         err = cmd.Execute()
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 logger.Errorln("SetUp error: 更新配置文件失败")
         }</span>
 
@@ -2764,8 +2757,7 @@ func tearDown(testBucket, testAlias, testEndpoint string) <span class="cov8" tit
 
         // 更新配置文件
         <span class="cov8" title="1">logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
-        args = []string{"config", "delete", "-a",
-                fmt.Sprintf("%s", testAlias)}
+        args = []string{"config", "delete", "-a", testAlias}
         cmd.SetArgs(args)
         err = cmd.Execute()
         if err != nil </span><span class="cov0" title="0">{
@@ -2780,7 +2772,7 @@ func createTestBucket(testBucket, testEndpoint string) <span class="cov8" title=
                 fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
         cmd.SetArgs(args)
         err := cmd.Execute()
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 logger.Errorln("SetUp error: 创建测试桶失败")
         }</span>
 }
@@ -2811,20 +2803,6 @@ func addConfig(testBucket, testEndpoint string) <span class="cov8" title="1">{
         <span class="cov8" title="1">getConfig()</span>
 }
 
-// func addConfig_alias(testBucket, testAlias, testEndpoint string) {
-//         cmd := rootCmd
-//         args := []string{"config", "add", "-b",
-//                 fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
-//         cmd.SetArgs(args)
-//         err := cmd.Execute()
-//         if err != nil {
-//                 logger.Errorln("SetUp error: 更新配置文件失败")
-//         }
-
-//         // 更新 Config
-//         getConfig()
-// }
-
 func deleteConfig(testBucket string) <span class="cov8" title="1">{
         cmd := rootCmd
         args := []string{"config", "delete", "-a",
@@ -2838,19 +2816,6 @@ func deleteConfig(testBucket string) <span class="cov8" title="1">{
         // 更新 Config
         <span class="cov8" title="1">getConfig()</span>
 }
-
-// func deleteConfig_alias(testAlias string) {
-//         cmd := rootCmd
-//         args := []string{"config", "delete", "-a", testAlias}
-//         cmd.SetArgs(args)
-//         err := cmd.Execute()
-//         if err != nil {
-//                 logger.Errorln("TearDown error: 更新配置文件失败")
-//         }
-
-//         // 更新 Config
-//         getConfig()
-// }
 
 // 创建文件
 func genFile(fileName string, size int) <span class="cov8" title="1">{
@@ -2899,15 +2864,6 @@ func delDir(dirName string) <span class="cov8" title="1">{
                 logger.Errorln("delDir error: 删除文件夹失败")
         }</span>
 }
-
-// 获取 hash 值
-func getCRC(cosPath string) string <span class="cov0" title="0">{
-        bucketName, key := util.ParsePath(cosPath)
-        param.Endpoint = "cos.ap-guangzhou.myqcloud.com"
-        c := util.NewClient(&amp;config, &amp;param, bucketName)
-        h, _, _ := util.ShowHash(c, key, "crc64")
-        return h
-}</span>
 </pre>
 		
 		</div>

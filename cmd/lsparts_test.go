@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -20,4 +21,5 @@ func TestLspartsCmd(t *testing.T) {
 			So(e, ShouldBeNil)
 		})
 	})
+	time.Sleep(1 * time.Second)
 }

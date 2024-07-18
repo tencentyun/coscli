@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -90,4 +91,5 @@ func TestBucket_taggingCmd(t *testing.T) {
 		// 	})
 		// })
 	})
+	time.Sleep(1 * time.Second)
 }

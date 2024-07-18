@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -13,6 +14,7 @@ func TestDuCmd(t *testing.T) {
 	defer tearDown(testBucket, testAlias, testEndpoint)
 	genDir(testDir, 3)
 	defer delDir(testDir)
+	time.Sleep(2 * time.Second)
 	Convey("Test coscli du", t, func() {
 		localFileName := fmt.Sprintf("%s/small-file", testDir)
 		cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
@@ -33,4 +35,5 @@ func TestDuCmd(t *testing.T) {
 			So(e, ShouldBeNil)
 		})
 	})
+	time.Sleep(1 * time.Second)
 }

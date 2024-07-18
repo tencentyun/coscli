@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -53,4 +54,5 @@ func TestRbCmd(t *testing.T) {
 		// 	})
 		// })
 	})
+	time.Sleep(1 * time.Second)
 }

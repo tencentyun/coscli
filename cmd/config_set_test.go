@@ -4,6 +4,7 @@ import (
 	"coscli/util"
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -19,32 +20,34 @@ func TestConfigSetCmd(t *testing.T) {
 	fmt.Println("TestConfigSetCmd")
 	oldconfig := &util.Config{}
 	getSet(oldconfig)
+	cmd := rootCmd
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
 	Convey("Test coscil config set", t, func() {
-		// Convey("fail", func() {
-		// 	Convey("Invalid argument", func() {
-		// 		cmd := exec.Command("../coscli", "config", "set", "--secret_id")
-		// 		output, e := cmd.Output()
-		// 		fmt.Println(string(output))
-		// 		So(e, ShouldBeError)
-		// 	})
-		// 	Convey("@", func() {
-		// 		cmd := exec.Command("../coscli", "config", "set", "--secret_id", "@",
-		// 			"--secret_key", "@", "--session_token", "@", "--mode", "@",
-		// 			"--cvm_role_name", "@", "--close_auto_switch_host", "@")
-		// 		output, e := cmd.Output()
-		// 		fmt.Println(string(output))
-		// 		So(e, ShouldBeError)
-		// 	})
-		// 	Convey("no arguments", func() {
-		// 		cmd := exec.Command("../coscli", "config", "set")
-		// 		output, e := cmd.Output()
-		// 		fmt.Println(string(output))
-		// 		So(e, ShouldBeError)
-		// 	})
-		// })
+		Convey("fail", func() {
+			Convey("Invalid argument", func() {
+				args := []string{"config", "set", "--secret_id"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("@", func() {
+				args := []string{"config", "set", "--secret_id", "@",
+					"--secret_key", "@", "--session_token", "@", "--mode", "@",
+					"--cvm_role_name", "@", "--close_auto_switch_host", "@"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("no arguments", func() {
+				args := []string{"config", "set"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+		})
 		Convey("success", func() {
 			Convey("give arguments", func() {
-				cmd := rootCmd
 				args := []string{"config", "set", "--secret_id", oldconfig.Base.SecretID,
 					"--secret_key", oldconfig.Base.SecretKey, "--session_token", oldconfig.Base.SessionToken, "--mode", oldconfig.Base.Mode,
 					"--cvm_role_name", oldconfig.Base.CvmRoleName, "--close_auto_switch_host", oldconfig.Base.CloseAutoSwitchHost}
@@ -55,4 +58,5 @@ func TestConfigSetCmd(t *testing.T) {
 		})
 
 	})
+	time.Sleep(1 * time.Second)
 }
