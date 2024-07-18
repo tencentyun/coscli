@@ -346,8 +346,10 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 		}
 
 		// 根据s.Header判断是否是融合桶或者普通桶
-		s, _ := c.Bucket.Head(context.Background())
-
+		s, err := c.Bucket.Head(context.Background())
+		if err != nil {
+			return err
+		}
 		// 打印一个空行
 		fmt.Println()
 
