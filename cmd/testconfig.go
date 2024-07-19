@@ -15,17 +15,13 @@ var testDir = "test-tmp-dir"
 
 var appID string
 
-var testBucket = "cosclitest"
-var testAlias = "cosclitest-alias"
+var testBucket string
+var testAlias string
+var testBucket1 string
+var testAlias1 string
+var testBucket2 string
+var testAlias2 string
 var testEndpoint = "cos.ap-guangzhou.myqcloud.com"
-
-var testBucket1 = "cosclitest1"
-var testAlias1 = "cosclitest1-alias"
-var testEndpoint1 = "cos.ap-guangzhou.myqcloud.com"
-
-var testBucket2 = "cosclitest2"
-var testAlias2 = "cosclitest2-alias"
-var testEndpoint2 = "cos.ap-guangzhou.myqcloud.com"
 
 var testOfsBucket = "coscli-ofstest"
 
@@ -54,6 +50,17 @@ func getConfig() {
 	}
 }
 
+func randStr(length int) string {
+	str := "0123456789abcdefghijklmnopqrstuvwxyz"
+	bytes := []byte(str)
+	result := []byte{}
+	rand.Seed(time.Now().UnixNano() + int64(rand.Intn(100)))
+	for i := 0; i < length; i++ {
+		result = append(result, bytes[rand.Intn(len(bytes))])
+	}
+	return string(result)
+}
+
 func setUp(testBucket, testAlias, testEndpoint string) {
 	// 创建测试桶
 	logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
@@ -63,17 +70,23 @@ func setUp(testBucket, testAlias, testEndpoint string) {
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	if err != nil {
-		logger.Errorln("SetUp error: 创建测试桶失败")
+		logger.Errorln(err)
 	}
 
 	// 更新配置文件
-	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
-	args = []string{"config", "add", "-b",
-		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
+	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testBucket))
+	if testAlias == "" {
+		args = []string{"config", "add", "-b",
+			fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint}
+	} else {
+		args = []string{"config", "add", "-b",
+			fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
+	}
+
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
-		logger.Errorln("SetUp error: 更新配置文件失败")
+		logger.Errorln(err)
 	}
 
 	// 更新 Config
@@ -81,6 +94,9 @@ func setUp(testBucket, testAlias, testEndpoint string) {
 }
 
 func tearDown(testBucket, testAlias, testEndpoint string) {
+	if testAlias == "" {
+		testAlias = testBucket + "-" + appID
+	}
 	// 清空测试桶
 	logger.Infoln(fmt.Sprintf("清空测试桶：%s", testAlias))
 	cmd := rootCmd
@@ -89,14 +105,14 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	if err != nil {
-		logger.Errorln("TearDown error: 清空测试桶失败")
+		logger.Errorln(err)
 	}
 	args = []string{"abort",
 		fmt.Sprintf("cos://%s", testAlias)}
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
-		logger.Errorln("TearDown error: 清空测试桶失败")
+		logger.Errorln(err)
 	}
 
 	// 删除测试桶
@@ -106,7 +122,7 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
-		logger.Errorln("TearDown error: 删除测试桶失败")
+		logger.Errorln(err)
 	}
 
 	// 更新配置文件
@@ -115,60 +131,8 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
-		logger.Errorln("TearDown error: 更新配置文件失败")
+		logger.Errorln(err)
 	}
-}
-
-func createTestBucket(testBucket, testEndpoint string) {
-	logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
-	cmd := rootCmd
-	args := []string{"mb",
-		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
-		logger.Errorln("SetUp error: 创建测试桶失败")
-	}
-}
-
-func deleteTestBucket(testBucket, testEndpoint string) {
-	logger.Infoln(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testEndpoint))
-	cmd := rootCmd
-	args := []string{"rb",
-		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
-		logger.Errorln("TearDown error: 删除测试桶失败")
-	}
-}
-
-func addConfig(testBucket, testEndpoint string) {
-	cmd := rootCmd
-	args := []string{"config", "add", "-b",
-		fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint}
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
-		logger.Errorln("SetUp error: 更新配置文件失败")
-	}
-
-	// 更新 Config
-	getConfig()
-}
-
-func deleteConfig(testBucket string) {
-	cmd := rootCmd
-	args := []string{"config", "delete", "-a",
-		fmt.Sprintf("%s-%s", testBucket, appID)}
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
-		logger.Errorln("TearDown error: 更新配置文件失败")
-	}
-
-	// 更新 Config
-	getConfig()
 }
 
 // 创建文件

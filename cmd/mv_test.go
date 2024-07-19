@@ -4,19 +4,19 @@ import (
 	"coscli/util"
 	"fmt"
 	"testing"
-	"time"
 
-	"bou.ke/monkey"
+	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestMvCmd(t *testing.T) {
 	fmt.Println("TestMvCmd")
+	testBucket = randStr(8)
+	testAlias = testBucket + "-alias"
 	setUp(testBucket, testAlias, testEndpoint)
 	defer tearDown(testBucket, testAlias, testEndpoint)
 	genDir(testDir, 3)
 	defer delDir(testDir)
-	time.Sleep(2 * time.Second)
 	localFileName := fmt.Sprintf("%s/small-file", testDir)
 	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
 	cmd := rootCmd
@@ -25,7 +25,6 @@ func TestMvCmd(t *testing.T) {
 	args := []string{"cp", localFileName, cosFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
-	time.Sleep(1 * time.Second)
 	// 融合桶，无法临时创建
 	Convey("Test coscli mv", t, func() {
 		Convey("success", func() {
@@ -53,37 +52,42 @@ func TestMvCmd(t *testing.T) {
 				args := []string{"mv", "abc"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
+				fmt.Printf(" : %s", e.Error())
 				So(e, ShouldBeError)
 			})
 			Convey("storage-class", func() {
 				args := []string{"mv", "cos://abc", "cos://abc", "--storage-class", "STANDARD"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
+				fmt.Printf(" : %s", e.Error())
 				So(e, ShouldBeError)
 			})
 			Convey("meta", func() {
-				monkey.Patch(util.MetaStringToHeader, func(string) (util.Meta, error) {
+				patches := ApplyFunc(util.MetaStringToHeader, func(string) (util.Meta, error) {
 					var tmp util.Meta
 					return tmp, fmt.Errorf("test meta error")
 				})
-				args := []string{"mv", "cos://abc", "cos://abc"}
+				defer patches.Reset()
+				args := []string{"mv", "cos://abc", "cos://abc", "--storage-class", ""}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
+				fmt.Printf(" : %s", e.Error())
 				So(e, ShouldBeError)
 			})
 			Convey("not cospath", func() {
 				args := []string{"mv", "~/.abc", "cos://abc"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
+				fmt.Printf(" : %s", e.Error())
 				So(e, ShouldBeError)
 			})
 			Convey("not equal cospath", func() {
 				args := []string{"mv", "cos://bcd", "cos://abc"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
+				fmt.Printf(" : %s", e.Error())
 				So(e, ShouldBeError)
 			})
 		})
 	})
-	time.Sleep(1 * time.Second)
 }
