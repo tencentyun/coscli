@@ -8,6 +8,7 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	logger "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -23,7 +24,8 @@ var testBucket2 string
 var testAlias2 string
 var testEndpoint = "cos.ap-guangzhou.myqcloud.com"
 
-var testOfsBucket = "coscli-ofstest"
+var testOfsBucket string
+var testOfsBucketAlias string
 
 func init() {
 	// 读取配置文件
@@ -61,16 +63,27 @@ func randStr(length int) string {
 	return string(result)
 }
 
-func setUp(testBucket, testAlias, testEndpoint string) {
+func setUp(testBucket, testAlias, testEndpoint string, ofs bool) {
 	// 创建测试桶
 	logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
+	clearCmd()
 	cmd := rootCmd
-	args := []string{"mb",
-		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+	var args []string
+	if ofs {
+		args = []string{"mb",
+			fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "-o"}
+	} else {
+		args = []string{"mb",
+			fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+	}
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	if err != nil {
 		logger.Errorln(err)
+	}
+
+	if testAlias == "nil" {
+		return
 	}
 
 	// 更新配置文件
@@ -82,7 +95,11 @@ func setUp(testBucket, testAlias, testEndpoint string) {
 		args = []string{"config", "add", "-b",
 			fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
 	}
-
+	if ofs {
+		args = append(args, "-o")
+	}
+	clearCmd()
+	cmd = rootCmd
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
@@ -98,17 +115,21 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 		testAlias = testBucket + "-" + appID
 	}
 	// 清空测试桶
-	logger.Infoln(fmt.Sprintf("清空测试桶：%s", testAlias))
-	cmd := rootCmd
+	logger.Infoln(fmt.Sprintf("清空测试桶文件：%s", testAlias))
 	args := []string{"rm",
 		fmt.Sprintf("cos://%s", testAlias), "-r", "-f"}
+	clearCmd()
+	cmd := rootCmd
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	if err != nil {
 		logger.Errorln(err)
 	}
+	logger.Infoln(fmt.Sprintf("清空测试桶碎片：%s", testAlias))
 	args = []string{"abort",
 		fmt.Sprintf("cos://%s", testAlias)}
+	clearCmd()
+	cmd = rootCmd
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
@@ -119,6 +140,8 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	logger.Infoln(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testEndpoint))
 	args = []string{"rb",
 		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+	clearCmd()
+	cmd = rootCmd
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
@@ -128,6 +151,8 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	// 更新配置文件
 	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
 	args = []string{"config", "delete", "-a", testAlias}
+	clearCmd()
+	cmd = rootCmd
 	cmd.SetArgs(args)
 	err = cmd.Execute()
 	if err != nil {
@@ -180,5 +205,18 @@ func delDir(dirName string) {
 	logger.Infoln(fmt.Sprintf("删除测试临时文件夹：%s", dirName))
 	if err := os.RemoveAll(dirName); err != nil {
 		logger.Errorln("delDir error: 删除文件夹失败")
+	}
+}
+
+func clearCmd() {
+	rootCmd.Flags().VisitAll(func(flag *pflag.Flag) {
+		flag.Value.Set(flag.DefValue)
+	})
+
+	// 重置子命令的状态
+	for _, subCmd := range rootCmd.Commands() {
+		subCmd.Flags().VisitAll(func(flag *pflag.Flag) {
+			flag.Value.Set(flag.DefValue)
+		})
 	}
 }

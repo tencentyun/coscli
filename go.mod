@@ -3,6 +3,7 @@ module coscli
 go 1.18
 
 require (
+	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mozillazg/go-httpheader v0.4.0

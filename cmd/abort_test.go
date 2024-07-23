@@ -16,14 +16,17 @@ func TestAbortCmd(t *testing.T) {
 	fmt.Println("TestAbortCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false)
 	defer tearDown(testBucket, testAlias, testEndpoint)
+	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 	Convey("Test coscli abort", t, func() {
 		Convey("success", func() {
 			Convey("0 success 0 fail", func() {
+				clearCmd()
+				cmd := rootCmd
 				args := []string{"abort",
 					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
 				cmd.SetArgs(args)
@@ -31,6 +34,8 @@ func TestAbortCmd(t *testing.T) {
 				So(e, ShouldBeNil)
 			})
 			Convey("1 success", func() {
+				clearCmd()
+				cmd := rootCmd
 				patches := ApplyFunc(util.GetUploadsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []util.UploadInfo, err error) {
 					tmp := []util.UploadInfo{
 						util.UploadInfo{
@@ -52,6 +57,8 @@ func TestAbortCmd(t *testing.T) {
 				So(e, ShouldBeNil)
 			})
 			Convey("1 fail", func() {
+				clearCmd()
+				cmd := rootCmd
 				patches := ApplyFunc(util.GetUploadsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []util.UploadInfo, err error) {
 					tmp := []util.UploadInfo{
 						util.UploadInfo{
@@ -75,6 +82,8 @@ func TestAbortCmd(t *testing.T) {
 		})
 		Convey("failed", func() {
 			Convey("not enough argument", func() {
+				clearCmd()
+				cmd := rootCmd
 				args := []string{"abort"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
@@ -82,6 +91,8 @@ func TestAbortCmd(t *testing.T) {
 				So(e, ShouldBeError)
 			})
 			Convey("client fail", func() {
+				clearCmd()
+				cmd := rootCmd
 				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
 					return nil, fmt.Errorf("test abort client error")
 				})
@@ -94,6 +105,8 @@ func TestAbortCmd(t *testing.T) {
 				So(e, ShouldBeError)
 			})
 			Convey("GetUpload fail", func() {
+				clearCmd()
+				cmd := rootCmd
 				patches := ApplyFunc(util.GetUploadsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []util.UploadInfo, err error) {
 					return nil, fmt.Errorf("test GetUpload client error")
 				})

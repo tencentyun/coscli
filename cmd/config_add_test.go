@@ -10,8 +10,9 @@ import (
 func TestConfigAddCmd(t *testing.T) {
 	fmt.Println("TestConfigAddCmd")
 	testBucket = randStr(8)
-	setUp(testBucket, "", testEndpoint)
+	setUp(testBucket, "", testEndpoint, false)
 	defer tearDown(testBucket, "", testEndpoint)
+	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
@@ -29,6 +30,8 @@ func TestConfigAddCmd(t *testing.T) {
 		// })
 		Convey("fail", func() {
 			Convey("Bucket already exist: name", func() {
+				clearCmd()
+				cmd := rootCmd
 				args := []string{"config", "add", "-b",
 					fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", "testAlias"}
 				cmd.SetArgs(args)
@@ -37,6 +40,8 @@ func TestConfigAddCmd(t *testing.T) {
 				So(e, ShouldBeError)
 			})
 			Convey("Bucket already exist: alias-name", func() {
+				clearCmd()
+				cmd := rootCmd
 				args := []string{"config", "add", "-b",
 					fmt.Sprintf("%s-%s", "testBucket", appID), "-e", testEndpoint, "-a", fmt.Sprintf("%s-%s", testBucket, appID)}
 				cmd.SetArgs(args)
@@ -45,6 +50,8 @@ func TestConfigAddCmd(t *testing.T) {
 				So(e, ShouldBeError)
 			})
 			Convey("Bucket already exist: alias", func() {
+				clearCmd()
+				cmd := rootCmd
 				args := []string{"config", "add", "-b",
 					fmt.Sprintf("%s-%s", "testBucket", appID), "-e", testEndpoint, "-a", fmt.Sprintf("%s-%s", testBucket, appID)}
 				cmd.SetArgs(args)

@@ -1,51 +1,107 @@
 package cmd
 
-// import (
-// 	"fmt"
-// 	"testing"
-// 	"time"
+import (
+	"coscli/util"
+	"fmt"
+	"testing"
 
-// 	. "github.com/smartystreets/goconvey/convey"
-// )
+	. "github.com/agiledragon/gomonkey/v2"
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/tencentyun/cos-go-sdk-v5"
+)
 
-// func TestLsCmd(t *testing.T) {
-// 	fmt.Println("TestLsCmd")
-// 	setUp(testBucket, testAlias, testEndpoint)
-// 	defer tearDown(testBucket, testAlias, testEndpoint)
-// 	time.Sleep(2 * time.Second)
-// 	Convey("Test coscli ls", t, func() {
-// 		Convey("ls bukect", func() {
-// 			Convey("无参数", func() {
-// 				cmd := rootCmd
-// 				args := []string{"ls"}
-// 				cmd.SetArgs(args)
-// 				e := cmd.Execute()
-// 				So(e, ShouldBeNil)
-// 			})
-// 			Convey("参数--limit=0", func() {
-// 				cmd := rootCmd
-// 				args := []string{"ls", "--limit", "0"}
-// 				cmd.SetArgs(args)
-// 				e := cmd.Execute()
-// 				So(e, ShouldBeNil)
-// 			})
-// 			// Convey("参数--limit<0", func() {
-// 			// 	cmd := exec.Command("../coscli", "ls", "--limit", "-1")
-// 			// 	output, e := cmd.Output()
-// 			// 	fmt.Println(string(output))
-// 			// 	So(e, ShouldBeError)
-// 			// })
-// 		})
-// 		Convey("ls object", func() {
-// 			Convey("指定桶名", func() {
-// 				cmd := rootCmd
-// 				args := []string{"ls",
-// 					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-// 				cmd.SetArgs(args)
-// 				e := cmd.Execute()
-// 				So(e, ShouldBeNil)
-// 			})
-// 		})
-// 	})
-// 	time.Sleep(1 * time.Second)
-// }
+func TestLsCmd(t *testing.T) {
+	fmt.Println("TestLsCmd")
+	testBucket = randStr(8)
+	testAlias = testBucket + "-alias"
+	testOfsBucket = randStr(8)
+	testOfsBucketAlias = testOfsBucket + "-alias"
+	setUp(testBucket, testAlias, testEndpoint, false)
+	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testOfsBucket, testOfsBucketAlias, testEndpoint, true)
+	defer tearDown(testOfsBucket, testOfsBucketAlias, testEndpoint)
+	clearCmd()
+	cmd := rootCmd
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+
+	Convey("Test coscli ls", t, func() {
+		Convey("success", func() {
+			Convey("无参数", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("指定桶名", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls",
+					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("OFS", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls",
+					fmt.Sprintf("cos://%s-%s", testOfsBucket, appID), "-e", testEndpoint}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+		})
+		Convey("fail", func() {
+			Convey("参数--limit<0", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls", "--limit", "-1"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("FormatUrl", func() {
+				clearCmd()
+				cmd := rootCmd
+				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
+					return nil, fmt.Errorf("test formaturl error")
+				})
+				defer patches.Reset()
+				args := []string{"ls"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("New Client", func() {
+				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
+					return nil, fmt.Errorf("test new client error")
+				})
+				defer patches.Reset()
+				Convey("no cosPath", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"ls"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("cosPath", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"ls",
+						fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+			})
+		})
+	})
+}
