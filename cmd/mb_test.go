@@ -52,6 +52,20 @@ func TestMbCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("No Endpoint", func() {
+				clearCmd()
+				cmd := rootCmd
+				patches := ApplyFunc(util.CreateClient, func(config *util.Config, param *util.Param, bucketIDName string) (client *cos.Client, err error) {
+					return nil, fmt.Errorf(param.Endpoint)
+				})
+				defer patches.Reset()
+				args := []string{"mb",
+					fmt.Sprintf("cos://%s-%s", testBucket, appID), "--region", "guangzhou"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
 			Convey("Create Client", func() {
 				clearCmd()
 				cmd := rootCmd

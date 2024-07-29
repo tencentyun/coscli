@@ -1,10 +1,16 @@
 package cmd
 
 import (
+	"context"
+	"coscli/util"
 	"fmt"
+	"net/http"
+	"reflect"
 	"testing"
 
+	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func TestSyncCmd(t *testing.T) {
@@ -168,6 +174,318 @@ func TestSyncCmd(t *testing.T) {
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
+			})
+		})
+		Convey("fail", func() {
+			Convey("Not enough argument", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("storageClass", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "cos://abc", "cos://abc", "--storage-class", "STANDARD"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("MetaStringToHeader", func() {
+				patches := ApplyFunc(util.MetaStringToHeader, func(string) (util.Meta, error) {
+					return util.Meta{}, fmt.Errorf("test meta error")
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "cos://abc", "cos://abc"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("retryNum", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "cos://abc", "cos://abc", "--retry-num", "11"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("errRetryNum", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "cos://abc", "cos://abc", "--err-retry-num", "11"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("errRetryInterval", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "cos://abc", "cos://abc", "--err-retry-interval", "11"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("formatURL0", func() {
+				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
+					return nil, fmt.Errorf("test formatURL 0 error")
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "cos://abc", "cos://abc"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("formatURL1", func() {
+				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
+					if urlStr == "cos://abc" {
+						return nil, nil
+					} else {
+						return nil, fmt.Errorf("test formatURL 1 error")
+					}
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "cos://abc", "cos://123"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("tow local file", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "./abc", "./123"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("no -r but -i", func() {
+				patches := ApplyFunc(util.GetFilter, func(string, string) (bool, []util.FilterOptionType) {
+					tmp := []util.FilterOptionType{
+						util.FilterOptionType{},
+					}
+					return true, tmp
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "./abc", "cos://123", "--include", "abc"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("InitSnapshotDb", func() {
+				patches := ApplyFunc(util.InitSnapshotDb, func(srcUrl util.StorageUrl, destUrl util.StorageUrl, fo *util.FileOperations) error {
+					return fmt.Errorf("test InitSnapshotDb error")
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "./abc", "cos://123"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("Upload", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", "./abc", "cos://123"}
+				cmd.SetArgs(args)
+				Convey("CheckPath", func() {
+					patches := ApplyFunc(util.CheckPath, func(fileUrl util.StorageUrl, fo *util.FileOperations, pathType string) error {
+						return fmt.Errorf("test CheckPath error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("FormatUploadPath", func() {
+					patches := ApplyFunc(util.FormatUploadPath, func(fileUrl util.StorageUrl, cosUrl util.StorageUrl, fo *util.FileOperations) error {
+						return fmt.Errorf("test FormatUploadPath error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("NewClient", func() {
+					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
+						return nil, fmt.Errorf("test NewClient error")
+					})
+					defer patches.Reset()
+					patches.ApplyFunc(util.FormatUploadPath, func(fileUrl util.StorageUrl, cosUrl util.StorageUrl, fo *util.FileOperations) error {
+						return nil
+					})
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("SyncUpload", func() {
+					patches := ApplyFunc(util.SyncUpload, func(c *cos.Client, fileUrl util.StorageUrl, cosUrl util.StorageUrl, fo *util.FileOperations) error {
+						return fmt.Errorf("test SyncUpload error")
+					})
+					defer patches.Reset()
+					patches.ApplyFunc(util.FormatUploadPath, func(fileUrl util.StorageUrl, cosUrl util.StorageUrl, fo *util.FileOperations) error {
+						return nil
+					})
+					args := append(args, "--disable-crc64")
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+			})
+			Convey("Download", func() {
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-small")
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", cosFileName, "./abc", "--disable-crc64"}
+				cmd.SetArgs(args)
+				Convey("CheckPath", func() {
+					patches := ApplyFunc(util.CheckPath, func(fileUrl util.StorageUrl, fo *util.FileOperations, pathType string) error {
+						return fmt.Errorf("test CheckPath error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("NewClient", func() {
+					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
+						return nil, fmt.Errorf("test NewClient error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("Head", func() {
+					var c *cos.BucketService
+					patches := ApplyMethodFunc(reflect.TypeOf(c), "Head", func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+						return nil, fmt.Errorf("test Head error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("OFS", func() {
+					patches := ApplyFunc(util.FormatDownloadPath, func(cosUrl util.StorageUrl, fileUrl util.StorageUrl, fo *util.FileOperations, c *cos.Client) error {
+						return fmt.Errorf("test FormatDownloadPath error")
+					})
+					defer patches.Reset()
+					var c http.Header
+					patches.ApplyMethodFunc(c, "Get", func(key string) string {
+						if key == "X-Cos-Bucket-Arch" {
+							return "OFS"
+						}
+						return ""
+					})
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("FormatDownloadPath", func() {
+					patches := ApplyFunc(util.FormatDownloadPath, func(cosUrl util.StorageUrl, fileUrl util.StorageUrl, fo *util.FileOperations, c *cos.Client) error {
+						return fmt.Errorf("test FormatDownloadPath error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("SyncDownload", func() {
+					patches := ApplyFunc(util.SyncDownload, func(c *cos.Client, cosUrl util.StorageUrl, fileUrl util.StorageUrl, fo *util.FileOperations) error {
+						return fmt.Errorf("test SyncDownload error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+			})
+			Convey("CosCopy", func() {
+				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
+				dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"sync", srcPath, dstPath, "--disable-crc64"}
+				cmd.SetArgs(args)
+				Convey("NewClient src", func() {
+					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
+						return nil, fmt.Errorf("test NewClient src error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("NewClient dest", func() {
+					index := false
+					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
+						if !index {
+							index = true
+							return nil, nil
+						}
+						return nil, fmt.Errorf("test NewClient dest error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("OFS", func() {
+					patches := ApplyFunc(util.FormatCopyPath, func(srcUrl util.StorageUrl, destUrl util.StorageUrl, fo *util.FileOperations, srcClient *cos.Client) error {
+						return fmt.Errorf("test FormatCopyPath error")
+					})
+					defer patches.Reset()
+					var c http.Header
+					patches.ApplyMethodFunc(c, "Get", func(key string) string {
+						if key == "X-Cos-Bucket-Arch" {
+							return "OFS"
+						}
+						return ""
+					})
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("FormatCopyPath", func() {
+					patches := ApplyFunc(util.FormatCopyPath, func(srcUrl util.StorageUrl, destUrl util.StorageUrl, fo *util.FileOperations, srcClient *cos.Client) error {
+						return fmt.Errorf("test FormatCopyPath error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("SyncCosCopy", func() {
+					patches := ApplyFunc(util.SyncCosCopy, func(srcClient *cos.Client, destClient *cos.Client, srcUrl util.StorageUrl, destUrl util.StorageUrl, fo *util.FileOperations) error {
+						return fmt.Errorf("test SyncCosCopy error")
+					})
+					defer patches.Reset()
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
 			})
 		})
 	})

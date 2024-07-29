@@ -65,6 +65,23 @@ func TestLspartsCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("range uploads", func() {
+				clearCmd()
+				cmd := rootCmd
+				patches := ApplyFunc(util.GetUploadsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []util.UploadInfo, err error) {
+					uploads = append(uploads, util.UploadInfo{
+						Key:       "key",
+						UploadID:  "123",
+						Initiated: "123",
+					})
+					return uploads, nil
+				})
+				defer patches.Reset()
+				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
 		})
 	})
 }

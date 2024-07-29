@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"coscli/util"
 	"fmt"
+	"reflect"
 	"testing"
 
 	. "github.com/agiledragon/gomonkey/v2"
@@ -101,6 +103,45 @@ func TestLsCmd(t *testing.T) {
 					fmt.Printf(" : %v", e)
 					So(e, ShouldBeError)
 				})
+			})
+			Convey("Head", func() {
+				var c *cos.BucketService
+				patches := ApplyMethodFunc(reflect.TypeOf(c), "Head", func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("test Head error")
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls",
+					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("ListObject", func() {
+				patches := ApplyFunc(util.ListObjects, func(c *cos.Client, cosUrl util.StorageUrl, limit int, recursive bool, filters []util.FilterOptionType) error {
+					return fmt.Errorf("test ListObject error")
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls",
+					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("not cos", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls",
+					fmt.Sprintf("/%s-%s", testBucket, appID), "-e", testEndpoint}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
 			})
 		})
 	})

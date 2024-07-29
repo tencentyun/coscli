@@ -87,7 +87,7 @@ func TestAbortCmd(t *testing.T) {
 				args := []string{"abort"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
-				fmt.Printf(" : %s", e.Error())
+				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
 			Convey("client fail", func() {
@@ -101,7 +101,7 @@ func TestAbortCmd(t *testing.T) {
 					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
-				fmt.Printf(" : %s", e.Error())
+				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
 			Convey("GetUpload fail", func() {
@@ -115,7 +115,7 @@ func TestAbortCmd(t *testing.T) {
 					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
-				fmt.Printf(" : %s", e.Error())
+				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
 		})

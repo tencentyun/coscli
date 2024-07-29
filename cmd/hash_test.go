@@ -32,7 +32,7 @@ func TestHashCmd(t *testing.T) {
 			Convey("crc64", func() {
 				clearCmd()
 				cmd := rootCmd
-				args = []string{"hash", fmt.Sprintf("%s/0", localFileName)}
+				args := []string{"hash", fmt.Sprintf("%s/0", localFileName)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -40,7 +40,7 @@ func TestHashCmd(t *testing.T) {
 			Convey("md5", func() {
 				clearCmd()
 				cmd := rootCmd
-				args = []string{"hash", fmt.Sprintf("%s/0", localFileName), "--type=md5"}
+				args := []string{"hash", fmt.Sprintf("%s/0", localFileName), "--type=md5"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -50,7 +50,7 @@ func TestHashCmd(t *testing.T) {
 			Convey("crc64", func() {
 				clearCmd()
 				cmd := rootCmd
-				args = []string{"hash", fmt.Sprintf("%s/0", cosFileName)}
+				args := []string{"hash", fmt.Sprintf("%s/0", cosFileName)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -58,7 +58,7 @@ func TestHashCmd(t *testing.T) {
 			Convey("md5", func() {
 				clearCmd()
 				cmd := rootCmd
-				args = []string{"hash", fmt.Sprintf("%s/0", cosFileName), "--type=md5"}
+				args := []string{"hash", fmt.Sprintf("%s/0", cosFileName), "--type=md5"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -72,17 +72,92 @@ func TestHashCmd(t *testing.T) {
 					return nil, fmt.Errorf("test client error")
 				})
 				defer patches.Reset()
-				args = []string{"hash", fmt.Sprintf("%s/0", cosFileName)}
+				args := []string{"hash", fmt.Sprintf("%s/0", cosFileName)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("ShowHash", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"hash", fmt.Sprintf("%s/0", cosFileName)}
+				Convey("crc64", func() {
+					patches := ApplyFunc(util.ShowHash, func(c *cos.Client, path string, hashType string) (h string, b string, resp *cos.Response, err error) {
+						return "", "", nil, fmt.Errorf("test ShowHash crc64 error")
+					})
+					defer patches.Reset()
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("md5", func() {
+					patches := ApplyFunc(util.ShowHash, func(c *cos.Client, path string, hashType string) (h string, b string, resp *cos.Response, err error) {
+						return "", "", nil, fmt.Errorf("test ShowHash md5 error")
+					})
+					defer patches.Reset()
+					args := append(args, "--type=md5")
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+			})
+			Convey("CalculateHash", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"hash", fmt.Sprintf("%s/0", localFileName)}
+				Convey("crc64", func() {
+					patches := ApplyFunc(util.CalculateHash, func(path string, hashType string) (h string, b string, err error) {
+						return "", "", fmt.Errorf("test CalculateHash crc64 error")
+					})
+					defer patches.Reset()
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				// Convey("Stat", func() {
+				// 	patches := ApplyFunc(os.Stat, func(string) (fs.FileInfo, error) {
+				// 		return nil, fmt.Errorf("test Stat error")
+				// 	})
+				// 	defer patches.Reset()
+				// 	args = append(args, "--type=md5")
+				// 	cmd.SetArgs(args)
+				// 	e := cmd.Execute()
+				// 	fmt.Printf(" : %v", e)
+				// 	So(e, ShouldBeError)
+				// })
+				// Convey("Large", func() {
+				// 	var c fs.FileInfo
+				// 	patches := ApplyMethodFunc(c, "Size", func() int64 {
+				// 		return 32*1024*1024 + 100
+				// 	})
+				// 	defer patches.Reset()
+				// 	args := append(args, "--type=md5")
+				// 	cmd.SetArgs(args)
+				// 	e := cmd.Execute()
+				// 	fmt.Printf(" : %v", e)
+				// 	So(e, ShouldBeError)
+				// })
+				Convey("md5", func() {
+					patches := ApplyFunc(util.CalculateHash, func(path string, hashType string) (h string, b string, err error) {
+						return "", "", fmt.Errorf("test CalculateHash md5 error")
+					})
+					defer patches.Reset()
+					args := append(args, "--type=md5")
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+			})
 			Convey("type error", func() {
 				Convey("local file", func() {
 					clearCmd()
 					cmd := rootCmd
-					args = []string{"hash", fmt.Sprintf("%s/0", localFileName), "--type=invalid"}
+					args := []string{"hash", fmt.Sprintf("%s/0", localFileName), "--type=invalid"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -91,13 +166,14 @@ func TestHashCmd(t *testing.T) {
 				Convey("cos file", func() {
 					clearCmd()
 					cmd := rootCmd
-					args = []string{"hash", fmt.Sprintf("%s/0", cosFileName), "--type=invalid"}
+					args := []string{"hash", fmt.Sprintf("%s/0", cosFileName), "--type=invalid"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
 					So(e, ShouldBeError)
 				})
 			})
+
 		})
 	})
 }

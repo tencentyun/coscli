@@ -86,6 +86,19 @@ func TestConfigSetCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("cfgFile", func() {
+				patches := ApplyFunc(viper.WriteConfigAs, func(string) error {
+					return fmt.Errorf("test write configas error")
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"config", "set", "--secret_id", "@", "-c", "./test.yaml"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
 		})
 		Convey("success", func() {
 			Convey("give arguments", func() {

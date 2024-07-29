@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"coscli/util"
 	"fmt"
+	"reflect"
 	"testing"
 
 	. "github.com/agiledragon/gomonkey/v2"
@@ -157,6 +159,21 @@ func TestBucket_taggingCmd(t *testing.T) {
 					cmd := rootCmd
 					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
 						return nil, fmt.Errorf("test delete client error")
+					})
+					defer patches.Reset()
+					args := []string{"bucket-tagging", "--method", "delete",
+						fmt.Sprintf("cos://%s", testAlias)}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("DeleteTagging", func() {
+					clearCmd()
+					cmd := rootCmd
+					var c *cos.BucketService
+					patches := ApplyMethodFunc(reflect.TypeOf(c), "DeleteTagging", func(ctx context.Context) (*cos.Response, error) {
+						return nil, fmt.Errorf("test delete tagging error")
 					})
 					defer patches.Reset()
 					args := []string{"bucket-tagging", "--method", "delete",

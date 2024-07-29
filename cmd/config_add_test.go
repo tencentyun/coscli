@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"testing"
 
+	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/spf13/viper"
 )
 
 func TestConfigAddCmd(t *testing.T) {
 	fmt.Println("TestConfigAddCmd")
 	testBucket = randStr(8)
-	setUp(testBucket, "", testEndpoint, false)
-	defer tearDown(testBucket, "", testEndpoint)
+	testAlias = testBucket + "-alias"
+	setUp(testBucket, testAlias, testEndpoint, false)
+	defer tearDown(testBucket, testAlias, testEndpoint)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
@@ -36,7 +39,7 @@ func TestConfigAddCmd(t *testing.T) {
 					fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", "testAlias"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
-				fmt.Printf(" : %s", e.Error())
+				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
 			Convey("Bucket already exist: alias-name", func() {
@@ -46,18 +49,46 @@ func TestConfigAddCmd(t *testing.T) {
 					fmt.Sprintf("%s-%s", "testBucket", appID), "-e", testEndpoint, "-a", fmt.Sprintf("%s-%s", testBucket, appID)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
-				fmt.Printf(" : %s", e.Error())
+				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
 			Convey("Bucket already exist: alias", func() {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"config", "add", "-b",
-					fmt.Sprintf("%s-%s", "testBucket", appID), "-e", testEndpoint, "-a", fmt.Sprintf("%s-%s", testBucket, appID)}
+					fmt.Sprintf("%s-%s", "testBucket", appID), "-e", testEndpoint, "-a", testAlias}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
-				fmt.Printf(" : %s", e.Error())
+				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
+			})
+			Convey("WriteConfigAs", func() {
+				patches := ApplyFunc(viper.WriteConfigAs, func(string) error {
+					config.Buckets = config.Buckets[:len(config.Buckets)-1]
+					viper.Set("cos.buckets", config.Buckets)
+					return fmt.Errorf("test write configas error")
+				})
+				defer patches.Reset()
+				Convey("cfgFile[0]!=~", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"config", "add", "-b",
+						fmt.Sprintf("%s-%s", "testBucket", appID), "-e", testEndpoint, "-a", "testAlias", "-c", "./test.yaml"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("no cfgFile", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"config", "add", "-b",
+						fmt.Sprintf("%s-%s", "testBucket", appID), "-e", testEndpoint, "-a", ""}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
 			})
 		})
 	})
