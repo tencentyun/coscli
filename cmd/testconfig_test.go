@@ -35,7 +35,7 @@ func init() {
 	if len(name) > 10 {
 		appID = name[len(name)-10:]
 	} else {
-		appID = "1251704708"
+		logger.Errorln("请先配置一个桶")
 	}
 }
 
