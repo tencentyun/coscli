@@ -179,8 +179,11 @@ func TestMove(t *testing.T) {
 				return nil, fmt.Errorf("test PutRename error")
 			})
 			defer patches.Reset()
-			args := []string{cosOfsFileName, cosOfsFileName}
-			e := move(args, false, "", "", util.Meta{}, "")
+			clearCmd()
+			cmd := rootCmd
+			args := []string{"mv", cosOfsFileName, cosOfsFileName}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
 			fmt.Printf(" : %v", e)
 			So(e, ShouldBeError)
 		})

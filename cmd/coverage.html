@@ -83,7 +83,7 @@
 				
 				<option value="file13">coscli/cmd/mb.go (100.0%)</option>
 				
-				<option value="file14">coscli/cmd/mv.go (82.6%)</option>
+				<option value="file14">coscli/cmd/mv.go (91.7%)</option>
 				
 				<option value="file15">coscli/cmd/rb.go (100.0%)</option>
 				
@@ -319,9 +319,8 @@ func init() <span class="cov8" title="1">{
 
 import (
         "fmt"
-        "os"
-
         "github.com/mitchellh/go-homedir"
+        "os"
 
         "coscli/util"
 
@@ -1073,6 +1072,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
                                 cosPath1 = strings.TrimSuffix(cosPath1, "/")
                         }</span>
                 }
+
                 <span class="cov8" title="1">objects, _, err := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
                 if err != nil </span><span class="cov8" title="1">{
                         return err
@@ -1100,6 +1100,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
                 <span class="cov8" title="1">for _, o := range objects </span><span class="cov8" title="1">{
                         srcKey := o.Key
                         objName := srcKey[len(cosPath1):]
+
                         // 格式化文件名
                         dstKey := cosPath2 + objName
                         if objName == "" &amp;&amp; (strings.HasSuffix(cosPath2, "/") || cosPath2 == "") </span><span class="cov8" title="1">{
@@ -1127,6 +1128,7 @@ func cosCopy(args []string, recursive bool, include string, exclude string, meta
                         }</span>
                 }
         } else<span class="cov8" title="1"> {
+
                 if len(cosPath1) == 0 </span><span class="cov8" title="1">{
                         return fmt.Errorf("Invalid srcPath")
                 }</span>
@@ -1585,7 +1587,6 @@ import (
         "coscli/util"
         "encoding/xml"
         "fmt"
-
         logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
         "github.com/tencentyun/cos-go-sdk-v5"
@@ -1665,7 +1666,7 @@ func move(args []string, recursive bool, include string, exclude string, meta ut
                 return err
         }</span>
         // 根据s.Header判断是否是融合桶或者普通桶
-        <span class="cov8" title="1">if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" </span><span class="cov8" title="1">{
                 srcPath := fmt.Sprintf("cos://%s/%s", bucketName, cosPath1)
                 dstPath := fmt.Sprintf("cos://%s/%s", bucketName, cosPath2)
                 logger.Infoln("Move", srcPath, "=&gt;", dstPath)
@@ -1674,20 +1675,20 @@ func move(args []string, recursive bool, include string, exclude string, meta ut
                 if err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
-                <span class="cov0" title="0">dstURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath2)
+                <span class="cov8" title="1">dstURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath2)
 
                 var closeBody bool = true
 
                 //dstURL:tina-coscli-test-123/x
                 //cosPath1:ofs
                 _, err = util.PutRename(context.Background(), &amp;config, &amp;param, c, cosPath1, dstURL, closeBody)
-                if err != nil </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov8" title="1">{
                         return err
                 }</span>
                 <span class="cov0" title="0">logger.Infof("\nAll move successfully!\n")</span>
         } else<span class="cov8" title="1"> {
                 err = cosCopy(args, recursive, include, exclude, meta, storageClass)
-                if err != nil </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov8" title="1">{
                         return err
                 }</span>
                 <span class="cov8" title="1">if recursive </span><span class="cov8" title="1">{
@@ -1822,7 +1823,6 @@ import (
         "context"
         "coscli/util"
         "fmt"
-
         logger "github.com/sirupsen/logrus"
         "github.com/spf13/cobra"
 )
