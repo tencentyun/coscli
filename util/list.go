@@ -300,7 +300,7 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 			if cosObjectMatchPatterns(object.Key, filters) {
 				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
-					return fmt.Errorf("Error parsing time:", err)
+					return fmt.Errorf("Error parsing time:%v", err)
 				}
 				table.Append([]string{object.Key, object.StorageClass, utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size)), object.RestoreStatus})
 				total++
@@ -372,7 +372,7 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 			if cosObjectMatchPatterns(object.Key, filters) {
 				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
-					return fmt.Errorf("Error parsing time:", err)
+					return fmt.Errorf("Error parsing time:%v", err)
 				}
 				if lsCounter.TotalLimit >= limit {
 					break
