@@ -48,7 +48,7 @@ Example:
 			bucketIDNameDest, _ := util.ParsePath(args[1])
 			if bucketIDNameSource == bucketIDNameDest {
 				// 移动
-				move(args, recursive, include, exclude, meta, storageClass)
+				return move(args, recursive, include, exclude, meta, storageClass)
 			} else {
 				return fmt.Errorf("cospath needs the same bucket")
 			}
