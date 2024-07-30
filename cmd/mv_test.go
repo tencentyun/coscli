@@ -17,17 +17,12 @@ func TestMvCmd(t *testing.T) {
 	fmt.Println("TestMvCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	// testOfsBucket = randStr(8)
-	// testOfsBucketAlias = testOfsBucket + "-alias"
 	setUp(testBucket, testAlias, testEndpoint, false)
 	defer tearDown(testBucket, testAlias, testEndpoint)
-	// setUp(testOfsBucket, testOfsBucketAlias, testEndpoint, true)
-	// defer tearDown(testOfsBucket, testOfsBucketAlias, testEndpoint)
 	genDir(testDir, 3)
 	defer delDir(testDir)
 	localFileName := fmt.Sprintf("%s/small-file", testDir)
 	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
-	// ofsFileName := fmt.Sprintf("cos://%s/%s", testOfsBucketAlias, "multi-small")
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceUsage = true
@@ -35,21 +30,8 @@ func TestMvCmd(t *testing.T) {
 	args := []string{"cp", localFileName, cosFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
-	// args = []string{"cp", localFileName, ofsFileName, "-r"}
-	// clearCmd()
-	// cmd = rootCmd
-	// cmd.SetArgs(args)
-	// cmd.Execute()
 	Convey("Test coscli mv", t, func() {
 		Convey("success", func() {
-			// Convey("ofs", func() {
-			// 	clearCmd()
-			// 	cmd := rootCmd
-			// 	args := []string{"mv", fmt.Sprintf("%s/0", ofsFileName), fmt.Sprintf("cos://%s/0", testOfsBucketAlias)}
-			// 	cmd.SetArgs(args)
-			// 	e := cmd.Execute()
-			// 	So(e, ShouldBeNil)
-			// })
 			Convey("not ofs", func() {
 				clearCmd()
 				cmd := rootCmd

@@ -3,6 +3,7 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +25,9 @@ Example:
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cosUrl, err := util.FormatUrl(args[0])
+		if err != nil {
+			return err
+		}
 		if !cosUrl.IsCosUrl() {
 			return fmt.Errorf("cospath needs to contain cos://")
 		}
@@ -31,6 +35,9 @@ Example:
 		// 实例化cos client
 		bucketName := cosUrl.(*util.CosUrl).Bucket
 		c, err := util.NewClient(&config, &param, bucketName)
+		if err != nil {
+			return err
+		}
 
 		err = util.CatObject(c, cosUrl)
 		return err

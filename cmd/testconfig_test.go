@@ -34,6 +34,8 @@ func init() {
 	name := config.Buckets[0].Name
 	if len(name) > 10 {
 		appID = name[len(name)-10:]
+	} else {
+		appID = "1251704708"
 	}
 }
 
