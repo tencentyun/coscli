@@ -38,7 +38,7 @@ func writeError(errString string, fo *FileOperations) {
 		failOutputFilePath := filepath.Join(fo.ErrOutput.Path, "error.report")
 		fo.ErrOutput.outputFile, err = os.OpenFile(failOutputFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
-			logger.Errorf("Failed to create error error output file:", err)
+			logger.Errorf("Failed to create error error output file:%v", err)
 			return
 		}
 	}
