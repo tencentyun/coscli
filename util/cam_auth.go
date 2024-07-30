@@ -39,7 +39,7 @@ func CamAuth(roleName string) (data Data, err error) {
 	// 创建一个HTTP GET请求并将上下文与其关联
 	req, err := http.NewRequest("GET", CamUrl+roleName, nil)
 	if err != nil {
-		return data, fmt.Errorf("Get cam auth error : create request error", err)
+		return data, fmt.Errorf("Get cam auth error : create request error[%v]", err)
 	}
 	req = req.WithContext(ctx)
 
@@ -48,9 +48,9 @@ func CamAuth(roleName string) (data Data, err error) {
 	if err != nil {
 		// 检查是否超时错误
 		if ctx.Err() == context.DeadlineExceeded {
-			return data, fmt.Errorf("Get cam auth timeout", ctx.Err())
+			return data, fmt.Errorf("Get cam auth timeout[%v]", ctx.Err())
 		} else {
-			return data, fmt.Errorf("Get cam auth error : request error", err)
+			return data, fmt.Errorf("Get cam auth error : request error[%v]", err)
 		}
 	}
 
@@ -58,16 +58,16 @@ func CamAuth(roleName string) (data Data, err error) {
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return data, fmt.Errorf("Get cam auth error : get response error", err)
+		return data, fmt.Errorf("Get cam auth error : get response error[%v]", err)
 	}
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return data, fmt.Errorf("Get cam auth error : auth error")
+		return data, fmt.Errorf("Get cam auth error : auth error[%v]", err)
 	}
 
 	if data.Code != "Success" {
-		return data, fmt.Errorf("Get cam auth error : response error", err)
+		return data, fmt.Errorf("Get cam auth error : response error[%v]", err)
 	}
 
 	return data, nil
