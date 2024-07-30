@@ -36,6 +36,7 @@ func init() {
 		appID = name[len(name)-10:]
 	} else {
 		logger.Errorln("请先配置一个桶")
+		return
 	}
 }
 
