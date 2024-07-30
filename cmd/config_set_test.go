@@ -32,13 +32,6 @@ func TestConfigSetCmd(t *testing.T) {
 	cmd.SilenceErrors = true
 	Convey("Test coscil config set", t, func() {
 		Convey("fail", func() {
-			// Convey("Invalid argument", func() {
-			// 	args := []string{"config", "set", "--secret_id"}
-			// 	cmd.SetArgs(args)
-			// 	e := cmd.Execute()
-			// 	fmt.Printf(" : %v", e)
-			// 	So(e, ShouldBeError)
-			// })
 			Convey("no arguments", func() {
 				clearCmd()
 				cmd := rootCmd

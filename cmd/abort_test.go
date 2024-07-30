@@ -38,7 +38,7 @@ func TestAbortCmd(t *testing.T) {
 				cmd := rootCmd
 				patches := ApplyFunc(util.GetUploadsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []util.UploadInfo, err error) {
 					tmp := []util.UploadInfo{
-						util.UploadInfo{
+						{
 							Key:      "666",
 							UploadID: "888",
 						},
@@ -61,7 +61,7 @@ func TestAbortCmd(t *testing.T) {
 				cmd := rootCmd
 				patches := ApplyFunc(util.GetUploadsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []util.UploadInfo, err error) {
 					tmp := []util.UploadInfo{
-						util.UploadInfo{
+						{
 							Key:      "666",
 							UploadID: "888",
 						},

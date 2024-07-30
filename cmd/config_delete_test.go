@@ -23,13 +23,6 @@ func TestConfigDeleteCmd(t *testing.T) {
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 	Convey("Test coscil config delete", t, func() {
-		// Convey("success", func() {
-		// 	args := []string{"config", "delete", "-a",
-		// 		fmt.Sprintf("%s-%s", testBucket, appID)}
-		// 	cmd.SetArgs(args)
-		// 	e := cmd.Execute()
-		// 	So(e, ShouldBeNil)
-		// })
 		Convey("fail", func() {
 			Convey("FindBucket", func() {
 				clearCmd()

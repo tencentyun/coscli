@@ -118,29 +118,6 @@ func TestHashCmd(t *testing.T) {
 					fmt.Printf(" : %v", e)
 					So(e, ShouldBeError)
 				})
-				// Convey("Stat", func() {
-				// 	patches := ApplyFunc(os.Stat, func(string) (fs.FileInfo, error) {
-				// 		return nil, fmt.Errorf("test Stat error")
-				// 	})
-				// 	defer patches.Reset()
-				// 	args = append(args, "--type=md5")
-				// 	cmd.SetArgs(args)
-				// 	e := cmd.Execute()
-				// 	fmt.Printf(" : %v", e)
-				// 	So(e, ShouldBeError)
-				// })
-				// Convey("Large", func() {
-				// 	var c fs.FileInfo
-				// 	patches := ApplyMethodFunc(c, "Size", func() int64 {
-				// 		return 32*1024*1024 + 100
-				// 	})
-				// 	defer patches.Reset()
-				// 	args := append(args, "--type=md5")
-				// 	cmd.SetArgs(args)
-				// 	e := cmd.Execute()
-				// 	fmt.Printf(" : %v", e)
-				// 	So(e, ShouldBeError)
-				// })
 				Convey("md5", func() {
 					patches := ApplyFunc(util.CalculateHash, func(path string, hashType string) (h string, b string, err error) {
 						return "", "", fmt.Errorf("test CalculateHash md5 error")
