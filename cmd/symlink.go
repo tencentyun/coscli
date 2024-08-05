@@ -3,9 +3,10 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
+	"strings"
+
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 var symlinkCmd = &cobra.Command{
@@ -31,6 +32,9 @@ Example:
 		linkKey = strings.ToLower(linkKey)
 
 		cosUrl, err := util.FormatUrl(args[0])
+		if err != nil {
+			return err
+		}
 		if !cosUrl.IsCosUrl() {
 			return fmt.Errorf("cospath needs to contain cos://")
 		}
@@ -38,6 +42,9 @@ Example:
 		// 实例化cos client
 		bucketName := cosUrl.(*util.CosUrl).Bucket
 		c, err := util.NewClient(&config, &param, bucketName)
+		if err != nil {
+			return err
+		}
 
 		if method == "create" {
 			err = util.CreateSymlink(c, cosUrl, linkKey)

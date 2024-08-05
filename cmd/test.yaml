@@ -1,0 +1,15 @@
+cos:
+  base:
+    closeautoswitchhost: "true"
+    cvmrolename: ""
+    mode: SecretKey
+    protocol: 
+    secretid: NfZWlE2iKlDutaf4CMTvXGtJ7yqTtrjHfqR6Z8PxIKKpR9gyv/BPSqY4fGSG7CZj
+    secretkey: DecGAHO1UGTQo10A7ErDS0OAS3FYqqrHBhXXSqQb4+beQ1lHjB+NSA6psd9+JBIz
+    sessiontoken: 3kNZR4wfjUgOqbHffiQSMw==
+  buckets:
+  - name: coscli-ofstest-1251704708
+    alias: coscli-ofstest
+    region: ""
+    endpoint: cos.ap-guangzhou.myqcloud.com
+    ofs: false
