@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"io"
 	"net/url"
 	"os"
 	"sort"
 	"strings"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 var fileRemoveCount int
