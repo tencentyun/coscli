@@ -71,26 +71,23 @@ func TestRbCmd(t *testing.T) {
 					return fmt.Errorf("test abortParts error")
 				})
 				defer patches.Reset()
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("removeBucket", func() {
-				patches := ApplyFunc(removeBucket, func(string) error {
-					return fmt.Errorf("test removeBucket error")
-				})
-				defer patches.Reset()
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-		})
-		Convey("success and again", func() {
-			Convey("force", func() {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"rb",
 					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "-f"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+
+		})
+		Convey("success and again", func() {
+			Convey("success", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"rb",
+					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -107,6 +104,20 @@ func TestRbCmd(t *testing.T) {
 			})
 		})
 		Convey("removeBucket", func() {
+			patches := ApplyFunc(removeBucket, func(string) error {
+				return fmt.Errorf("test removeBucket error")
+			})
+			defer patches.Reset()
+			clearCmd()
+			cmd := rootCmd
+			args := []string{"rb",
+				fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "-f"}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			fmt.Printf(" : %v", e)
+			So(e, ShouldBeError)
+		})
+		Convey("removeBucket newClient", func() {
 			patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
 				return nil, fmt.Errorf("test NewClient error")
 			})
