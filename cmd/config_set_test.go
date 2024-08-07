@@ -26,6 +26,8 @@ func TestConfigSetCmd(t *testing.T) {
 	if err == nil {
 		oldconfig.Base.SessionToken = sessionToken
 	}
+	copyYaml()
+	defer delYaml()
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceUsage = true
