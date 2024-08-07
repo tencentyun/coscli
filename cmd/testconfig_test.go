@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"time"
@@ -160,6 +161,35 @@ func tearDown(testBucket, testAlias, testEndpoint string) {
 	err = cmd.Execute()
 	if err != nil {
 		logger.Errorln(err)
+	}
+}
+
+func copyYaml() {
+	// 打开源文件
+	sourceFile, err := os.Open("/root/.cos.yaml")
+	if err != nil {
+		logger.Errorln("failed to open source file: %w", err)
+	}
+	defer sourceFile.Close()
+
+	// 创建目标文件
+	destinationFile, err := os.Create("test.yaml")
+	if err != nil {
+		logger.Errorln("failed to create destination file: %w", err)
+	}
+	defer destinationFile.Close()
+
+	// 复制文件内容
+	_, err = io.Copy(destinationFile, sourceFile)
+	if err != nil {
+		logger.Errorln("failed to copy file content: %w", err)
+	}
+
+}
+
+func delYaml() {
+	if err := os.RemoveAll("test.yaml"); err != nil {
+		logger.Errorln("delDir error: 删除文件夹失败")
 	}
 }
 
