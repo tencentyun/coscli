@@ -23,7 +23,8 @@ Format:
 Example:
 	./coscli bucket-tagging --method put cos://examplebucket tag1#test1 tag2#test2
 	./coscli bucket-tagging --method get cos://examplebucket
-	./coscli bucket-tagging --method delete cos://examplebucket`,
+	./coscli bucket-tagging --method delete cos://examplebucket
+	./coscli bucket-tagging --method delete cos://examplebucket tag1#test1 tag2#test2`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")
 
