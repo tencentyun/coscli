@@ -23,7 +23,8 @@ Format:
 Example:
 	./coscli bucket-tagging --method put cos://examplebucket tag1#test1 tag2#test2
 	./coscli bucket-tagging --method get cos://examplebucket
-	./coscli bucket-tagging --method delete cos://examplebucket`,
+	./coscli bucket-tagging --method delete cos://examplebucket
+	./coscli bucket-tagging --method delete cos://examplebucket tag1#test1 tag2#test2`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")
 
@@ -45,8 +46,11 @@ Example:
 		if method == "delete" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to delete bucket tagging")
+			} else if len(args) == 1 {
+				err = deleteBucketTagging(args[0])
+			} else {
+				err = deleteDesBucketTagging(args[0], args[1:])
 			}
-			err = deleteBucketTagging(args[0])
 		}
 
 		return err
@@ -113,6 +117,47 @@ func deleteBucketTagging(cosPath string) error {
 	}
 
 	_, err = c.Bucket.DeleteTagging(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteDesBucketTagging(cosPath string, tags []string) error {
+	bucketName, _ := util.ParsePath(cosPath)
+	c, err := util.NewClient(&config, &param, bucketName)
+	if err != nil {
+		return err
+	}
+	d, _, err := c.Bucket.GetTagging(context.Background())
+	if err != nil {
+		return err
+	}
+	table := make(map[string]string)
+	for _, t := range d.TagSet {
+		table[t.Key] = t.Value
+	}
+	var del []string
+	for i := 0; i < len(tags); i += 1 {
+		tmp := strings.Split(tags[i], "#")
+		if len(tmp) >= 2 {
+			_, ok := table[tmp[0]]
+			del = append(del, tmp[0])
+			if ok {
+				delete(table, tmp[0])
+			} else {
+				return fmt.Errorf("the BucketTagging %s is not exist", tmp[0])
+			}
+		} else {
+			return fmt.Errorf("invalid tag")
+		}
+	}
+	tg := &cos.BucketPutTaggingOptions{}
+	for a, b := range table {
+		tg.TagSet = append(tg.TagSet, cos.BucketTaggingTag{Key: a, Value: b})
+	}
+
+	_, err = c.Bucket.PutTagging(context.Background(), tg)
 	if err != nil {
 		return err
 	}
