@@ -270,7 +270,6 @@ func TestDesDeleteBucketTagging(t *testing.T) {
 				fmt.Sprintf("cos://%s", testAlias), "testkey1#testval1", "testkey2#testval2"}
 			cmd.SetArgs(args)
 			e := cmd.Execute()
-			fmt.Printf(" : %v", e)
 			So(e, ShouldBeNil)
 		})
 	})

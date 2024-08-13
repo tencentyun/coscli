@@ -161,10 +161,5 @@ func deleteDesBucketTagging(cosPath string, tags []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Print("delete BucketTagging ")
-	for _, x := range del {
-		fmt.Printf("%s ", x)
-	}
-	fmt.Print("success")
 	return nil
 }
