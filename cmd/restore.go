@@ -1,15 +1,10 @@
 package cmd
 
 import (
-	"context"
-	"encoding/xml"
+	"coscli/util"
 	"fmt"
 
-	"coscli/util"
-
-	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 var restoreCmd = &cobra.Command{
@@ -29,11 +24,28 @@ Example:
 		exclude, _ := cmd.Flags().GetString("exclude")
 		days, _ := cmd.Flags().GetInt("days")
 		mode, _ := cmd.Flags().GetString("mode")
-		var err error
+
+		_, filters := util.GetFilter(include, exclude)
+
+		cosPath := ""
+		if len(args) != 0 {
+			cosPath = args[0]
+		}
+		cosUrl, err := util.FormatUrl(cosPath)
+		if err != nil {
+			return fmt.Errorf("cos url format error:%v", err)
+		}
+
+		bucketName := cosUrl.(*util.CosUrl).Bucket
+		c, err := util.NewClient(&config, &param, bucketName)
+		if err != nil {
+			return err
+		}
+
 		if recursive {
-			err = restoreObjects(args[0], days, mode, include, exclude)
+			err = util.RestoreObjects(c, cosUrl, days, mode, filters)
 		} else {
-			err = restoreObject(args[0], days, mode)
+			err = util.RestoreObject(c, bucketName, cosUrl.(*util.CosUrl).Object, days, mode)
 		}
 		return err
 	},
@@ -47,52 +59,4 @@ func init() {
 	restoreCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 	restoreCmd.Flags().IntP("days", "d", 3, "Specifies the expiration time of temporary files")
 	restoreCmd.Flags().StringP("mode", "m", "Standard", "Specifies the mode for fetching temporary files")
-}
-
-func restoreObject(arg string, days int, mode string) error {
-	bucketName, cosPath := util.ParsePath(arg)
-	c, err := util.NewClient(&config, &param, bucketName)
-	if err != nil {
-		return err
-	}
-
-	opt := &cos.ObjectRestoreOptions{
-		XMLName:       xml.Name{},
-		Days:          days,
-		Tier:          &cos.CASJobParameters{Tier: mode},
-		XOptionHeader: nil,
-	}
-
-	logger.Infof("Restore cos://%s/%s\n", bucketName, cosPath)
-	_, err = c.Object.PostRestore(context.Background(), cosPath, opt)
-	if err != nil {
-		logger.Errorln(err)
-		return err
-	}
-	return nil
-}
-
-func restoreObjects(arg string, days int, mode string, include string, exclude string) error {
-	bucketName, cosPath := util.ParsePath(arg)
-	c, err := util.NewClient(&config, &param, bucketName)
-	if err != nil {
-		return err
-	}
-
-	objects, _, err := util.GetObjectsListRecursive(c, cosPath, 0, include, exclude)
-	if err != nil {
-		return err
-	}
-	succeed_num := 0
-	failed_num := 0
-
-	for _, o := range objects {
-		err := restoreObject(fmt.Sprintf("cos://%s/%s", bucketName, o.Key), days, mode)
-		if err != nil {
-			failed_num += 1
-		} else {
-			succeed_num += 1
-		}
-	}
-	return nil
 }
