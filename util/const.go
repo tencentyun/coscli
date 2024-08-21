@@ -42,3 +42,8 @@ const (
 	CpTypeDownload
 	CpTypeCopy
 )
+
+const (
+	DU_TYPE_TOTAL          = 1
+	DU_TYPE_CATEGORIZATION = 2
+)
