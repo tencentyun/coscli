@@ -6,16 +6,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var duCmd = &cobra.Command{
-	Use:   "du",
+var lsduCmd = &cobra.Command{
+	Use:   "lsdu",
 	Short: "Displays the size of a bucket or objects",
 	Long: `Displays the size of a bucket or objects
 
 Format:
-  ./coscli du cos://<bucket_alias>[/prefix/] [flags]
+  ./coscli lsdu cos://<bucket_alias>[/prefix/] [flags]
 
 Example:
-  ./coscli du cos://examplebucket/test/`,
+  ./coscli lsdu cos://examplebucket/test/`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		include, _ := cmd.Flags().GetString("include")
@@ -27,6 +27,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("cos url format error:%v", err)
 		}
+
 		if !cosUrl.IsCosUrl() {
 			return fmt.Errorf("cospath needs to contain %s", util.SchemePrefix)
 		}
@@ -37,13 +38,13 @@ Example:
 			return err
 		}
 
-		err = util.DuObjects(c, cosUrl, filters, util.DU_TYPE_CATEGORIZATION)
+		err = util.LsAndDuObjects(c, cosUrl, filters)
 		return err
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(duCmd)
-	duCmd.Flags().String("include", "", "List files that meet the specified criteria")
-	duCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+	rootCmd.AddCommand(lsduCmd)
+	lsduCmd.Flags().String("include", "", "List files that meet the specified criteria")
+	lsduCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
 }

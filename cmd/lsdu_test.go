@@ -10,55 +10,47 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func TestRestoreCmd(t *testing.T) {
-	fmt.Println("TestRestoreCmd")
+func TestLsduCmd(t *testing.T) {
+	fmt.Println("TestLsduCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
 	setUp(testBucket, testAlias, testEndpoint, false)
 	defer tearDown(testBucket, testAlias, testEndpoint)
-	genDir(testDir, 3)
-	defer delDir(testDir)
-	localObject := fmt.Sprintf("%s/small-file/0", testDir)
-	localFileName := fmt.Sprintf("%s/small-file", testDir)
-	cosObject := fmt.Sprintf("cos://%s", testAlias)
-	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
 	clearCmd()
 	cmd := rootCmd
-	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
-	args1 := []string{"cp", localObject, cosObject, "--storage-class", "ARCHIVE"}
-	args2 := []string{"cp", localFileName, cosFileName, "-r", "--storage-class", "ARCHIVE"}
-	cmd.SetArgs(args1)
+	cmd.SilenceUsage = true
+	genDir(testDir, 3)
+	defer delDir(testDir)
+	localFileName := fmt.Sprintf("%s/small-file", testDir)
+	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
+	args := []string{"cp", localFileName, cosFileName, "-r"}
+	cmd.SetArgs(args)
 	cmd.Execute()
-	clearCmd()
-	cmd = rootCmd
-	cmd.SetArgs(args2)
-	cmd.Execute()
-	Convey("Test coscli restore", t, func() {
+	Convey("Test coscli lsdu", t, func() {
 		Convey("success", func() {
-			Convey("RestoreObject", func() {
+			Convey("duBucket", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"restore",
-					fmt.Sprintf("%s/0", cosObject)}
+				args = []string{"lsdu", fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
-			Convey("RestoreObjects", func() {
+			Convey("duObjects", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"restore", cosFileName, "-r"}
+				args = []string{"lsdu", cosFileName}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
 		})
 		Convey("fail", func() {
-			Convey("Not enough arguments", func() {
+			Convey("not enough arguments", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"restore"}
+				args = []string{"lsdu"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
@@ -71,7 +63,7 @@ func TestRestoreCmd(t *testing.T) {
 				defer patches.Reset()
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"restore", "invalid"}
+				args = []string{"lsdu", "invalid"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
@@ -80,34 +72,20 @@ func TestRestoreCmd(t *testing.T) {
 			Convey("not cos url", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"restore", "invalid"}
+				args = []string{"lsdu", "invalid"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
-			Convey("New Client", func() {
-				clearCmd()
-				cmd := rootCmd
+			Convey("NewClient", func() {
 				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test new client error")
+					return nil, fmt.Errorf("test NewClient error")
 				})
 				defer patches.Reset()
-				args := []string{"restore", cosFileName, "-r"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-
-			Convey("RestoreObjects", func() {
 				clearCmd()
 				cmd := rootCmd
-				patches := ApplyFunc(util.RestoreObjects, func(c *cos.Client, cosUrl util.StorageUrl, days int, mode string, filters []util.FilterOptionType) error {
-					return fmt.Errorf("test RestoreObjects error")
-				})
-				defer patches.Reset()
-				args := []string{"restore", cosFileName, "-r"}
+				args = []string{"lsdu", fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
