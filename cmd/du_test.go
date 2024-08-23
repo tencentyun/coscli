@@ -47,53 +47,49 @@ func TestDuCmd(t *testing.T) {
 			})
 		})
 		Convey("fail", func() {
-			Convey("New Client", func() {
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test client error")
-				})
-				defer patches.Reset()
-				Convey("duBucket", func() {
-					clearCmd()
-					cmd := rootCmd
-					args = []string{"du", fmt.Sprintf("cos://%s", testAlias)}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("doObjects", func() {
-					clearCmd()
-					cmd := rootCmd
-					args = []string{"du", cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
+			Convey("not enough arguments", func() {
+				clearCmd()
+				cmd := rootCmd
+				args = []string{"du"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
 			})
-			Convey("GetObjectsListRecursive", func() {
-				patches := ApplyFunc(util.GetObjectsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object, commonPrefixes []string, err error) {
-					return nil, nil, fmt.Errorf("test getobjectlist error")
+			Convey("FormatUrl", func() {
+				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
+					return nil, fmt.Errorf("test formaturl fail")
 				})
 				defer patches.Reset()
-				Convey("duBucket", func() {
-					clearCmd()
-					cmd := rootCmd
-					args = []string{"du", fmt.Sprintf("cos://%s", testAlias)}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
+				clearCmd()
+				cmd := rootCmd
+				args = []string{"du", "invalid"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("not cos url", func() {
+				clearCmd()
+				cmd := rootCmd
+				args = []string{"du", "invalid"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("NewClient", func() {
+				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
+					return nil, fmt.Errorf("test NewClient error")
 				})
-				Convey("doObjects", func() {
-					clearCmd()
-					cmd := rootCmd
-					args = []string{"du", cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args = []string{"du", fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
 			})
 		})
 	})

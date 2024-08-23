@@ -35,6 +35,9 @@ Example:
 		if err != nil {
 			return fmt.Errorf("cos url format error:%v", err)
 		}
+		if !cosUrl.IsCosUrl() {
+			return fmt.Errorf("cospath needs to contain %s", util.SchemePrefix)
+		}
 
 		bucketName := cosUrl.(*util.CosUrl).Bucket
 		c, err := util.NewClient(&config, &param, bucketName)

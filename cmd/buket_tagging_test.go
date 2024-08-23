@@ -231,7 +231,7 @@ func TestDesDeleteBucketTagging(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", "testAlias"), "testkey4#testval4", "testkey2#testval2"}
+					fmt.Sprintf("cos://%s", testAlias), "testkey4#testval4", "testkey2#testval2"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
@@ -241,7 +241,7 @@ func TestDesDeleteBucketTagging(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", "testAlias"), "testkey4testval4", "testkey2#testval2"}
+					fmt.Sprintf("cos://%s", testAlias), "testkey4testval4", "testkey2#testval2"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
