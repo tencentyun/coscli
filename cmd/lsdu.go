@@ -22,13 +22,14 @@ Example:
 		exclude, _ := cmd.Flags().GetString("exclude")
 		_, filters := util.GetFilter(include, exclude)
 
-		cosPath := ""
-		if len(args) != 0 {
-			cosPath = args[0]
-		}
+		cosPath := args[0]
 		cosUrl, err := util.FormatUrl(cosPath)
 		if err != nil {
 			return fmt.Errorf("cos url format error:%v", err)
+		}
+
+		if !cosUrl.IsCosUrl() {
+			return fmt.Errorf("cospath needs to contain %s", util.SchemePrefix)
 		}
 
 		bucketName := cosUrl.(*util.CosUrl).Bucket
