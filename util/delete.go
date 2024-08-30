@@ -324,6 +324,7 @@ func moveFileToPath(srcName, destName string) error {
 }
 
 func RemoveObjects(args []string, fo *FileOperations) {
+
 	for _, arg := range args {
 		cosUrl, err := FormatUrl(arg)
 		if err != nil {
