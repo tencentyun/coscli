@@ -56,8 +56,10 @@ func getFileListStatistic(dpath string, fo *FileOperations) error {
 		}
 
 		if f.IsDir() {
-			if fpath != dpath {
-				fo.Monitor.updateScanNum(1)
+			if matchPatterns(f.Name(), fo.Operation.Filters) {
+				if fpath != dpath {
+					fo.Monitor.updateScanNum(1)
+				}
 			}
 			return nil
 		}
@@ -185,10 +187,12 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 
 		if f.IsDir() {
 			if fpath != dpath {
-				if strings.HasSuffix(fileName, "\\") || strings.HasSuffix(fileName, "/") {
-					chFiles <- fileInfoType{fileName, name}
-				} else {
-					chFiles <- fileInfoType{fileName + string(os.PathSeparator), name}
+				if matchPatterns(fileName, fo.Operation.Filters) {
+					if strings.HasSuffix(fileName, "\\") || strings.HasSuffix(fileName, "/") {
+						chFiles <- fileInfoType{fileName, name}
+					} else {
+						chFiles <- fileInfoType{fileName + string(os.PathSeparator), name}
+					}
 				}
 			}
 			return nil
