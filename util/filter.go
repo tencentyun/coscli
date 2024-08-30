@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 )
@@ -47,7 +46,6 @@ func matchFiltersForStr(str string, filters []FilterOptionType) bool {
 	} else {
 		res = filterSingleStr(str, filters[0].pattern, false)
 	}
-	fmt.Println(res, str, filters)
 	for _, filter := range filters[1:] {
 		if filter.name == IncludePrompt {
 			res = res || filterSingleStr(str, filter.pattern, true)
