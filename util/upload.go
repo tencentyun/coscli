@@ -179,9 +179,10 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 					XCosTrafficLimit:         (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
 				},
 			},
-			PartSize:       fo.Operation.PartSize,
-			ThreadPoolSize: fo.Operation.ThreadNum,
-			CheckPoint:     true,
+			PartSize:        fo.Operation.PartSize,
+			ThreadPoolSize:  fo.Operation.ThreadNum,
+			CheckPoint:      true,
+			DisableChecksum: fo.Operation.DisableChecksum,
 		}
 
 		counter := &Counter{TransferSize: 0}
