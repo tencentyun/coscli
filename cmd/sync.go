@@ -56,6 +56,7 @@ Example:
 		disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
 		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
 		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
+		disableChecksum, _ := cmd.Flags().GetBool("disable-checksum")
 		backupDir, _ := cmd.Flags().GetString("backup-dir")
 		force, _ := cmd.Flags().GetBool("force")
 
@@ -111,6 +112,7 @@ Example:
 				DisableAllSymlink: disableAllSymlink,
 				EnableSymlinkDir:  enableSymlinkDir,
 				DisableCrc64:      disableCrc64,
+				DisableChecksum:   disableChecksum,
 				SnapshotPath:      snapshotPath,
 				Delete:            delete,
 				BackupDir:         backupDir,
@@ -291,6 +293,7 @@ func init() {
 	syncCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	syncCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
+	syncCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
 }
