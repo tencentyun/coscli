@@ -58,6 +58,7 @@ Example:
 		disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
 		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
 		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
+		disableChecksum, _ := cmd.Flags().GetBool("disable-checksum")
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
@@ -111,6 +112,7 @@ Example:
 				DisableAllSymlink: disableAllSymlink,
 				EnableSymlinkDir:  enableSymlinkDir,
 				DisableCrc64:      disableCrc64,
+				DisableChecksum:   disableChecksum,
 			},
 			Monitor:    &util.FileProcessMonitor{},
 			Config:     &config,
@@ -254,6 +256,7 @@ func init() {
 	cpCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	cpCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
 	cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
+	cpCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
 }
 
 func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error {

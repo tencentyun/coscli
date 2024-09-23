@@ -214,10 +214,11 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 			XOptionHeader:              nil,
 			XCosTrafficLimit:           (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
 		},
-		PartSize:       fo.Operation.PartSize,
-		ThreadPoolSize: fo.Operation.ThreadNum,
-		CheckPoint:     true,
-		CheckPointFile: "",
+		PartSize:        fo.Operation.PartSize,
+		ThreadPoolSize:  fo.Operation.ThreadNum,
+		CheckPoint:      true,
+		CheckPointFile:  "",
+		DisableChecksum: fo.Operation.DisableChecksum,
 	}
 	counter := &Counter{TransferSize: 0}
 	// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)

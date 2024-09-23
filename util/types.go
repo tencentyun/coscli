@@ -89,6 +89,7 @@ type Operation struct {
 	DisableAllSymlink bool
 	EnableSymlinkDir  bool
 	DisableCrc64      bool
+	DisableChecksum   bool
 	SnapshotPath      string
 	Delete            bool
 	BackupDir         string
