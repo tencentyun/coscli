@@ -58,6 +58,7 @@ Example:
 		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
 		disableChecksum, _ := cmd.Flags().GetBool("disable-checksum")
 		disableLongLinks, _ := cmd.Flags().GetBool("disable-long-links")
+		longLinksNums, _ := cmd.Flags().GetInt("long-links-nums")
 		backupDir, _ := cmd.Flags().GetString("backup-dir")
 		force, _ := cmd.Flags().GetBool("force")
 
@@ -115,6 +116,7 @@ Example:
 				DisableCrc64:      disableCrc64,
 				DisableChecksum:   disableChecksum,
 				DisableLongLinks:  disableLongLinks,
+				LongLinksNums:     longLinksNums,
 				SnapshotPath:      snapshotPath,
 				Delete:            delete,
 				BackupDir:         backupDir,
@@ -297,6 +299,7 @@ func init() {
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 	syncCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
 	syncCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
+	syncCmd.Flags().Bool("long-links-nums", false, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
 }

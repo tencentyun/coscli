@@ -60,6 +60,7 @@ Example:
 		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
 		disableChecksum, _ := cmd.Flags().GetBool("disable-checksum")
 		disableLongLinks, _ := cmd.Flags().GetBool("disable-long-links")
+		longLinksNums, _ := cmd.Flags().GetInt("long-links-nums")
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
@@ -115,6 +116,7 @@ Example:
 				DisableCrc64:      disableCrc64,
 				DisableChecksum:   disableChecksum,
 				DisableLongLinks:  disableLongLinks,
+				LongLinksNums:     longLinksNums,
 			},
 			Monitor:    &util.FileProcessMonitor{},
 			Config:     &config,
@@ -260,6 +262,7 @@ func init() {
 	cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 	cpCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
 	cpCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
+	cpCmd.Flags().Int("long-links-nums", 0, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
 }
 
 func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error {

@@ -55,14 +55,20 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		var httpClient *http.Client
 		// 如果使用长链接则调整连接池大小至并发数
 		if len(options) > 0 && options[0] != nil && !options[0].Operation.DisableLongLinks {
+			longLinksNums := 0
+			if options[0].Operation.LongLinksNums > 0 {
+				longLinksNums = options[0].Operation.LongLinksNums
+			} else {
+				longLinksNums = options[0].Operation.Routines
+			}
 			httpClient = &http.Client{
 				Transport: &cos.AuthorizationTransport{
 					SecretID:     secretID,
 					SecretKey:    secretKey,
 					SessionToken: secretToken,
 					Transport: &http.Transport{
-						MaxConnsPerHost: options[0].Operation.Routines,
-						MaxIdleConns:    options[0].Operation.Routines,
+						MaxConnsPerHost: longLinksNums,
+						MaxIdleConns:    longLinksNums,
 					},
 				},
 			}

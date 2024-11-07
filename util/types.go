@@ -91,6 +91,7 @@ type Operation struct {
 	DisableCrc64      bool
 	DisableChecksum   bool
 	DisableLongLinks  bool
+	LongLinksNums     int
 	SnapshotPath      string
 	Delete            bool
 	BackupDir         string
