@@ -8,7 +8,7 @@ import (
 var secretID, secretKey, secretToken string
 
 // 根据桶别名，从配置文件中加载信息，创建客户端
-func NewClient(config *Config, param *Param, bucketName string) (client *cos.Client, err error) {
+func NewClient(config *Config, param *Param, bucketName string, options ...*FileOperations) (client *cos.Client, err error) {
 	if config.Base.Mode == "CvmRole" {
 		// 若使用 CvmRole 方式，则需请求请求CAM的服务，获取临时密钥
 		data, err = CamAuth(config.Base.CvmRoleName)
@@ -51,13 +51,33 @@ func NewClient(config *Config, param *Param, bucketName string) (client *cos.Cli
 		if err != nil {
 			return client, err
 		}
-		client = cos.NewClient(url, &http.Client{
-			Transport: &cos.AuthorizationTransport{
-				SecretID:     secretID,
-				SecretKey:    secretKey,
-				SessionToken: secretToken,
-			},
-		})
+
+		var httpClient *http.Client
+		// 如果使用长链接则调整连接池大小至并发数
+		if len(options) > 0 && options[0] != nil && !options[0].Operation.DisableLongLinks {
+			httpClient = &http.Client{
+				Transport: &cos.AuthorizationTransport{
+					SecretID:     secretID,
+					SecretKey:    secretKey,
+					SessionToken: secretToken,
+					Transport: &http.Transport{
+						MaxConnsPerHost: options[0].Operation.Routines,
+						MaxIdleConns:    options[0].Operation.Routines,
+					},
+				},
+			}
+		} else {
+			// 若没有传递 options 或者没有设置 DisableLongLinks
+			httpClient = &http.Client{
+				Transport: &cos.AuthorizationTransport{
+					SecretID:     secretID,
+					SecretKey:    secretKey,
+					SessionToken: secretToken,
+				},
+			}
+		}
+
+		client = cos.NewClient(url, httpClient)
 	}
 
 	// 切换备用域名开关

@@ -59,6 +59,7 @@ Example:
 		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
 		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
 		disableChecksum, _ := cmd.Flags().GetBool("disable-checksum")
+		disableLongLinks, _ := cmd.Flags().GetBool("disable-long-links")
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
@@ -113,6 +114,7 @@ Example:
 				EnableSymlinkDir:  enableSymlinkDir,
 				DisableCrc64:      disableCrc64,
 				DisableChecksum:   disableChecksum,
+				DisableLongLinks:  disableLongLinks,
 			},
 			Monitor:    &util.FileProcessMonitor{},
 			Config:     &config,
@@ -136,7 +138,7 @@ Example:
 			}
 			// 实例化cos client
 			bucketName := destUrl.(*util.CosUrl).Bucket
-			c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+			c, err := util.NewClient(fo.Config, fo.Param, bucketName, fo)
 			if err != nil {
 				return err
 			}
@@ -158,7 +160,7 @@ Example:
 				return err
 			}
 			bucketName := srcUrl.(*util.CosUrl).Bucket
-			c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+			c, err := util.NewClient(fo.Config, fo.Param, bucketName, fo)
 			if err != nil {
 				return err
 			}
@@ -195,7 +197,7 @@ Example:
 
 			// 实例化目标 cos client
 			destBucketName := destUrl.(*util.CosUrl).Bucket
-			destClient, err := util.NewClient(fo.Config, fo.Param, destBucketName)
+			destClient, err := util.NewClient(fo.Config, fo.Param, destBucketName, fo)
 			if err != nil {
 				return err
 			}
@@ -257,6 +259,7 @@ func init() {
 	cpCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
 	cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 	cpCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
+	cpCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 }
 
 func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error {

@@ -90,6 +90,7 @@ type Operation struct {
 	EnableSymlinkDir  bool
 	DisableCrc64      bool
 	DisableChecksum   bool
+	DisableLongLinks  bool
 	SnapshotPath      string
 	Delete            bool
 	BackupDir         string

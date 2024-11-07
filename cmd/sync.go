@@ -57,6 +57,7 @@ Example:
 		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
 		disableCrc64, _ := cmd.Flags().GetBool("disable-crc64")
 		disableChecksum, _ := cmd.Flags().GetBool("disable-checksum")
+		disableLongLinks, _ := cmd.Flags().GetBool("disable-long-links")
 		backupDir, _ := cmd.Flags().GetString("backup-dir")
 		force, _ := cmd.Flags().GetBool("force")
 
@@ -113,6 +114,7 @@ Example:
 				EnableSymlinkDir:  enableSymlinkDir,
 				DisableCrc64:      disableCrc64,
 				DisableChecksum:   disableChecksum,
+				DisableLongLinks:  disableLongLinks,
 				SnapshotPath:      snapshotPath,
 				Delete:            delete,
 				BackupDir:         backupDir,
@@ -145,7 +147,7 @@ Example:
 			}
 			// 实例化cos client
 			bucketName := destUrl.(*util.CosUrl).Bucket
-			c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+			c, err := util.NewClient(fo.Config, fo.Param, bucketName, fo)
 			if err != nil {
 				return err
 			}
@@ -174,7 +176,7 @@ Example:
 			}
 
 			bucketName := srcUrl.(*util.CosUrl).Bucket
-			c, err := util.NewClient(fo.Config, fo.Param, bucketName)
+			c, err := util.NewClient(fo.Config, fo.Param, bucketName, fo)
 			if err != nil {
 				return err
 			}
@@ -211,7 +213,7 @@ Example:
 
 			// 实例化目标 cos client
 			destBucketName := destUrl.(*util.CosUrl).Bucket
-			destClient, err := util.NewClient(fo.Config, fo.Param, destBucketName)
+			destClient, err := util.NewClient(fo.Config, fo.Param, destBucketName, fo)
 			if err != nil {
 				return err
 			}
@@ -294,6 +296,7 @@ func init() {
 	syncCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 	syncCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
+	syncCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
 }
