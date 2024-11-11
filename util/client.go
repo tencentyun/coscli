@@ -67,8 +67,8 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 					SecretKey:    secretKey,
 					SessionToken: secretToken,
 					Transport: &http.Transport{
-						MaxConnsPerHost: longLinksNums,
-						MaxIdleConns:    longLinksNums,
+						MaxIdleConnsPerHost: longLinksNums,
+						MaxIdleConns:        longLinksNums,
 					},
 				},
 			}
