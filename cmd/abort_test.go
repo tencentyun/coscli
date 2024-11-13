@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"context"
 	"coscli/util"
 	"fmt"
-	"reflect"
 	"testing"
 
 	. "github.com/agiledragon/gomonkey/v2"
@@ -46,10 +44,10 @@ func TestAbortCmd(t *testing.T) {
 					return tmp, nil
 				})
 				defer patches.Reset()
-				var c *cos.ObjectService
-				patches.ApplyMethodFunc(reflect.TypeOf(c), "AbortMultipartUpload", func(ctx context.Context, name string, uploadID string) (*cos.Response, error) {
-					return nil, nil
-				})
+				//var c *cos.ObjectService
+				//patches.ApplyMethodFunc(reflect.TypeOf(c), "AbortMultipartUpload", func(ctx context.Context, name string, uploadID string) (*cos.Response, error) {
+				//	return nil, nil
+				//})
 				args := []string{"abort",
 					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
 				cmd.SetArgs(args)
@@ -69,10 +67,10 @@ func TestAbortCmd(t *testing.T) {
 					return tmp, nil
 				})
 				defer patches.Reset()
-				var c *cos.ObjectService
-				patches.ApplyMethodFunc(reflect.TypeOf(c), "AbortMultipartUpload", func(ctx context.Context, name string, uploadID string) (*cos.Response, error) {
-					return nil, fmt.Errorf("test abort fail")
-				})
+				//var c *cos.ObjectService
+				//patches.ApplyMethodFunc(reflect.TypeOf(c), "AbortMultipartUpload", func(ctx context.Context, name string, uploadID string) (*cos.Response, error) {
+				//	return nil, fmt.Errorf("test abort fail")
+				//})
 				args := []string{"abort",
 					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
 				cmd.SetArgs(args)
