@@ -188,6 +188,7 @@ func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
 				if cosObjectMatchPatterns(commonPrefix, filters) {
+					commonPrefix, _ = url.QueryUnescape(commonPrefix)
 					cosDirUrl, err := FormatUrl(SchemePrefix + cosUrl.(*CosUrl).Bucket + "/" + commonPrefix)
 					if err != nil {
 						return fmt.Errorf("cos url format error:%v", err)
