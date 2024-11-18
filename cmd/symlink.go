@@ -3,8 +3,6 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
-	"strings"
-
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +27,7 @@ Example:
 		method, _ := cmd.Flags().GetString("method")
 		linkKey, _ := cmd.Flags().GetString("link")
 
-		linkKey = strings.ToLower(linkKey)
+		//linkKey = strings.ToLower(linkKey)
 
 		cosUrl, err := util.FormatUrl(args[0])
 		if err != nil {

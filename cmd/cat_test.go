@@ -20,7 +20,21 @@ func TestCatCmd(t *testing.T) {
 	cmd := rootCmd
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
+
+	genDir(testDir, 3)
+	defer delDir(testDir)
+
 	Convey("test coscli cat", t, func() {
+		Convey("上传测试单文件", func() {
+			clearCmd()
+			cmd := rootCmd
+			localFileName := fmt.Sprintf("%s/small-file/0", testDir)
+			cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "single-small")
+			args := []string{"cp", localFileName, cosFileName}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
 		Convey("fail", func() {
 			Convey("Not enough argument", func() {
 				clearCmd()
@@ -83,7 +97,7 @@ func TestCatCmd(t *testing.T) {
 		Convey("success", func() {
 			clearCmd()
 			cmd := rootCmd
-			args := []string{"cat", fmt.Sprintf("cos://%s", testAlias)}
+			args := []string{"cat", fmt.Sprintf("cos://%s/%s", testAlias, "single-small")}
 			cmd.SetArgs(args)
 			e := cmd.Execute()
 			So(e, ShouldBeNil)
