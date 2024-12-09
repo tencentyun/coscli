@@ -46,9 +46,7 @@ func CreateURL(idName string, protocol string, endpoint string, customized bool)
 
 // 根据配置文件生成ServiceURL
 func GenBaseURL(config *Config, param *Param) *cos.BaseURL {
-	if param.Endpoint == "" {
-		return nil
-	}
+
 	endpoint := param.Endpoint
 
 	protocol := "https"
@@ -86,6 +84,10 @@ func GenURL(config *Config, param *Param, bucketName string) (url *cos.BaseURL, 
 	}
 	if endpoint == "" && bucket.Region != "" {
 		endpoint = fmt.Sprintf("cos.%s.myqcloud.com", bucket.Region)
+	}
+
+	if endpoint == "" {
+		return nil, fmt.Errorf("endpoint is missing")
 	}
 
 	protocol := "https"

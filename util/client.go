@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/http"
 )
@@ -37,7 +38,18 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		secretToken = param.SessionToken
 	}
 
+	if secretID == "" {
+		return client, fmt.Errorf("secretID is missing ")
+	}
+
+	if secretKey == "" {
+		return client, fmt.Errorf("secretKey is missing")
+	}
+
 	if bucketName == "" { // 不指定 bucket，则创建用于发送 Service 请求的客户端
+		if param.Endpoint == "" {
+			return client, fmt.Errorf("endpoint is missing")
+		}
 		client = cos.NewClient(GenBaseURL(config, param), &http.Client{
 			Transport: &cos.AuthorizationTransport{
 				SecretID:     secretID,

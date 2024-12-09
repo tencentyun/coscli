@@ -33,10 +33,6 @@ Example:
 		if err := cobra.ExactArgs(2)(cmd, args); err != nil {
 			return err
 		}
-		storageClass, _ := cmd.Flags().GetString("storage-class")
-		if storageClass != "" && util.IsCosPath(args[0]) {
-			return fmt.Errorf("--storage-class can only use in upload")
-		}
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -156,6 +152,9 @@ Example:
 			// 上传
 			util.Upload(c, srcUrl, destUrl, fo)
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
+			if storageClass != "" {
+				return fmt.Errorf("--storage-class can not use in download")
+			}
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
