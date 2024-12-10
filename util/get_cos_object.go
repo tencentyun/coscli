@@ -182,7 +182,7 @@ func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limi
 	return
 }
 
-func getCosObjectVersionListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {
+func getCosObjectVersionListForLs(c *cos.Client, cosUrl StorageUrl, versionIdMarker, keyMarker string, limit int, recursive bool) (err error, versions []cos.ListVersionsResultVersion, deleteMarkers []cos.ListVersionsResultDeleteMarker, commonPrefixes []string, isTruncated bool, nextVersionIdMarker, nextKeyMarker string) {
 
 	prefix := cosUrl.(*CosUrl).Object
 	delimiter := ""
@@ -191,21 +191,24 @@ func getCosObjectVersionListForLs(c *cos.Client, cosUrl StorageUrl, marker strin
 	}
 
 	// 实例化请求参数
-	opt := &cos.BucketGetOptions{
-		Prefix:       prefix,
-		Delimiter:    delimiter,
-		EncodingType: "url",
-		Marker:       marker,
-		MaxKeys:      limit,
+	opt := &cos.BucketGetObjectVersionsOptions{
+		Prefix:          prefix,
+		Delimiter:       delimiter,
+		EncodingType:    "url",
+		VersionIdMarker: versionIdMarker,
+		KeyMarker:       keyMarker,
+		MaxKeys:         limit,
 	}
-	res, err := tryGetObjects(c, opt)
+	res, err := tryGetObjectVersions(c, opt)
 	if err != nil {
 		return
 	}
 
-	objects = res.Contents
+	versions = res.Version
+	deleteMarkers = res.DeleteMarker
 	commonPrefixes = res.CommonPrefixes
 	isTruncated = res.IsTruncated
-	nextMarker, _ = url.QueryUnescape(res.NextMarker)
+	nextVersionIdMarker, _ = url.QueryUnescape(res.NextVersionIdMarker)
+	nextKeyMarker, _ = url.QueryUnescape(res.NextKeyMarker)
 	return
 }

@@ -57,6 +57,7 @@ Example:
 		disableChecksum, _ := cmd.Flags().GetBool("disable-checksum")
 		disableLongLinks, _ := cmd.Flags().GetBool("disable-long-links")
 		longLinksNums, _ := cmd.Flags().GetInt("long-links-nums")
+		versionId, _ := cmd.Flags().GetString("version-id")
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
@@ -113,6 +114,7 @@ Example:
 				DisableChecksum:   disableChecksum,
 				DisableLongLinks:  disableLongLinks,
 				LongLinksNums:     longLinksNums,
+				VersionId:         versionId,
 			},
 			Monitor:    &util.FileProcessMonitor{},
 			Config:     &config,
@@ -165,6 +167,16 @@ Example:
 			if err != nil {
 				return err
 			}
+
+			res, err := util.GetBucketVersioning(c)
+			if err != nil {
+				return err
+			}
+
+			if res.Status != util.VersionStatusEnabled && versionId != "" {
+				return fmt.Errorf("versioning is not enabled on the current bucket")
+			}
+
 			// 判断桶是否是ofs桶
 			s, err := c.Bucket.Head(context.Background())
 			if err != nil {
@@ -194,6 +206,15 @@ Example:
 			srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
 			if err != nil {
 				return err
+			}
+
+			res, err := util.GetBucketVersioning(srcClient)
+			if err != nil {
+				return err
+			}
+
+			if res.Status != util.VersionStatusEnabled && versionId != "" {
+				return fmt.Errorf("versioning is not enabled on the src bucket")
 			}
 
 			// 实例化目标 cos client
@@ -262,6 +283,7 @@ func init() {
 	cpCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
 	cpCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 	cpCmd.Flags().Int("long-links-nums", 0, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
+	cpCmd.Flags().String("version-id", "", "Downloading a specified version of a file is only supported in a bucket with versioning enabled.")
 }
 
 func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error {

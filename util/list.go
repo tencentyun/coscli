@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
@@ -139,12 +140,12 @@ func tryGetObjects(c *cos.Client, opt *cos.BucketGetOptions) (*cos.BucketGetResu
 	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
-func tryGetObjectVersions(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*cos.BucketGetResult, error) {
-	for i := 0; i <= retryCount; i++ {
-		res, resp, err := c.Bucket.Get(context.Background(), opt)
+func tryGetObjectVersions(c *cos.Client, opt *cos.BucketGetObjectVersionsOptions) (*cos.BucketGetObjectVersionsResult, error) {
+	for i := 0; i <= 10; i++ {
+		res, resp, err := c.Bucket.GetObjectVersions(context.Background(), opt)
 		if err != nil {
 			if resp != nil && resp.StatusCode == 503 {
-				if i == retryCount {
+				if i == 10 {
 					return res, err
 				} else {
 					fmt.Println("Error 503: Service Unavailable. Retrying...")
@@ -345,14 +346,16 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 
 func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) error {
 	var err error
-	var objects []cos.Object
+	var versions []cos.ListVersionsResultVersion
+	var deleteMarkers []cos.ListVersionsResultDeleteMarker
 	var commonPrefixes []string
 	total := 0
 	isTruncated := true
-	marker := ""
+
+	var nextKeyMarker, nextVersionIdMarker string
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Key", "Type", "Last Modified", "Etag", "Size", "RestoreStatus"})
+	table.SetHeader([]string{"Key", "Type", "VersionId", "IsLatest", "Delete Marker", "Last Modified", "Etag", "Size"})
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(false)
@@ -364,7 +367,7 @@ func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive b
 			queryLimit = limit - total
 		}
 
-		err, objects, commonPrefixes, isTruncated, marker = getCosObjectVersionListForLs(c, cosUrl, marker, queryLimit, recursive)
+		err, versions, deleteMarkers, commonPrefixes, isTruncated, nextVersionIdMarker, nextKeyMarker = getCosObjectVersionListForLs(c, cosUrl, nextVersionIdMarker, nextKeyMarker, queryLimit, recursive)
 
 		if err != nil {
 			return fmt.Errorf("list objects error : %v", err)
@@ -373,26 +376,39 @@ func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive b
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
 				if cosObjectMatchPatterns(commonPrefix, filters) {
-					table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
+					table.Append([]string{commonPrefix, "DIR", "", "", "", "", "", ""})
 					total++
 				}
 			}
 		}
 
-		for _, object := range objects {
+		for _, object := range versions {
 			object.Key, _ = url.QueryUnescape(object.Key)
 			if cosObjectMatchPatterns(object.Key, filters) {
 				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					return fmt.Errorf("Error parsing time:%v", err)
 				}
-				table.Append([]string{object.Key, object.StorageClass, utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size)), object.RestoreStatus})
+
+				table.Append([]string{object.Key, object.StorageClass, object.VersionId, strconv.FormatBool(object.IsLatest), strconv.FormatBool(false), utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size))})
+				total++
+			}
+		}
+
+		for _, object := range deleteMarkers {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, filters) {
+				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
+				if err != nil {
+					return fmt.Errorf("Error parsing time:%v", err)
+				}
+				table.Append([]string{object.Key, "", object.VersionId, strconv.FormatBool(object.IsLatest), strconv.FormatBool(true), utcTime.Local().Format(time.RFC3339), "", ""})
 				total++
 			}
 		}
 
 		if !isTruncated || total >= limit {
-			table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
+			table.SetFooter([]string{"", "", "", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
 			table.Render()
 			break
 		}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -63,7 +62,7 @@ Example:
 				if err != nil {
 					return err
 				}
-				if res.Status == util.VersionStatusSuspended {
+				if res.Status != util.VersionStatusEnabled {
 					return fmt.Errorf("versioning is not enabled on the current bucket")
 				}
 			}
@@ -76,11 +75,10 @@ Example:
 			}
 			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
 				if allVersions {
-					err = util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
+					return fmt.Errorf("the OFS bucket does not support listing multiple versions")
 				} else {
 					err = util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
 				}
-
 			} else {
 				if allVersions {
 					err = util.ListObjectVersions(c, cosUrl, limit, recursive, filters)

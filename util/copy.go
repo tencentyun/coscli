@@ -26,7 +26,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 			relativeKey = srcUrl.(*CosUrl).Object[index+1:]
 		}
 		// 获取文件信息
-		resp, err := getHead(srcClient, srcUrl.(*CosUrl).Object)
+		resp, err := getHead(srcClient, srcUrl.(*CosUrl).Object, fo.Operation.VersionId)
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				// 源文件不在cos上
@@ -36,7 +36,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 		}
 
 		// copy文件
-		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, srcUrl, destUrl)
+		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, srcUrl, destUrl, fo.Operation.VersionId)
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
@@ -133,7 +133,7 @@ func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo
 	chError <- nil
 }
 
-func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInfo objectInfoType, srcUrl, destUrl StorageUrl) (skip bool, rErr error, isDir bool, size int64, msg string) {
+func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInfo objectInfoType, srcUrl, destUrl StorageUrl, VersionId ...string) (skip bool, rErr error, isDir bool, size int64, msg string) {
 	skip = false
 	rErr = nil
 	isDir = false
@@ -191,7 +191,8 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	{
 		opt.OptCopy.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
 	}
-	_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
+
+	_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt, VersionId...)
 
 	if err != nil {
 		rErr = err
