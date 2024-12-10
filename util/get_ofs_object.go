@@ -14,13 +14,13 @@ func getOfsObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	prefix := cosUrl.(*CosUrl).Object
 	marker := ""
 	limit := 0
-	retries := fo.Operation.RetryNum
+
 	delimiter := ""
 	if fo.Operation.OnlyCurrentDir {
 		delimiter = "/"
 	}
 
-	err := getOfsObjectListRecursion(c, cosUrl, chObjects, chError, fo, scanSizeNum, prefix, marker, limit, retries, delimiter)
+	err := getOfsObjectListRecursion(c, cosUrl, chObjects, chError, fo, scanSizeNum, prefix, marker, limit, delimiter)
 
 	if err != nil && scanSizeNum {
 		fo.Monitor.setScanError(err)
@@ -36,7 +36,7 @@ func getOfsObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	}
 }
 
-func getOfsObjectListRecursion(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool, prefix string, marker string, limit int, retries int, delimiter string) error {
+func getOfsObjectListRecursion(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool, prefix string, marker string, limit int, delimiter string) error {
 	isTruncated := true
 	for isTruncated {
 		// 实例化请求参数
@@ -47,7 +47,7 @@ func getOfsObjectListRecursion(c *cos.Client, cosUrl StorageUrl, chObjects chan<
 			Marker:       marker,
 			MaxKeys:      limit,
 		}
-		res, err := tryGetBucket(c, opt, retries)
+		res, err := tryGetObjects(c, opt)
 		if err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func getOfsObjectListRecursion(c *cos.Client, cosUrl StorageUrl, chObjects chan<
 				}
 
 				if delimiter == "" {
-					err = getOfsObjectListRecursion(c, cosUrl, chObjects, chError, fo, scanSizeNum, commonPrefix, marker, limit, retries, delimiter)
+					err = getOfsObjectListRecursion(c, cosUrl, chObjects, chError, fo, scanSizeNum, commonPrefix, marker, limit, delimiter)
 					if err != nil {
 						return err
 					}
@@ -106,7 +106,6 @@ func getOfsObjectListRecursion(c *cos.Client, cosUrl StorageUrl, chObjects chan<
 
 func getOfsObjectListForLs(c *cos.Client, prefix string, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {
 
-	retries := 0
 	delimiter := ""
 	if !recursive {
 		delimiter = "/"
@@ -120,7 +119,7 @@ func getOfsObjectListForLs(c *cos.Client, prefix string, marker string, limit in
 		Marker:       marker,
 		MaxKeys:      limit,
 	}
-	res, err := tryGetBucket(c, opt, retries)
+	res, err := tryGetObjects(c, opt)
 	if err != nil {
 		return
 	}

@@ -51,8 +51,6 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 		prefix += CosSeparator
 	}
 
-	retries := fo.Operation.RetryNum
-
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
@@ -61,7 +59,7 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 		MaxKeys:      limit,
 	}
 
-	res, err := tryGetBucket(c, opt, retries)
+	res, err := tryGetObjects(c, opt)
 	if err != nil {
 		return isDir, err
 	}
@@ -98,7 +96,6 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	prefix := cosUrl.(*CosUrl).Object
 	marker := ""
 	limit := 0
-	retries := fo.Operation.RetryNum
 	delimiter := ""
 	if fo.Operation.OnlyCurrentDir {
 		delimiter = "/"
@@ -114,7 +111,7 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 			Marker:       marker,
 			MaxKeys:      limit,
 		}
-		res, err := tryGetBucket(c, opt, retries)
+		res, err := tryGetObjects(c, opt)
 		if err != nil {
 			if scanSizeNum {
 				fo.Monitor.setScanError(err)
@@ -160,7 +157,6 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {
 
 	prefix := cosUrl.(*CosUrl).Object
-	retries := 0
 	delimiter := ""
 	if !recursive {
 		delimiter = "/"
@@ -174,7 +170,35 @@ func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limi
 		Marker:       marker,
 		MaxKeys:      limit,
 	}
-	res, err := tryGetBucket(c, opt, retries)
+	res, err := tryGetObjects(c, opt)
+	if err != nil {
+		return
+	}
+
+	objects = res.Contents
+	commonPrefixes = res.CommonPrefixes
+	isTruncated = res.IsTruncated
+	nextMarker, _ = url.QueryUnescape(res.NextMarker)
+	return
+}
+
+func getCosObjectVersionListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {
+
+	prefix := cosUrl.(*CosUrl).Object
+	delimiter := ""
+	if !recursive {
+		delimiter = "/"
+	}
+
+	// 实例化请求参数
+	opt := &cos.BucketGetOptions{
+		Prefix:       prefix,
+		Delimiter:    delimiter,
+		EncodingType: "url",
+		Marker:       marker,
+		MaxKeys:      limit,
+	}
+	res, err := tryGetObjects(c, opt)
 	if err != nil {
 		return
 	}

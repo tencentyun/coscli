@@ -73,11 +73,6 @@ func MatchPattern(strs []string, pattern string, include bool) []string {
 func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object,
 	commonPrefixes []string, err error) {
 
-	retries := 0
-	if len(retryCount) > 0 {
-		retries = retryCount[0]
-	}
-
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
@@ -91,7 +86,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 	for isTruncated {
 		opt.Marker = marker
 
-		res, err := tryGetBucket(c, opt, retries)
+		res, err := tryGetObjects(c, opt)
 		if err != nil {
 			return objects, commonPrefixes, err
 		}
@@ -120,7 +115,31 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 	return objects, commonPrefixes, nil
 }
 
-func tryGetBucket(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*cos.BucketGetResult, error) {
+// get objects限频重试(最多重试10次，每次重试间隔1-10s随机)
+func tryGetObjects(c *cos.Client, opt *cos.BucketGetOptions) (*cos.BucketGetResult, error) {
+	for i := 0; i <= 10; i++ {
+		res, resp, err := c.Bucket.Get(context.Background(), opt)
+		if err != nil {
+			if resp != nil && resp.StatusCode == 503 {
+				if i == 10 {
+					return res, err
+				} else {
+					fmt.Println("Error 503: Service Unavailable. Retrying...")
+					waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+					time.Sleep(waitTime)
+					continue
+				}
+			} else {
+				return res, err
+			}
+		} else {
+			return res, err
+		}
+	}
+	return nil, fmt.Errorf("Retry limit exceeded")
+}
+
+func tryGetObjectVersions(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*cos.BucketGetResult, error) {
 	for i := 0; i <= retryCount; i++ {
 		res, resp, err := c.Bucket.Get(context.Background(), opt)
 		if err != nil {
@@ -281,6 +300,71 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		}
 
 		err, objects, commonPrefixes, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, queryLimit, recursive)
+
+		if err != nil {
+			return fmt.Errorf("list objects error : %v", err)
+		}
+
+		if len(commonPrefixes) > 0 {
+			for _, commonPrefix := range commonPrefixes {
+				if cosObjectMatchPatterns(commonPrefix, filters) {
+					table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
+					total++
+				}
+			}
+		}
+
+		for _, object := range objects {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, filters) {
+				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
+				if err != nil {
+					return fmt.Errorf("Error parsing time:%v", err)
+				}
+				table.Append([]string{object.Key, object.StorageClass, utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size)), object.RestoreStatus})
+				total++
+			}
+		}
+
+		if !isTruncated || total >= limit {
+			table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
+			table.Render()
+			break
+		}
+		table.Render()
+
+		// 重置表格
+		table = tablewriter.NewWriter(os.Stdout)
+		table.SetBorder(false)
+		table.SetAlignment(tablewriter.ALIGN_LEFT)
+		table.SetAutoWrapText(false)
+	}
+
+	return nil
+}
+
+func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) error {
+	var err error
+	var objects []cos.Object
+	var commonPrefixes []string
+	total := 0
+	isTruncated := true
+	marker := ""
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Key", "Type", "Last Modified", "Etag", "Size", "RestoreStatus"})
+	table.SetBorder(false)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAutoWrapText(false)
+
+	for isTruncated && total < limit {
+		table.ClearRows()
+		queryLimit := 1000
+		if limit-total < 1000 {
+			queryLimit = limit - total
+		}
+
+		err, objects, commonPrefixes, isTruncated, marker = getCosObjectVersionListForLs(c, cosUrl, marker, queryLimit, recursive)
 
 		if err != nil {
 			return fmt.Errorf("list objects error : %v", err)
