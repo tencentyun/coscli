@@ -187,7 +187,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 
 		if f.IsDir() {
 			if fpath != dpath {
-				if matchPatterns(fileName, fo.Operation.Filters) {
+				if matchPatterns(filepath.Join(name, fileName), fo.Operation.Filters) {
 					if strings.HasSuffix(fileName, "\\") || strings.HasSuffix(fileName, "/") {
 						chFiles <- fileInfoType{fileName, name}
 					} else {
@@ -218,7 +218,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 			}
 		}
 
-		if matchPatterns(fileName, fo.Operation.Filters) {
+		if matchPatterns(filepath.Join(name, fileName), fo.Operation.Filters) {
 			chFiles <- fileInfoType{fileName, name}
 		}
 		return nil
@@ -259,7 +259,7 @@ func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOp
 				continue
 			}
 
-			if matchPatterns(fileInfo.Name(), fo.Operation.Filters) {
+			if matchPatterns(filepath.Join(dpath, fileInfo.Name()), fo.Operation.Filters) {
 				chFiles <- fileInfoType{fileInfo.Name(), dpath}
 			}
 		}
