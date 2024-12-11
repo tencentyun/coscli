@@ -31,7 +31,7 @@ const (
 	ExcludePrompt              = "--exclude"
 	ChannelSize         int    = 1000
 	MaxSyncNumbers             = 1000000
-	MaxDeleteBatchCount int    = 100
+	MaxDeleteBatchCount int    = 1000
 	SnapshotConnector          = "==>"
 	OfsMaxRenderNum     int    = 100
 )

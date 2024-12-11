@@ -3,19 +3,15 @@ package util
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"io/ioutil"
 	"math/rand"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
 
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
@@ -51,21 +47,6 @@ func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []Up
 		}
 		if match {
 			res = append(res, u)
-		}
-	}
-	return res
-}
-
-func MatchPattern(strs []string, pattern string, include bool) []string {
-	res := make([]string, 0)
-	re := regexp.MustCompile(pattern)
-	for _, s := range strs {
-		match := re.MatchString(s)
-		if !include {
-			match = !match
-		}
-		if match {
-			res = append(res, s)
 		}
 	}
 	return res
@@ -207,71 +188,6 @@ func tryGetParts(c *cos.Client, prefix, uploadId string, opt *cos.ObjectListPart
 		}
 	}
 	return nil, fmt.Errorf("Retry limit exceeded")
-}
-
-// 已废弃 todo
-func GetLocalFilesListRecursive(localPath string, include string, exclude string) (files []string) {
-	// bfs遍历文件夹
-	var dirs []string
-	dirs = append(dirs, localPath)
-	for len(dirs) > 0 {
-		dirName := dirs[0]
-		dirs = dirs[1:]
-
-		fileInfos, err := ioutil.ReadDir(dirName)
-		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
-		}
-		if len(fileInfos) == 0 {
-			logger.Warningf("skip empty dir: %s", dirName)
-			continue
-		}
-
-		for _, f := range fileInfos {
-			fileName := filepath.Join(dirName, f.Name())
-			if f.Mode().IsRegular() { // 普通文件，直接添加
-				fileName = fileName[len(localPath):]
-				files = append(files, fileName)
-			} else if f.IsDir() { // 普通目录，添加到继续迭代
-				dirs = append(dirs, fileName)
-			} else if f.Mode()&os.ModeSymlink == fs.ModeSymlink { // 软链接
-				linkTarget, err := os.Readlink(fileName)
-				if err != nil {
-					logger.Infoln(fmt.Sprintf("Failed to read symlink %s, will be excluded", fileName))
-					continue
-				}
-				fmt.Println(dirName, linkTarget)
-				linkTargetPath := filepath.Join(dirName, linkTarget)
-				linkTargetInfo, err := os.Stat(linkTargetPath)
-				if err != nil {
-					logger.Infoln(fmt.Sprintf("Failed to stat symlink target %s, will be excluded", linkTargetPath))
-					continue
-				}
-				if linkTargetInfo.Mode().IsRegular() {
-					linkTargetPath = linkTargetPath[len(localPath):]
-					files = append(files, linkTargetPath)
-				} else if linkTargetInfo.IsDir() {
-					dirs = append(dirs, linkTargetPath)
-				} else {
-					logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", linkTargetPath))
-					continue
-				}
-			} else {
-				logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", fileName))
-				continue
-			}
-		}
-	}
-
-	if len(include) > 0 {
-		files = MatchPattern(files, include, true)
-	}
-	if len(exclude) > 0 {
-		files = MatchPattern(files, exclude, false)
-	}
-
-	return files
 }
 
 // =====new

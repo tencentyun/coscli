@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 )
 
 var fileRemoveCount int
+var totalDeleteErrCount int
 
 func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations) (map[string]string, error) {
 	var err error
@@ -105,6 +107,7 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 					for _, delErr := range res.Errors {
 						fo.DeleteCount--
 						errCount++
+						totalDeleteErrCount++
 						writeError(fmt.Sprintf("delete %s failed , code:%s,errMsg:%s\n", delErr.Key, delErr.Code, delErr.Message), fo)
 					}
 				}
@@ -335,10 +338,13 @@ func moveFileToPath(srcName, destName string) error {
 
 func RemoveObjects(args []string, fo *FileOperations) error {
 	for _, arg := range args {
+
 		cosUrl, err := FormatUrl(arg)
 		if err != nil {
 			return fmt.Errorf("format cosUrl error,%v", err)
 		}
+		logger.Infoln("Remove prefix ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), " Start")
+
 		bucketName := cosUrl.(*CosUrl).Bucket
 
 		c, err := NewClient(fo.Config, fo.Param, bucketName)
@@ -365,6 +371,12 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 			return err
 		}
 
+		logger.Infoln("Remove prefix ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), " Completed")
+
+		if totalDeleteErrCount > 0 && fo.Operation.FailOutput {
+			absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
+			logger.Infof("Some uploads Abort failed, please check the detailed information in dir %s.\n", absErrOutputPath)
+		}
 	}
 	// 打印一个空行
 	fmt.Println()

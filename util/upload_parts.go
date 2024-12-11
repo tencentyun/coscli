@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/olekukonko/tablewriter"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -177,6 +179,65 @@ func GetPartsListForLs(c *cos.Client, cosUrl StorageUrl, uploadId, partNumberMar
 	nextPartNumberMarker, _ = url.QueryUnescape(res.NextPartNumberMarker)
 
 	return
+}
+
+func AbortUploads(args []string, fo *FileOperations) error {
+	for _, arg := range args {
+
+		cosUrl, err := FormatUrl(arg)
+		bucketName := cosUrl.(*CosUrl).Bucket
+		c, err := NewClient(fo.Config, fo.Param, bucketName)
+		if err != nil {
+			return err
+		}
+
+		isTruncated := true
+		var keyMarker, uploadIDMarker string
+
+		failCnt, successCnt, total := 0, 0, 0
+		logger.Infoln("Abort", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Start")
+		if isTruncated {
+			var uploads []struct {
+				Key          string
+				UploadID     string `xml:"UploadId"`
+				StorageClass string
+				Initiator    *cos.Initiator
+				Owner        *cos.Owner
+				Initiated    string
+			}
+			err, uploads, isTruncated, uploadIDMarker, keyMarker = GetUploadsListForLs(c, cosUrl, uploadIDMarker, keyMarker, 0, true)
+			if err != nil {
+				return fmt.Errorf("list uploads error : %v", err)
+			}
+			for _, upload := range uploads {
+				upload.Key, _ = url.QueryUnescape(upload.Key)
+				_, err := c.Object.AbortMultipartUpload(context.Background(), upload.Key, upload.UploadID)
+				if err != nil {
+					logger.Infof("Abort fail! UploadID: %s,Key: %s", upload.UploadID, upload.Key)
+					// 记录错误日志
+					if fo.Operation.FailOutput {
+						writeError(fmt.Sprintln("Abort fail! UploadID: %s,Key: %s,err: %v", upload.UploadID, upload.Key, err), fo)
+					}
+					failCnt++
+				} else {
+					logger.Infof("Abort success! UploadID: %s,Key: %s", upload.UploadID, upload.Key)
+					successCnt++
+				}
+				total++
+			}
+		}
+
+		logger.Infof("Abort %s Completed , Total: %d,%d Success, %d Fail", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), total, successCnt, failCnt)
+		if failCnt > 0 && fo.Operation.FailOutput {
+			absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
+			logger.Infof("Some uploads Abort failed, please check the detailed information in dir %s.\n", absErrOutputPath)
+		}
+		return nil
+	}
+	// 打印一个空行
+	fmt.Println()
+
+	return nil
 }
 
 func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []UploadInfo, err error) {

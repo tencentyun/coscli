@@ -32,6 +32,8 @@ Example:
 		bucketIDName, _ := util.ParsePath(args[0])
 		flagRegion, _ := cmd.Flags().GetString("region")
 		Force, _ := cmd.Flags().GetBool("force")
+		failOutput, _ := cmd.Flags().GetBool("fail-output")
+		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
 		if param.Endpoint == "" && flagRegion != "" {
 			param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
 		}
@@ -43,22 +45,25 @@ Example:
 			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
 				fo := &util.FileOperations{
 					Operation: util.Operation{
-						Force: true,
+						Force:          true,
+						FailOutput:     failOutput,
+						FailOutputPath: failOutputPath,
 					},
-					Monitor:   &util.FileProcessMonitor{},
 					Config:    &config,
 					Param:     &param,
 					ErrOutput: &util.ErrOutput{},
 				}
+				// todo 清除历史版本
 				err = util.RemoveObjects(args, fo)
 				if err != nil {
 					return err
 				}
 
-				err = abortParts(args[0], "", "")
+				err = util.AbortUploads(args, fo)
 				if err != nil {
 					return err
 				}
+
 				err = removeBucket(bucketIDName)
 				if err != nil {
 					return err
@@ -82,6 +87,8 @@ func init() {
 	rootCmd.AddCommand(rbCmd)
 	rbCmd.Flags().BoolP("force", "f", false, "Clear all inside the bucket and delete bucket")
 	rbCmd.Flags().StringP("region", "r", "", "Region")
+	rbCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
+	rbCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
 }
 
 func removeBucket(bucketIDName string) error {
