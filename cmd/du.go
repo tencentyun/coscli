@@ -20,6 +20,7 @@ Example:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
+		allVersions, _ := cmd.Flags().GetBool("all-versions")
 		_, filters := util.GetFilter(include, exclude)
 
 		cosPath := args[0]
@@ -37,7 +38,18 @@ Example:
 			return err
 		}
 
-		err = util.DuObjects(c, cosUrl, filters, util.DU_TYPE_CATEGORIZATION)
+		// 判断存储桶是否开启版本控制
+		if allVersions {
+			res, err := util.GetBucketVersioning(c)
+			if err != nil {
+				return err
+			}
+			if res.Status != util.VersionStatusEnabled {
+				return fmt.Errorf("versioning is not enabled on the current bucket")
+			}
+		}
+
+		err = util.DuObjects(c, cosUrl, filters, util.DU_TYPE_CATEGORIZATION, allVersions)
 		return err
 	},
 }
@@ -46,4 +58,5 @@ func init() {
 	rootCmd.AddCommand(duCmd)
 	duCmd.Flags().String("include", "", "List files that meet the specified criteria")
 	duCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+	duCmd.Flags().BoolP("all-versions", "", false, "List all versions of objects, only available if bucket versioning is enabled.")
 }
