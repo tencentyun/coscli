@@ -141,6 +141,7 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 			for _, delErr := range res.Errors {
 				fo.DeleteCount--
 				errCount++
+				totalDeleteErrCount++
 				writeError(fmt.Sprintf("delete %s failed , code:%s,errMsg:%s\n", delErr.Key, delErr.Code, delErr.Message), fo)
 			}
 		}
@@ -343,7 +344,7 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 		if err != nil {
 			return fmt.Errorf("format cosUrl error,%v", err)
 		}
-		logger.Infoln("Remove prefix ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), " Start")
+		logger.Infoln("Remove prefix ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Start")
 
 		bucketName := cosUrl.(*CosUrl).Bucket
 
@@ -370,13 +371,15 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 		if err != nil {
 			return err
 		}
+		// 打印一个空行
+		fmt.Println()
+		logger.Infoln("Remove prefix ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Completed")
 
-		logger.Infoln("Remove prefix ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), " Completed")
+	}
 
-		if totalDeleteErrCount > 0 && fo.Operation.FailOutput {
-			absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
-			logger.Infof("Some uploads Abort failed, please check the detailed information in dir %s.\n", absErrOutputPath)
-		}
+	if totalDeleteErrCount > 0 && fo.Operation.FailOutput {
+		absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
+		logger.Infof("Some objects remove failed, please check the detailed information in dir %s.\n", absErrOutputPath)
 	}
 	// 打印一个空行
 	fmt.Println()
@@ -511,6 +514,8 @@ func RemoveObject(args []string, fo *FileOperations) error {
 			return fmt.Errorf("cos object not found:%s", cosPath)
 		}
 
+		logger.Infoln("Remove object ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Start")
+
 		opt := &cos.ObjectDeleteOptions{
 			XCosSSECustomerAglo:   "",
 			XCosSSECustomerKey:    "",
@@ -529,6 +534,8 @@ func RemoveObject(args []string, fo *FileOperations) error {
 					return err
 				}
 				logger.Infoln("Delete", arg, "successfully!")
+			} else {
+				logger.Infoln("Cancel Delete", arg)
 			}
 		} else {
 			_, err = c.Object.Delete(context.Background(), cosPath, opt)
@@ -537,6 +544,18 @@ func RemoveObject(args []string, fo *FileOperations) error {
 			}
 			logger.Infoln("Delete", arg, "successfully!")
 		}
+
+		logger.Infoln("Remove object ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Completed")
 	}
+	return nil
+}
+
+func RemoveBucket(bucketIDName string, c *cos.Client) error {
+
+	_, err := c.Bucket.Delete(context.Background())
+	if err != nil {
+		return err
+	}
+	logger.Infof("Delete a empty bucket! name: %s\n", bucketIDName)
 	return nil
 }

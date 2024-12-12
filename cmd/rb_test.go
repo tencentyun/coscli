@@ -40,7 +40,7 @@ func TestRbCmd(t *testing.T) {
 				So(e, ShouldBeError)
 			})
 			Convey("Endpoint", func() {
-				patches := ApplyFunc(removeBucket, func(string) error {
+				patches := ApplyFunc(util.RemoveBucket, func(string) error {
 					return fmt.Errorf("test removeBucket error")
 				})
 				defer patches.Reset()
@@ -67,7 +67,7 @@ func TestRbCmd(t *testing.T) {
 				So(e, ShouldBeError)
 			})
 			Convey("abortParts", func() {
-				patches := ApplyFunc(abortParts, func(arg string, include string, exclude string) error {
+				patches := ApplyFunc(util.AbortUploads, func(arg []string, fo *util.FileOperations) error {
 					return fmt.Errorf("test abortParts error")
 				})
 				defer patches.Reset()
@@ -104,7 +104,7 @@ func TestRbCmd(t *testing.T) {
 			})
 		})
 		Convey("removeBucket", func() {
-			patches := ApplyFunc(removeBucket, func(string) error {
+			patches := ApplyFunc(util.RemoveBucket, func(string) error {
 				return fmt.Errorf("test removeBucket error")
 			})
 			defer patches.Reset()
@@ -122,7 +122,9 @@ func TestRbCmd(t *testing.T) {
 				return nil, fmt.Errorf("test NewClient error")
 			})
 			defer patches.Reset()
-			e := removeBucket("")
+			client, _ := util.NewClient(&config, &param, "")
+
+			e := util.RemoveBucket("", client)
 			fmt.Printf(" : %v", e)
 			So(e, ShouldBeError)
 		})

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"coscli/util"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
@@ -39,6 +38,12 @@ Example:
 		}
 		var choice string
 		var err error
+
+		c, err := util.NewClient(&config, &param, bucketIDName)
+		if err != nil {
+			return err
+		}
+
 		if Force {
 			logger.Infof("Do you want to clear all inside the bucket and delete bucket %s ? (y/n)", bucketIDName)
 			_, _ = fmt.Scanf("%s\n", &choice)
@@ -64,7 +69,7 @@ Example:
 					return err
 				}
 
-				err = removeBucket(bucketIDName)
+				err = util.RemoveBucket(bucketIDName, c)
 				if err != nil {
 					return err
 				}
@@ -73,7 +78,7 @@ Example:
 			logger.Infof("Do you want to delete %s? (y/n)", bucketIDName)
 			_, _ = fmt.Scanf("%s\n", &choice)
 			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
-				err = removeBucket(bucketIDName)
+				err = util.RemoveBucket(bucketIDName, c)
 				if err != nil {
 					return err
 				}
@@ -89,17 +94,4 @@ func init() {
 	rbCmd.Flags().StringP("region", "r", "", "Region")
 	rbCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
 	rbCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
-}
-
-func removeBucket(bucketIDName string) error {
-	c, err := util.NewClient(&config, &param, bucketIDName)
-	if err != nil {
-		return err
-	}
-	_, err = c.Bucket.Delete(context.Background())
-	if err != nil {
-		return err
-	}
-	logger.Infof("Delete a empty bucket! name: %s\n", bucketIDName)
-	return nil
 }
