@@ -223,13 +223,15 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 	}
 
 	if !isDir {
-		fileExist, err := CheckCosObjectExist(c, cosPath)
+		fileExist, err := CheckCosObjectExist(c, cosPath, fo.Operation.VersionId)
 		if err != nil {
 			return err
 		}
 		if !fileExist {
 			return fmt.Errorf("cos object not found:%s", cosPath)
 		}
+	} else if fo.Operation.VersionId != "" {
+		return fmt.Errorf("designated version download is available for single file use only")
 	}
 
 	// cos路径不以路径分隔符结尾，且local路径以路径分隔符结尾，则需将cos最后一位 文件/文件夹名 拼接至local路径后
@@ -292,13 +294,15 @@ func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, s
 	}
 
 	if !isDir {
-		fileExist, err := CheckCosObjectExist(srcClient, srcPath)
+		fileExist, err := CheckCosObjectExist(srcClient, srcPath, fo.Operation.VersionId)
 		if err != nil {
 			return err
 		}
 		if !fileExist {
 			return fmt.Errorf("src cos object not found:%s", srcPath)
 		}
+	} else if fo.Operation.VersionId != "" {
+		return fmt.Errorf("designated version download is available for single file use only")
 	}
 
 	// src路径不以路径分隔符结尾，且dest路径以路径分隔符结尾，则需将src最后一位 文件/文件夹名 拼接至dest路径后

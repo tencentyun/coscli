@@ -93,6 +93,7 @@ type Operation struct {
 	DisableLongLinks  bool
 	LongLinksNums     int
 	VersionId         string
+	AllVersions       bool
 	SnapshotPath      string
 	Delete            bool
 	BackupDir         string

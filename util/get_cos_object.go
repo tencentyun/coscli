@@ -75,17 +75,38 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 	return isDir, nil
 }
 
-func CheckCosObjectExist(c *cos.Client, prefix string) (exist bool, err error) {
+func CheckCosObjectExist(c *cos.Client, prefix string, id ...string) (exist bool, err error) {
 	if prefix == "" {
 		return false, nil
 	}
-
-	exist, err = c.Object.IsExist(context.Background(), prefix)
+	exist, err = c.Object.IsExist(context.Background(), prefix, id...)
 	if err != nil {
 		return exist, err
 	}
 
 	return exist, nil
+}
+
+func CheckDeleteMarkerExist(c *cos.Client, cosUrl StorageUrl, versionId string) (exist bool, err error) {
+	// todo 循环
+	//isTruncated := true
+	//
+	//for isTruncated {
+	//	err, _, deleteMarkers, _, isTruncated, _, _ := getCosObjectVersionListForLs(c, cosUrl, "", "", 0, false)
+	//}
+
+	err, _, deleteMarkers, _, _, _, _ := getCosObjectVersionListForLs(c, cosUrl, "", "", 0, false)
+
+	for _, object := range deleteMarkers {
+		if versionId == object.VersionId {
+			return true, nil
+		}
+	}
+
+	if err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool, withFinishSignal bool) {

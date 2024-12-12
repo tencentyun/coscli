@@ -365,7 +365,12 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 			prefix := cosUrl.(*CosUrl).Object
 			err = RemoveOfsObjects("", c, cosUrl, prefix, fo)
 		} else {
-			err = RemoveCosObjects("", c, cosUrl, fo)
+			if fo.Operation.AllVersions {
+				//err = RemoveCosObjectVersions()
+			} else {
+				err = RemoveCosObjects("", c, cosUrl, fo)
+			}
+
 		}
 
 		if err != nil {
@@ -487,6 +492,41 @@ func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileO
 	return nil
 }
 
+func RemoveCosObjectVersions(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
+	var err error
+	var objects []cos.Object
+	isTruncated := true
+	for isTruncated {
+		err, objects, _, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, 0, true)
+
+		if err != nil {
+			return fmt.Errorf("list objects error : %v", err)
+		}
+
+		keysToDelete := make(map[string]string)
+		for _, object := range objects {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
+				objPrefix := ""
+				objKey := object.Key
+				index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
+				if index > 0 {
+					objPrefix = object.Key[:index+1]
+					objKey = object.Key[index+1:]
+				}
+				keysToDelete[objKey] = objPrefix
+			}
+		}
+
+		err = DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func RemoveObject(args []string, fo *FileOperations) error {
 	for _, arg := range args {
 
@@ -505,48 +545,105 @@ func RemoveObject(args []string, fo *FileOperations) error {
 		if err != nil {
 			return err
 		}
+
+		if fo.Operation.VersionId != "" {
+			res, err := GetBucketVersioning(c)
+			if err != nil {
+				return err
+			}
+			if res.Status != VersionStatusEnabled {
+				return fmt.Errorf("versioning is not enabled on the src bucket")
+			}
+		}
+
 		// 查询对象是否存在
-		fileExist, err := CheckCosObjectExist(c, cosPath)
+		fileExist, err := CheckCosObjectExist(c, cosPath, fo.Operation.VersionId)
 		if err != nil {
 			return err
 		}
 		if !fileExist {
-			return fmt.Errorf("cos object not found:%s", cosPath)
-		}
-
-		logger.Infoln("Remove object ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Start")
-
-		opt := &cos.ObjectDeleteOptions{
-			XCosSSECustomerAglo:   "",
-			XCosSSECustomerKey:    "",
-			XCosSSECustomerKeyMD5: "",
-			XOptionHeader:         nil,
-			VersionId:             "",
-		}
-
-		if !fo.Operation.Force {
-			logger.Infof("Do you want to delete %s? (y/n)", cosPath)
-			var choice string
-			_, _ = fmt.Scanf("%s\n", &choice)
-			if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
-				_, err = c.Object.Delete(context.Background(), cosPath, opt)
+			if fo.Operation.VersionId != "" {
+				deleteMarkerExist, err := CheckDeleteMarkerExist(c, cosUrl, fo.Operation.VersionId)
 				if err != nil {
 					return err
 				}
-				logger.Infoln("Delete", arg, "successfully!")
+				if !deleteMarkerExist {
+					return fmt.Errorf("cos object or version not found:%s", cosPath)
+				}
 			} else {
-				logger.Infoln("Cancel Delete", arg)
+				return fmt.Errorf("cos object or version not found:%s", cosPath)
 			}
+
+		}
+
+		// 删除指定object或其指定版本
+		RemoveObjectOrVersion(c, cosUrl, fo)
+
+	}
+	return nil
+}
+
+func RemoveObjectOrVersion(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
+	var err error
+	cosPath := getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+	if fo.Operation.VersionId == "" {
+		logger.Infof("Start Delete object %s", cosPath)
+	} else {
+		logger.Infof("Start Delete version %s of the object %s", fo.Operation.VersionId, cosPath)
+	}
+
+	opt := &cos.ObjectDeleteOptions{
+		XCosSSECustomerAglo:   "",
+		XCosSSECustomerKey:    "",
+		XCosSSECustomerKeyMD5: "",
+		XOptionHeader:         nil,
+		VersionId:             fo.Operation.VersionId,
+	}
+
+	if !fo.Operation.Force {
+		if fo.Operation.VersionId == "" {
+			logger.Infof("Are you sure you want to Delete object %s? (y/n)", cosPath)
 		} else {
-			_, err = c.Object.Delete(context.Background(), cosPath, opt)
+			logger.Infof("Are you sure you want to Delete version %s of the object %s? (y/n)", fo.Operation.VersionId, cosPath)
+		}
+
+		var choice string
+		_, _ = fmt.Scanf("%s\n", &choice)
+		if choice == "" || choice == "y" || choice == "Y" || choice == "yes" || choice == "Yes" || choice == "YES" {
+			_, err = c.Object.Delete(context.Background(), cosUrl.(*CosUrl).Object, opt)
 			if err != nil {
 				return err
 			}
-			logger.Infoln("Delete", arg, "successfully!")
+			if fo.Operation.VersionId == "" {
+				logger.Infof("Delete object %s successfully!", cosPath)
+			} else {
+				logger.Infof("Delete version %s of the object %s successfully!", fo.Operation.VersionId, cosPath)
+			}
+		} else {
+			if fo.Operation.VersionId == "" {
+				logger.Infof("Cancel Delete object %s", cosPath)
+			} else {
+				logger.Infof("Cancel Delete version %s of the object %s", fo.Operation.VersionId, cosPath)
+			}
 		}
-
-		logger.Infoln("Remove object ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Completed")
+	} else {
+		_, err = c.Object.Delete(context.Background(), cosPath, opt)
+		if err != nil {
+			return err
+		}
+		if fo.Operation.VersionId == "" {
+			logger.Infof("Delete object %s successfully!", cosPath)
+		} else {
+			logger.Infof("Delete version %s of the object %s successfully!", fo.Operation.VersionId, cosPath)
+		}
 	}
+
+	if fo.Operation.VersionId == "" {
+		logger.Infof("Delete object %s Completed", cosPath)
+	} else {
+		logger.Infof("Delete version %s of the object %s Completed", fo.Operation.VersionId, cosPath)
+	}
+
 	return nil
 }
 

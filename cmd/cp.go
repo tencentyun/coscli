@@ -283,7 +283,7 @@ func init() {
 	cpCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
 	cpCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 	cpCmd.Flags().Int("long-links-nums", 0, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
-	cpCmd.Flags().String("version-id", "", "Downloading a specified version of a file is only supported in a bucket with versioning enabled.")
+	cpCmd.Flags().String("version-id", "", "Downloading a specified version of a file , only available if bucket versioning is enabled.")
 }
 
 func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error {
