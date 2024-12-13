@@ -25,6 +25,10 @@ Example:
 		days, _ := cmd.Flags().GetInt("days")
 		mode, _ := cmd.Flags().GetString("mode")
 
+		if days < 1 || days > 365 {
+			return fmt.Errorf("Flag --days should in range 1~365")
+		}
+
 		_, filters := util.GetFilter(include, exclude)
 
 		cosPath := ""
