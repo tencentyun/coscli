@@ -12,3 +12,11 @@ func GetBucketVersioning(c *cos.Client) (res *cos.BucketGetVersionResult, err er
 	}
 	return res, err
 }
+
+func PutBucketVersioning(c *cos.Client, status string) (err error) {
+	opt := &cos.BucketPutVersionOptions{
+		Status: status,
+	}
+	_, err = c.Bucket.PutVersioning(context.Background(), opt)
+	return err
+}
