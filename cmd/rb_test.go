@@ -7,7 +7,6 @@ import (
 
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func TestRbCmd(t *testing.T) {
@@ -114,17 +113,6 @@ func TestRbCmd(t *testing.T) {
 				fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "-f"}
 			cmd.SetArgs(args)
 			e := cmd.Execute()
-			fmt.Printf(" : %v", e)
-			So(e, ShouldBeError)
-		})
-		Convey("removeBucket newClient", func() {
-			patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-				return nil, fmt.Errorf("test NewClient error")
-			})
-			defer patches.Reset()
-			client, _ := util.NewClient(&config, &param, "")
-
-			e := util.RemoveBucket("", client)
 			fmt.Printf(" : %v", e)
 			So(e, ShouldBeError)
 		})

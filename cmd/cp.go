@@ -168,13 +168,15 @@ Example:
 				return err
 			}
 
-			res, err := util.GetBucketVersioning(c)
-			if err != nil {
-				return err
-			}
+			if versionId != "" {
+				res, err := util.GetBucketVersioning(c)
+				if err != nil {
+					return err
+				}
 
-			if res.Status != util.VersionStatusEnabled && versionId != "" {
-				return fmt.Errorf("versioning is not enabled on the current bucket")
+				if res.Status != util.VersionStatusEnabled {
+					return fmt.Errorf("versioning is not enabled on the current bucket")
+				}
 			}
 
 			// 判断桶是否是ofs桶
@@ -208,13 +210,15 @@ Example:
 				return err
 			}
 
-			res, err := util.GetBucketVersioning(srcClient)
-			if err != nil {
-				return err
-			}
+			if versionId != "" {
+				res, err := util.GetBucketVersioning(srcClient)
+				if err != nil {
+					return err
+				}
 
-			if res.Status != util.VersionStatusEnabled && versionId != "" {
-				return fmt.Errorf("versioning is not enabled on the src bucket")
+				if res.Status != util.VersionStatusEnabled {
+					return fmt.Errorf("versioning is not enabled on the src bucket")
+				}
 			}
 
 			// 实例化目标 cos client
