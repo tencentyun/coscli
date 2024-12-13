@@ -21,7 +21,7 @@ Example:
 		limit, _ := cmd.Flags().GetInt("limit")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
-		uploadId, _ := cmd.Flags().GetString("uploadid")
+		uploadId, _ := cmd.Flags().GetString("upload-id")
 		if limit == 0 {
 			limit = 10000
 		} else if limit < 0 {
@@ -62,5 +62,5 @@ func init() {
 	lspartsCmd.Flags().Int("limit", 0, "Limit the number of parts listed(0~1000)")
 	lspartsCmd.Flags().String("include", "", "List files that meet the specified criteria")
 	lspartsCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
-	lspartsCmd.Flags().String("uploadid", "", "Identify the ID of this multipart upload, which is obtained when initializing the multipart upload using the Initiate Multipart Upload interface.")
+	lspartsCmd.Flags().String("upload-id", "", "Identify the ID of this multipart upload, which is obtained when initializing the multipart upload using the Initiate Multipart Upload interface.")
 }

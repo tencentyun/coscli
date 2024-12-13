@@ -14,7 +14,15 @@ import (
 )
 
 func ListParts(c *cos.Client, cosUrl StorageUrl, limit int, uploadId string) error {
-	var err error
+	// 查询上传中的分块任务是否存在
+	uploadExist, err := CheckUploadExist(c, cosUrl, uploadId)
+	if err != nil {
+		return err
+	}
+	if !uploadExist {
+		return fmt.Errorf("the specified multipart upload does not exist: object %s,uploadId %s", cosUrl.(*CosUrl).Object, uploadId)
+	}
+	//var err error
 	var parts []cos.Object
 
 	total := 0

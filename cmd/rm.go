@@ -68,6 +68,7 @@ Example:
 			Config:    &config,
 			Param:     &param,
 			ErrOutput: &util.ErrOutput{},
+			Command:   util.CommandRm,
 		}
 		var err error
 		if recursive {

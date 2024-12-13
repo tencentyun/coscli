@@ -58,7 +58,15 @@ Example:
 					Param:     &param,
 					ErrOutput: &util.ErrOutput{},
 				}
-				// todo 清除历史版本
+
+				// 判桶断是否开启版本控制，开启后需清理历史版本
+				res, err := util.GetBucketVersioning(c)
+				if err != nil {
+					return err
+				}
+				if res.Status == util.VersionStatusEnabled {
+					fo.Operation.AllVersions = true
+				}
 				err = util.RemoveObjects(args, fo)
 				if err != nil {
 					return err

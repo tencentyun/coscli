@@ -48,9 +48,6 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 	}
 
 	if bucketName == "" { // 不指定 bucket，则创建用于发送 Service 请求的客户端
-		if param.Endpoint == "" {
-			return client, fmt.Errorf("endpoint is missing")
-		}
 		client = cos.NewClient(GenBaseURL(config, param), &http.Client{
 			Transport: &cos.AuthorizationTransport{
 				SecretID:     secretID,
@@ -58,7 +55,6 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 				SessionToken: secretToken,
 			},
 		})
-
 	} else {
 		url, err := GenURL(config, param, bucketName)
 		if err != nil {

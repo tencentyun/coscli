@@ -156,6 +156,77 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 	return nil
 }
 
+func DeleteCosObjectVersions(c *cos.Client, keysToDelete []cos.Object, cosUrl StorageUrl, fo *FileOperations) error {
+
+	errCount := 0
+	objects := []cos.Object{}
+	for _, v := range keysToDelete {
+		if len(objects) >= MaxDeleteBatchCount {
+			if confirm(objects, fo, cosUrl) {
+				opt := &cos.ObjectDeleteMultiOptions{
+					Objects: objects,
+					// 布尔值，这个值决定了是否启动 Quiet 模式
+					// 值为 true 启动 Quiet 模式，值为 false 则启动 Verbose 模式，默认值为 false
+					Quiet: true,
+				}
+				res, _, err := c.Object.DeleteMulti(context.Background(), opt)
+				if err != nil {
+					return err
+				}
+				// 删除失败的记录写入错误日志
+				if fo.Operation.FailOutput {
+					for _, delErr := range res.Errors {
+						fo.DeleteCount--
+						errCount++
+						totalDeleteErrCount++
+						writeError(fmt.Sprintf("delete version %s of object %s failed , code:%s,errMsg:%s\n", delErr.VersionId, delErr.Key, delErr.Code, delErr.Message), fo)
+					}
+				}
+			}
+			objects = []cos.Object{}
+			fo.DeleteCount += MaxDeleteBatchCount
+			if errCount > 0 {
+				fmt.Printf("\rdelete object versions count:%d, err count:%d", fo.DeleteCount, errCount)
+			} else {
+				fmt.Printf("\rdelete object versions count:%d", fo.DeleteCount)
+			}
+
+		}
+
+		objects = append(objects, v)
+	}
+
+	if len(objects) > 0 && confirm(objects, fo, cosUrl) {
+		opt := &cos.ObjectDeleteMultiOptions{
+			Objects: objects,
+			// 布尔值，这个值决定了是否启动 Quiet 模式
+			// 值为 true 启动 Quiet 模式，值为 false 则启动 Verbose 模式，默认值为 false
+			Quiet: true,
+		}
+		res, _, err := c.Object.DeleteMulti(context.Background(), opt)
+		if err != nil {
+			return err
+		}
+		// 删除失败的记录写入错误日志
+		if fo.Operation.FailOutput {
+			for _, delErr := range res.Errors {
+				fo.DeleteCount--
+				errCount++
+				totalDeleteErrCount++
+				writeError(fmt.Sprintf("delete version %s of object %s failed , code:%s,errMsg:%s\n", delErr.VersionId, delErr.Key, delErr.Code, delErr.Message), fo)
+			}
+		}
+
+		fo.DeleteCount += len(objects)
+		if errCount > 0 {
+			fmt.Printf("\rdelete object versions count:%d, err count:%d", fo.DeleteCount, errCount)
+		} else {
+			fmt.Printf("\rdelete object versions count:%d", fo.DeleteCount)
+		}
+	}
+	return nil
+}
+
 func confirm(objects []cos.Object, fo *FileOperations, cosUrl StorageUrl) bool {
 	if fo.Operation.Force {
 		return true
@@ -164,12 +235,22 @@ func confirm(objects []cos.Object, fo *FileOperations, cosUrl StorageUrl) bool {
 	var logBuffer bytes.Buffer
 	logBuffer.WriteString("\n")
 	for _, v := range objects {
-		logBuffer.WriteString(fmt.Sprintf("%s\n", SchemePrefix+cosUrl.(*CosUrl).Bucket+CosSeparator+v.Key))
+		if fo.Command == CommandRm && fo.Operation.AllVersions {
+			logBuffer.WriteString(fmt.Sprintf("version %s of %s\n", v.VersionId, SchemePrefix+cosUrl.(*CosUrl).Bucket+CosSeparator+v.Key))
+		} else {
+			logBuffer.WriteString(fmt.Sprintf("%s\n", SchemePrefix+cosUrl.(*CosUrl).Bucket+CosSeparator+v.Key))
+		}
+
 	}
 	if fo.Command == CommandSync {
 		logBuffer.WriteString(fmt.Sprintf("sync:delete above objects(Y or N)? "))
 	} else {
-		logBuffer.WriteString(fmt.Sprintf("delete above objects(Y or N)? "))
+		if fo.Command == CommandRm && fo.Operation.AllVersions {
+			logBuffer.WriteString(fmt.Sprintf("delete above object versions(Y or N)? "))
+		} else {
+			logBuffer.WriteString(fmt.Sprintf("delete above objects(Y or N)? "))
+		}
+
 	}
 	fmt.Printf(logBuffer.String())
 
@@ -344,13 +425,25 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 		if err != nil {
 			return fmt.Errorf("format cosUrl error,%v", err)
 		}
-		logger.Infoln("Remove prefix ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Start")
 
 		bucketName := cosUrl.(*CosUrl).Bucket
 
 		c, err := NewClient(fo.Config, fo.Param, bucketName)
 		if err != nil {
 			return err
+		}
+
+		if fo.Operation.AllVersions {
+			res, err := GetBucketVersioning(c)
+			if err != nil {
+				return err
+			}
+			if res.Status != VersionStatusEnabled {
+				return fmt.Errorf("versioning is not enabled on the src bucket")
+			}
+			logger.Infof("Start remove prefix %s all versions", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object))
+		} else {
+			logger.Infof("Start remove prefix %s", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object))
 		}
 
 		// 根据s.Header判断是否是融合桶或者普通桶
@@ -366,7 +459,7 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 			err = RemoveOfsObjects("", c, cosUrl, prefix, fo)
 		} else {
 			if fo.Operation.AllVersions {
-				//err = RemoveCosObjectVersions()
+				err = RemoveCosObjectVersions(c, cosUrl, fo)
 			} else {
 				err = RemoveCosObjects("", c, cosUrl, fo)
 			}
@@ -378,13 +471,23 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 		}
 		// 打印一个空行
 		fmt.Println()
-		logger.Infoln("Remove prefix ", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object), "Completed")
+
+		if fo.Operation.AllVersions {
+			logger.Infof("Remove prefix %s all versions completed", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object))
+		} else {
+			logger.Infof("Remove prefix %s completed", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object))
+		}
 
 	}
 
 	if totalDeleteErrCount > 0 && fo.Operation.FailOutput {
 		absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
-		logger.Infof("Some objects remove failed, please check the detailed information in dir %s.\n", absErrOutputPath)
+
+		if fo.Operation.AllVersions {
+			logger.Infof("Some object versions remove failed, please check the detailed information in dir %s.\n", absErrOutputPath)
+		} else {
+			logger.Infof("Some objects remove failed, please check the detailed information in dir %s.\n", absErrOutputPath)
+		}
 	}
 	// 打印一个空行
 	fmt.Println()
@@ -492,33 +595,36 @@ func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileO
 	return nil
 }
 
-func RemoveCosObjectVersions(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
+func RemoveCosObjectVersions(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
-	var objects []cos.Object
+	var versions []cos.ListVersionsResultVersion
+	var deleteMarkers []cos.ListVersionsResultDeleteMarker
 	isTruncated := true
+	var keyMarker, versionIdMarker string
+
 	for isTruncated {
-		err, objects, _, isTruncated, marker = getCosObjectListForLs(c, cosUrl, marker, 0, true)
+		err, versions, deleteMarkers, _, isTruncated, versionIdMarker, keyMarker = getCosObjectVersionListForLs(c, cosUrl, versionIdMarker, keyMarker, 0, true)
 
 		if err != nil {
-			return fmt.Errorf("list objects error : %v", err)
+			return fmt.Errorf("list object versions error : %v", err)
 		}
 
-		keysToDelete := make(map[string]string)
-		for _, object := range objects {
+		keysToDelete := []cos.Object{}
+		for _, object := range versions {
 			object.Key, _ = url.QueryUnescape(object.Key)
 			if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
-				objPrefix := ""
-				objKey := object.Key
-				index := strings.LastIndex(cosUrl.(*CosUrl).Object, "/")
-				if index > 0 {
-					objPrefix = object.Key[:index+1]
-					objKey = object.Key[index+1:]
-				}
-				keysToDelete[objKey] = objPrefix
+				keysToDelete = append(keysToDelete, cos.Object{Key: object.Key, VersionId: object.VersionId})
 			}
 		}
 
-		err = DeleteCosObjects(c, keysToDelete, cosUrl, fo)
+		for _, object := range deleteMarkers {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
+				keysToDelete = append(keysToDelete, cos.Object{Key: object.Key, VersionId: object.VersionId})
+			}
+		}
+
+		err = DeleteCosObjectVersions(c, keysToDelete, cosUrl, fo)
 		if err != nil {
 			return err
 		}

@@ -87,19 +87,41 @@ func CheckCosObjectExist(c *cos.Client, prefix string, id ...string) (exist bool
 	return exist, nil
 }
 
+func CheckUploadExist(c *cos.Client, cosUrl StorageUrl, uploadId string) (exist bool, err error) {
+	var uploads []struct {
+		Key          string
+		UploadID     string `xml:"UploadId"`
+		StorageClass string
+		Initiator    *cos.Initiator
+		Owner        *cos.Owner
+		Initiated    string
+	}
+	isTruncated := true
+	var keyMarker, uploadIDMarker string
+	for isTruncated {
+		err, uploads, isTruncated, uploadIDMarker, keyMarker = GetUploadsListForLs(c, cosUrl, uploadIDMarker, keyMarker, 0, false)
+		for _, object := range uploads {
+			if uploadId == object.UploadID {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 func CheckDeleteMarkerExist(c *cos.Client, cosUrl StorageUrl, versionId string) (exist bool, err error) {
-	// todo 循环
-	//isTruncated := true
-	//
-	//for isTruncated {
-	//	err, _, deleteMarkers, _, isTruncated, _, _ := getCosObjectVersionListForLs(c, cosUrl, "", "", 0, false)
-	//}
 
-	err, _, deleteMarkers, _, _, _, _ := getCosObjectVersionListForLs(c, cosUrl, "", "", 0, false)
+	isTruncated := true
+	var versionIdMarker, keyMarker string
+	var deleteMarkers []cos.ListVersionsResultDeleteMarker
 
-	for _, object := range deleteMarkers {
-		if versionId == object.VersionId {
-			return true, nil
+	for isTruncated {
+		err, _, deleteMarkers, _, isTruncated, versionIdMarker, keyMarker = getCosObjectVersionListForLs(c, cosUrl, versionIdMarker, keyMarker, 0, false)
+
+		for _, object := range deleteMarkers {
+			if versionId == object.VersionId {
+				return true, nil
+			}
 		}
 	}
 

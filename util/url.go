@@ -46,7 +46,9 @@ func CreateURL(idName string, protocol string, endpoint string, customized bool)
 
 // 根据配置文件生成ServiceURL
 func GenBaseURL(config *Config, param *Param) *cos.BaseURL {
-
+	if param.Endpoint == "" {
+		return nil
+	}
 	endpoint := param.Endpoint
 
 	protocol := "https"
