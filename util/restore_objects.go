@@ -9,7 +9,7 @@ import (
 	"net/url"
 )
 
-var succeedNum, failedNum int
+var succeedNum, failedNum, errTypeNum int
 
 func RestoreObject(c *cos.Client, bucketName, objectKey string, days int, mode string) error {
 	opt := &cos.ObjectRestoreOptions{
@@ -34,7 +34,7 @@ func RestoreObjects(c *cos.Client, cosUrl StorageUrl, days int, mode string, fil
 	if err != nil {
 		return err
 	}
-
+	logger.Infof("Start Restore %s", cosUrl.(*CosUrl).Bucket+cosUrl.(*CosUrl).Object)
 	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
 		bucketName := cosUrl.(*CosUrl).Bucket
 		prefix := cosUrl.(*CosUrl).Object
@@ -42,6 +42,7 @@ func RestoreObjects(c *cos.Client, cosUrl StorageUrl, days int, mode string, fil
 	} else {
 		err = restoreCosObjects(c, cosUrl, filters, days, mode)
 	}
+	logger.Infof("Restore %s completed,total num: %d,success num: %d,restore error num: %d,error type num: %d", cosUrl.(*CosUrl).Bucket+cosUrl.(*CosUrl).Object, succeedNum+failedNum+errTypeNum, succeedNum, failedNum, errTypeNum)
 	return nil
 }
 
@@ -58,7 +59,7 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionT
 		}
 
 		for _, object := range objects {
-			if object.StorageClass == Archive {
+			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, filters) {
 					err := RestoreObject(c, cosUrl.(*CosUrl).Bucket, object.Key, days, mode)
@@ -69,7 +70,7 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionT
 					}
 				}
 			} else {
-				failedNum += 1
+				errTypeNum += 1
 			}
 
 		}
@@ -91,7 +92,7 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, filters []Filte
 		}
 
 		for _, object := range objects {
-			if object.StorageClass == Archive {
+			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, filters) {
 					err := RestoreObject(c, bucketName, object.Key, days, mode)
@@ -102,7 +103,7 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, filters []Filte
 					}
 				}
 			} else {
-				failedNum += 1
+				errTypeNum += 1
 			}
 		}
 
