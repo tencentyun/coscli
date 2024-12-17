@@ -8,6 +8,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/url"
 	"os"
+	"strings"
 )
 
 var standardCnt, standardIACnt, intelligentTieringCnt, archiveCnt, deepArchiveCnt int
@@ -63,6 +64,9 @@ func countCosObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionTyp
 		}
 		for _, object := range objects {
 			object.Key, _ = url.QueryUnescape(object.Key)
+			if strings.HasSuffix(object.Key, "/") {
+				continue
+			}
 			if cosObjectMatchPatterns(object.Key, filters) {
 				statisticObjects(object, duType)
 			}
