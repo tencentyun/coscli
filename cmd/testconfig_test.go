@@ -28,6 +28,9 @@ var testEndpoint = "cos.ap-guangzhou.myqcloud.com"
 var testOfsBucket string
 var testOfsBucketAlias string
 
+var testVersionBucket string
+var testVersionBucketAlias string
+
 func init() {
 	// 读取配置文件
 	getConfig()
@@ -67,7 +70,7 @@ func randStr(length int) string {
 	return string(result)
 }
 
-func setUp(testBucket, testAlias, testEndpoint string, ofs bool) {
+func setUp(testBucket, testAlias, testEndpoint string, ofs bool, versioning bool) {
 	// 创建测试桶
 	logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
 	clearCmd()
@@ -84,6 +87,17 @@ func setUp(testBucket, testAlias, testEndpoint string, ofs bool) {
 	err := cmd.Execute()
 	if err != nil {
 		logger.Errorln(err)
+	}
+
+	// 开启多版本
+	if versioning {
+		args := []string{"bucket-versioning", "--method", "put",
+			fmt.Sprintf("cos://%s-%s", testBucket, appID), "Enabled"}
+		cmd.SetArgs(args)
+		err := cmd.Execute()
+		if err != nil {
+			logger.Errorln(err)
+		}
 	}
 
 	if testAlias == "nil" {
@@ -114,14 +128,22 @@ func setUp(testBucket, testAlias, testEndpoint string, ofs bool) {
 	getConfig()
 }
 
-func tearDown(testBucket, testAlias, testEndpoint string) {
+func tearDown(testBucket, testAlias, testEndpoint string, versioning bool) {
 	if testAlias == "" {
 		testAlias = testBucket + "-" + appID
 	}
 	// 清空测试桶
 	logger.Infoln(fmt.Sprintf("清空测试桶文件：%s", testAlias))
-	args := []string{"rm",
-		fmt.Sprintf("cos://%s", testAlias), "-r", "-f"}
+	var args []string
+
+	if versioning {
+		args = []string{"rm",
+			fmt.Sprintf("cos://%s", testAlias), "-r", "-f", "--all-versions"}
+	} else {
+		args = []string{"rm",
+			fmt.Sprintf("cos://%s", testAlias), "-r", "-f"}
+	}
+
 	clearCmd()
 	cmd := rootCmd
 	cmd.SetArgs(args)

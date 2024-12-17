@@ -13,7 +13,7 @@ func TestRbCmd(t *testing.T) {
 	fmt.Println("TestRbCmd")
 	testBucket = randStr(8)
 	// 仅创建桶，不添加配置
-	setUp(testBucket, "nil", testEndpoint, false)
+	setUp(testBucket, "nil", testEndpoint, false, false)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true

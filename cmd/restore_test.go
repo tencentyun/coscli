@@ -14,8 +14,8 @@ func TestRestoreCmd(t *testing.T) {
 	fmt.Println("TestRestoreCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	genDir(testDir, 3)
 	defer delDir(testDir)
 	localObject := fmt.Sprintf("%s/small-file/0", testDir)

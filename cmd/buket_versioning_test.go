@@ -14,8 +14,8 @@ func TestBucket_versionCmd(t *testing.T) {
 	fmt.Println("TestBucket_versionCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true

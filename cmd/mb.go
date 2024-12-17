@@ -41,11 +41,13 @@ func init() {
 
 	mbCmd.Flags().StringP("region", "r", "", "Region")
 	mbCmd.Flags().BoolP("ofs", "o", false, "Ofs")
+	mbCmd.Flags().BoolP("maz", "m", false, "Maz")
 }
 
 func createBucket(cmd *cobra.Command, args []string) error {
 	flagRegion, _ := cmd.Flags().GetString("region")
 	flagOfs, _ := cmd.Flags().GetBool("ofs")
+	flagMaz, _ := cmd.Flags().GetBool("maz")
 	if param.Endpoint == "" && flagRegion != "" {
 		param.Endpoint = fmt.Sprintf("cos.%s.myqcloud.com", flagRegion)
 	}
@@ -62,13 +64,15 @@ func createBucket(cmd *cobra.Command, args []string) error {
 		XCosGrantFullControl:      "",
 		XCosGrantReadACP:          "",
 		XCosGrantWriteACP:         "",
-		CreateBucketConfiguration: nil,
+		CreateBucketConfiguration: &cos.CreateBucketConfiguration{},
 	}
 
 	if flagOfs {
-		opt.CreateBucketConfiguration = &cos.CreateBucketConfiguration{
-			BucketArchConfig: "OFS",
-		}
+		opt.CreateBucketConfiguration.BucketAZConfig = "OFS"
+	}
+
+	if flagMaz {
+		opt.CreateBucketConfiguration.BucketAZConfig = "MAZ"
 	}
 
 	_, err = c.Bucket.Put(context.Background(), opt)

@@ -233,3 +233,27 @@ func recursivemoveObject(bucketName string, cosPath string) error {
 	_, err = c.Object.Delete(context.Background(), cosPath, opt)
 	return err
 }
+
+// 获取所有文件和目录
+func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
+	objects, _, _, commonPrefixes, err := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+	if err != nil {
+		return files, err
+	}
+	tempFiles := make([]string, 0)
+	tempFiles = append(tempFiles, cosDir)
+	for _, v := range objects {
+		files = append(files, v.Key)
+	}
+	if len(commonPrefixes) > 0 {
+		for _, v := range commonPrefixes {
+			subFiles, err := getFilesAndDirs(c, v, nextMarker, include, exclude)
+			if err != nil {
+				return files, err
+			}
+			tempFiles = append(tempFiles, subFiles...)
+		}
+	}
+	files = append(files, tempFiles...)
+	return files, nil
+}

@@ -19,10 +19,10 @@ func TestSyncCmd(t *testing.T) {
 	testAlias1 = testBucket1 + "-alias"
 	testBucket2 = randStr(8)
 	testAlias2 = testBucket2 + "-alias"
-	setUp(testBucket1, testAlias1, testEndpoint, false)
-	defer tearDown(testBucket1, testAlias1, testEndpoint)
-	setUp(testBucket2, testAlias2, testEndpoint, false)
-	defer tearDown(testBucket2, testAlias2, testEndpoint)
+	setUp(testBucket1, testAlias1, testEndpoint, false, false)
+	defer tearDown(testBucket1, testAlias1, testEndpoint, false)
+	setUp(testBucket2, testAlias2, testEndpoint, false, false)
+	defer tearDown(testBucket2, testAlias2, testEndpoint, false)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true

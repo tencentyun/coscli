@@ -17,8 +17,8 @@ func TestMvCmd(t *testing.T) {
 	fmt.Println("TestMvCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	genDir(testDir, 3)
 	defer delDir(testDir)
 	localFileName := fmt.Sprintf("%s/small-file", testDir)
@@ -100,6 +100,7 @@ func TestMvCmd(t *testing.T) {
 				So(e, ShouldBeError)
 			})
 		})
+
 	})
 }
 
@@ -110,10 +111,10 @@ func TestMove(t *testing.T) {
 	testOfsBucketAlias = testOfsBucket + "-alias"
 	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
 	cosOfsFileName := fmt.Sprintf("cos://%s/123", testOfsBucketAlias)
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
-	setUp(testOfsBucket, testOfsBucketAlias, testEndpoint, true)
-	defer tearDown(testOfsBucket, testOfsBucketAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
+	setUp(testOfsBucket, testOfsBucketAlias, testEndpoint, true, false)
+	defer tearDown(testOfsBucket, testOfsBucketAlias, testEndpoint, false)
 
 	Convey("Test func move", t, func() {
 		Convey("NewClient", func() {
