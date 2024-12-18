@@ -209,7 +209,7 @@ func TestMove(t *testing.T) {
 					return nil, false, "", []string{"1"}, nil
 				})
 				defer patches.Reset()
-				patches.ApplyFunc(getFilesAndDirs, func(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
+				patches.ApplyFunc(util.GetFilesAndDirs, func(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
 					return nil, fmt.Errorf("test getFilesAndDirs error")
 				})
 				args := []string{cosFileName, cosFileName}
@@ -222,7 +222,7 @@ func TestMove(t *testing.T) {
 					return nil, false, "", []string{"1"}, nil
 				})
 				defer patches.Reset()
-				patches.ApplyFunc(getFilesAndDirs, func(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
+				patches.ApplyFunc(util.GetFilesAndDirs, func(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
 					return []string{"1"}, nil
 				})
 				patches.ApplyFunc(recursivemoveObject, func(bucketName string, cosPath string) error {

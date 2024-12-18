@@ -46,7 +46,7 @@ Example:
 				return fmt.Errorf("the bucket versioning status can only be either Suspended or Enabled")
 			}
 
-			err := util.PutBucketVersioning(c, status)
+			_, err := util.PutBucketVersioning(c, status)
 			if err != nil {
 				return err
 			}
@@ -54,7 +54,7 @@ Example:
 		}
 
 		if method == "get" {
-			res, err := util.GetBucketVersioning(c)
+			res, _, err := util.GetBucketVersioning(c)
 			if err != nil {
 				return err
 			}

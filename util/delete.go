@@ -434,7 +434,7 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 		}
 
 		if fo.Operation.AllVersions {
-			res, err := GetBucketVersioning(c)
+			res, _, err := GetBucketVersioning(c)
 			if err != nil {
 				return err
 			}
@@ -653,7 +653,7 @@ func RemoveObject(args []string, fo *FileOperations) error {
 		}
 
 		if fo.Operation.VersionId != "" {
-			res, err := GetBucketVersioning(c)
+			res, _, err := GetBucketVersioning(c)
 			if err != nil {
 				return err
 			}

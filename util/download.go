@@ -41,7 +41,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 			relativeKey = cosUrl.(*CosUrl).Object[index+1:]
 		}
 		// 获取文件信息
-		resp, err := getHead(c, cosUrl.(*CosUrl).Object, fo.Operation.VersionId)
+		resp, err := GetHead(c, cosUrl.(*CosUrl).Object, fo.Operation.VersionId)
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				// 文件不在cos上

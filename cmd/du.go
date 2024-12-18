@@ -40,7 +40,7 @@ Example:
 
 		// 判断存储桶是否开启版本控制
 		if allVersions {
-			res, err := util.GetBucketVersioning(c)
+			res, _, err := util.GetBucketVersioning(c)
 			if err != nil {
 				return err
 			}

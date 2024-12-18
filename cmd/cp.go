@@ -169,7 +169,7 @@ Example:
 			}
 
 			if versionId != "" {
-				res, err := util.GetBucketVersioning(c)
+				res, _, err := util.GetBucketVersioning(c)
 				if err != nil {
 					return err
 				}
@@ -211,7 +211,7 @@ Example:
 			}
 
 			if versionId != "" {
-				res, err := util.GetBucketVersioning(srcClient)
+				res, _, err := util.GetBucketVersioning(srcClient)
 				if err != nil {
 					return err
 				}

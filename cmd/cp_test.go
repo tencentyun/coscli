@@ -19,10 +19,14 @@ func TestCpCmd(t *testing.T) {
 	testAlias1 = testBucket1 + "-alias"
 	testBucket2 = randStr(8)
 	testAlias2 = testBucket2 + "-alias"
+	testVersionBucket = randStr(8)
+	testVersionBucketAlias = testVersionBucket + "-alias"
 	setUp(testBucket1, testAlias1, testEndpoint, false, false)
 	defer tearDown(testBucket1, testAlias1, testEndpoint, false)
 	setUp(testBucket2, testAlias2, testEndpoint, false, false)
 	defer tearDown(testBucket2, testAlias2, testEndpoint, false)
+	setUp(testVersionBucket, testVersionBucketAlias, testEndpoint, false, true)
+	defer tearDown(testVersionBucket, testVersionBucketAlias, testEndpoint, true)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
@@ -32,12 +36,12 @@ func TestCpCmd(t *testing.T) {
 
 	Convey("Test coscli cp", t, func() {
 		Convey("upload", func() {
-			Convey("上传单个小文件", func() {
+			Convey("上传单个小文件并关闭crc64校验", func() {
 				clearCmd()
 				cmd := rootCmd
 				localFileName := fmt.Sprintf("%s/small-file/0", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "single-small")
-				args := []string{"cp", localFileName, cosFileName}
+				args := []string{"cp", localFileName, cosFileName, "--disable-crc64"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -190,7 +194,7 @@ func TestCpCmd(t *testing.T) {
 			Convey("storageClass", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"cp", "cos://abc", "cos://abc", "--storage-class", "STANDARD"}
+				args := []string{"cp", "cos://abc", "./test", "--storage-class", "STANDARD"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
@@ -458,6 +462,73 @@ func TestCpCmd(t *testing.T) {
 					So(e, ShouldBeError)
 				})
 			})
+		})
+	})
+
+	Convey("Test coscli version copy", t, func() {
+		Convey("跨桶拷贝单个文件的指定版本", func() {
+			clearCmd()
+			cmd := rootCmd
+			patches := ApplyFunc(util.CheckCosObjectExist, func(c *cos.Client, prefix string, id ...string) (exist bool, err error) {
+				return true, nil
+			})
+			defer patches.Reset()
+			var c *cos.ObjectService
+			patches = ApplyMethodFunc(reflect.TypeOf(c), "Head", func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+				resp := &cos.Response{
+					&http.Response{
+						ContentLength: int64(1024),
+						Header:        map[string][]string{},
+					},
+				}
+				resp.Header.Add("Last-Modified", "2024-12-17T08:34:48.000Z")
+				return resp, nil
+			})
+
+			patches = ApplyMethodFunc(reflect.TypeOf(c), "MultiCopy", func(ctx context.Context, name string, sourceURL string, opt *cos.MultiCopyOptions, id ...string) (*cos.ObjectCopyResult, *cos.Response, error) {
+				return nil, nil, nil
+			})
+
+			srcPath := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-big")
+			dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
+			args := []string{"cp", srcPath, dstPath, "--version-id", "123"}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+	})
+
+	Convey("Test coscli version download", t, func() {
+		Convey("下载单个文件的指定版本", func() {
+			clearCmd()
+			cmd := rootCmd
+			patches := ApplyFunc(util.CheckCosObjectExist, func(c *cos.Client, prefix string, id ...string) (exist bool, err error) {
+				return true, nil
+			})
+			defer patches.Reset()
+			var c *cos.ObjectService
+			patches = ApplyMethodFunc(reflect.TypeOf(c), "Head", func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+				resp := &cos.Response{
+					&http.Response{
+						ContentLength: int64(1024),
+						Header:        map[string][]string{},
+					},
+				}
+				resp.Header.Add("Last-Modified", "2024-12-17T08:34:48.000Z")
+				return resp, nil
+			})
+
+			patches = ApplyMethodFunc(reflect.TypeOf(c), "Download", func(ctx context.Context, name string, filepath string, opt *cos.MultiDownloadOptions, id ...string) (*cos.Response, error) {
+				return nil, nil
+			})
+
+			localFileName := fmt.Sprintf("%s/download/single-big", testDir)
+			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-big")
+
+			args := []string{"cp", cosFileName, localFileName, "--version-id", "123"}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
 		})
 	})
 }

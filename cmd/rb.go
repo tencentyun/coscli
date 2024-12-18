@@ -60,7 +60,7 @@ Example:
 				}
 
 				// 判桶断是否开启版本控制，开启后需清理历史版本
-				res, err := util.GetBucketVersioning(c)
+				res, _, err := util.GetBucketVersioning(c)
 				if err != nil {
 					return err
 				}

@@ -1,19 +1,21 @@
 package cmd
 
 import (
+	"context"
 	"coscli/util"
 	"fmt"
-	"testing"
-
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/tencentyun/cos-go-sdk-v5"
+	"reflect"
+	"testing"
 )
 
 func TestRbCmd(t *testing.T) {
 	fmt.Println("TestRbCmd")
 	testBucket = randStr(8)
 	// 仅创建桶，不添加配置
-	setUp(testBucket, "nil", testEndpoint, false, false)
+	setUp(testBucket, "nil", testEndpoint, false, true)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
@@ -94,6 +96,11 @@ func TestRbCmd(t *testing.T) {
 			Convey("Not exist", func() {
 				clearCmd()
 				cmd := rootCmd
+				var c *cos.BucketService
+				patches := ApplyMethodFunc(reflect.TypeOf(c), "Delete", func(ctx context.Context, opt ...*cos.BucketDeleteOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("delete bucket error,bucket not exist")
+				})
+				defer patches.Reset()
 				args := []string{"rb",
 					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
 				cmd.SetArgs(args)

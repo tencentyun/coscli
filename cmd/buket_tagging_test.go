@@ -12,8 +12,8 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func TestBucket_taggingCmd(t *testing.T) {
-	fmt.Println("TestBucket_taggingCmd")
+func TestBucketTaggingCmd(t *testing.T) {
+	fmt.Println("TestBucketTaggingCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
 	setUp(testBucket, testAlias, testEndpoint, false, false)

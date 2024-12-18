@@ -26,7 +26,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 			relativeKey = srcUrl.(*CosUrl).Object[index+1:]
 		}
 		// 获取文件信息
-		resp, err := getHead(srcClient, srcUrl.(*CosUrl).Object, fo.Operation.VersionId)
+		resp, err := GetHead(srcClient, srcUrl.(*CosUrl).Object, fo.Operation.VersionId)
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				// 源文件不在cos上
