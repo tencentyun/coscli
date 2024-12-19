@@ -33,6 +33,7 @@ var rootCmd = &cobra.Command{
 
 func Execute() error {
 	rootCmd.SilenceErrors = true
+	rootCmd.SilenceUsage = true
 	return rootCmd.Execute()
 }
 
