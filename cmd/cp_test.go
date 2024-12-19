@@ -27,13 +27,13 @@ func TestCpCmd(t *testing.T) {
 	defer tearDown(testBucket2, testAlias2, testEndpoint, false)
 	setUp(testVersionBucket, testVersionBucketAlias, testEndpoint, false, true)
 	defer tearDown(testVersionBucket, testVersionBucketAlias, testEndpoint, true)
+	c, _ := util.NewClient(&config, &param, testVersionBucketAlias)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 	genDir(testDir, 3)
 	defer delDir(testDir)
-
 	Convey("Test coscli cp", t, func() {
 		Convey("upload", func() {
 			Convey("上传单个小文件并关闭crc64校验", func() {
@@ -465,67 +465,66 @@ func TestCpCmd(t *testing.T) {
 		})
 	})
 
-	Convey("Test coscli version copy", t, func() {
-		Convey("跨桶拷贝单个文件的指定版本", func() {
+	Convey("Test coscli version", t, func() {
+		Convey("上传单个小文件到多版本桶", func() {
 			clearCmd()
 			cmd := rootCmd
-			patches := ApplyFunc(util.CheckCosObjectExist, func(c *cos.Client, prefix string, id ...string) (exist bool, err error) {
-				return true, nil
-			})
-			defer patches.Reset()
-			var c *cos.ObjectService
-			patches = ApplyMethodFunc(reflect.TypeOf(c), "Head", func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
-				resp := &cos.Response{
-					&http.Response{
-						ContentLength: int64(1024),
-						Header:        map[string][]string{},
-					},
-				}
-				resp.Header.Add("Last-Modified", "2024-12-17T08:34:48.000Z")
-				return resp, nil
-			})
-
-			patches = ApplyMethodFunc(reflect.TypeOf(c), "MultiCopy", func(ctx context.Context, name string, sourceURL string, opt *cos.MultiCopyOptions, id ...string) (*cos.ObjectCopyResult, *cos.Response, error) {
-				return nil, nil, nil
-			})
-
-			srcPath := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-big")
-			dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
-			args := []string{"cp", srcPath, dstPath, "--version-id", "123"}
+			localFileName := fmt.Sprintf("%s/small-file/0", testDir)
+			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			args := []string{"cp", localFileName, cosFileName, "--disable-crc64"}
 			cmd.SetArgs(args)
 			e := cmd.Execute()
 			So(e, ShouldBeNil)
 		})
-	})
-
-	Convey("Test coscli version download", t, func() {
 		Convey("下载单个文件的指定版本", func() {
 			clearCmd()
 			cmd := rootCmd
-			patches := ApplyFunc(util.CheckCosObjectExist, func(c *cos.Client, prefix string, id ...string) (exist bool, err error) {
-				return true, nil
-			})
-			defer patches.Reset()
-			var c *cos.ObjectService
-			patches = ApplyMethodFunc(reflect.TypeOf(c), "Head", func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
-				resp := &cos.Response{
-					&http.Response{
-						ContentLength: int64(1024),
-						Header:        map[string][]string{},
-					},
-				}
-				resp.Header.Add("Last-Modified", "2024-12-17T08:34:48.000Z")
-				return resp, nil
-			})
+			localFileName := fmt.Sprintf("%s/download/single-small", testDir)
+			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			opt := &cos.BucketGetObjectVersionsOptions{
+				Prefix:          "single-small",
+				Delimiter:       "",
+				EncodingType:    "url",
+				VersionIdMarker: "",
+				KeyMarker:       "",
+				MaxKeys:         0,
+			}
 
-			patches = ApplyMethodFunc(reflect.TypeOf(c), "Download", func(ctx context.Context, name string, filepath string, opt *cos.MultiDownloadOptions, id ...string) (*cos.Response, error) {
-				return nil, nil
-			})
+			res, _, _ := c.Bucket.GetObjectVersions(context.Background(), opt)
 
-			localFileName := fmt.Sprintf("%s/download/single-big", testDir)
-			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-big")
+			var versionId string
+			for _, object := range res.Version {
+				versionId = object.VersionId
+				break
+			}
 
-			args := []string{"cp", cosFileName, localFileName, "--version-id", "123"}
+			args := []string{"cp", cosFileName, localFileName, "--version-id", versionId}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+		Convey("跨桶拷贝单个文件的指定版本", func() {
+			clearCmd()
+			cmd := rootCmd
+			srcPath := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
+			opt := &cos.BucketGetObjectVersionsOptions{
+				Prefix:          "single-small",
+				Delimiter:       "",
+				EncodingType:    "url",
+				VersionIdMarker: "",
+				KeyMarker:       "",
+				MaxKeys:         0,
+			}
+
+			res, _, _ := c.Bucket.GetObjectVersions(context.Background(), opt)
+
+			var versionId string
+			for _, object := range res.Version {
+				versionId = object.VersionId
+				break
+			}
+			args := []string{"cp", srcPath, dstPath, "--version-id", versionId}
 			cmd.SetArgs(args)
 			e := cmd.Execute()
 			So(e, ShouldBeNil)
