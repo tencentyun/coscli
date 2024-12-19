@@ -184,6 +184,16 @@ func TestLsCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("OFS桶使用 --all-versions 参数", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls",
+					fmt.Sprintf("cos://%s-%s", testOfsBucket, appID), "-e", testEndpoint, "-r", "--all-versions"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
 		})
 	})
 }
