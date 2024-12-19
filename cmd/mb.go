@@ -68,7 +68,7 @@ func createBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagOfs {
-		opt.CreateBucketConfiguration.BucketAZConfig = "OFS"
+		opt.CreateBucketConfiguration.BucketArchConfig = "OFS"
 	}
 
 	if flagMaz {

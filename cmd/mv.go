@@ -114,12 +114,9 @@ func move(args []string, recursive bool, include string, exclude string, meta ut
 		} else {
 			err = moveObject(args)
 		}
-		if err != nil {
-			return err
-		}
 	}
 
-	return nil
+	return err
 }
 
 func moveObjects(args []string, include string, exclude string) error {

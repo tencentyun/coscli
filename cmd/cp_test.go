@@ -35,6 +35,69 @@ func TestCpCmd(t *testing.T) {
 	genDir(testDir, 3)
 	defer delDir(testDir)
 	Convey("Test coscli cp", t, func() {
+		Convey("上传单个小文件到多版本桶", func() {
+			clearCmd()
+			cmd := rootCmd
+			localFileName := fmt.Sprintf("%s/small-file/0", testDir)
+			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			args := []string{"cp", localFileName, cosFileName, "--disable-crc64"}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+		Convey("下载单个文件的指定版本", func() {
+			clearCmd()
+			cmd := rootCmd
+			localFileName := fmt.Sprintf("%s/download/single-small", testDir)
+			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			opt := &cos.BucketGetObjectVersionsOptions{
+				Prefix:          "single-small",
+				Delimiter:       "",
+				EncodingType:    "url",
+				VersionIdMarker: "",
+				KeyMarker:       "",
+				MaxKeys:         0,
+			}
+
+			res, _, _ := c.Bucket.GetObjectVersions(context.Background(), opt)
+
+			var versionId string
+			for _, object := range res.Version {
+				versionId = object.VersionId
+				break
+			}
+
+			args := []string{"cp", cosFileName, localFileName, "--version-id", versionId}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+		Convey("跨桶拷贝单个文件的指定版本", func() {
+			clearCmd()
+			cmd := rootCmd
+			srcPath := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
+			opt := &cos.BucketGetObjectVersionsOptions{
+				Prefix:          "single-small",
+				Delimiter:       "",
+				EncodingType:    "url",
+				VersionIdMarker: "",
+				KeyMarker:       "",
+				MaxKeys:         0,
+			}
+
+			res, _, _ := c.Bucket.GetObjectVersions(context.Background(), opt)
+
+			var versionId string
+			for _, object := range res.Version {
+				versionId = object.VersionId
+				break
+			}
+			args := []string{"cp", srcPath, dstPath, "--version-id", versionId}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
 		Convey("upload", func() {
 			Convey("上传单个小文件并关闭crc64校验", func() {
 				clearCmd()
@@ -462,72 +525,6 @@ func TestCpCmd(t *testing.T) {
 					So(e, ShouldBeError)
 				})
 			})
-		})
-	})
-
-	Convey("Test coscli version", t, func() {
-		Convey("上传单个小文件到多版本桶", func() {
-			clearCmd()
-			cmd := rootCmd
-			localFileName := fmt.Sprintf("%s/small-file/0", testDir)
-			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
-			args := []string{"cp", localFileName, cosFileName, "--disable-crc64"}
-			cmd.SetArgs(args)
-			e := cmd.Execute()
-			So(e, ShouldBeNil)
-		})
-		Convey("下载单个文件的指定版本", func() {
-			clearCmd()
-			cmd := rootCmd
-			localFileName := fmt.Sprintf("%s/download/single-small", testDir)
-			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
-			opt := &cos.BucketGetObjectVersionsOptions{
-				Prefix:          "single-small",
-				Delimiter:       "",
-				EncodingType:    "url",
-				VersionIdMarker: "",
-				KeyMarker:       "",
-				MaxKeys:         0,
-			}
-
-			res, _, _ := c.Bucket.GetObjectVersions(context.Background(), opt)
-
-			var versionId string
-			for _, object := range res.Version {
-				versionId = object.VersionId
-				break
-			}
-
-			args := []string{"cp", cosFileName, localFileName, "--version-id", versionId}
-			cmd.SetArgs(args)
-			e := cmd.Execute()
-			So(e, ShouldBeNil)
-		})
-		Convey("跨桶拷贝单个文件的指定版本", func() {
-			clearCmd()
-			cmd := rootCmd
-			srcPath := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
-			dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
-			opt := &cos.BucketGetObjectVersionsOptions{
-				Prefix:          "single-small",
-				Delimiter:       "",
-				EncodingType:    "url",
-				VersionIdMarker: "",
-				KeyMarker:       "",
-				MaxKeys:         0,
-			}
-
-			res, _, _ := c.Bucket.GetObjectVersions(context.Background(), opt)
-
-			var versionId string
-			for _, object := range res.Version {
-				versionId = object.VersionId
-				break
-			}
-			args := []string{"cp", srcPath, dstPath, "--version-id", versionId}
-			cmd.SetArgs(args)
-			e := cmd.Execute()
-			So(e, ShouldBeNil)
 		})
 	})
 }
