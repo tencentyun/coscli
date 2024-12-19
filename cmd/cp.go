@@ -4,7 +4,6 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -174,8 +173,7 @@ Example:
 				if err != nil {
 					return err
 				}
-				fmt.Println(res, 1111)
-				os.Exit(1)
+
 				if res.Status != util.VersionStatusEnabled {
 					return fmt.Errorf("versioning is not enabled on the current bucket")
 				}
