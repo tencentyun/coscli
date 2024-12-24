@@ -20,6 +20,7 @@ type BaseCfg struct {
 	Mode                string `yaml:"mode"`
 	CvmRoleName         string `yaml:"cvmrolename"`
 	CloseAutoSwitchHost string `yaml:"closeautoswitchhost"`
+	DisableEncryption   string `yaml:"disableencryption"`
 }
 
 type Bucket struct {

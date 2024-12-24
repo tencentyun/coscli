@@ -37,6 +37,7 @@ func init() {
 	configSetCmd.Flags().StringP("mode", "", "", "Set mode")
 	configSetCmd.Flags().StringP("cvm_role_name", "", "", "Set cvm role name")
 	configSetCmd.Flags().StringP("close_auto_switch_host", "", "", "Close Auto Switch Host")
+	configSetCmd.Flags().StringP("disable_encryption", "", "", "Disable Encryption")
 }
 
 func setConfigItem(cmd *cobra.Command) error {
@@ -47,6 +48,7 @@ func setConfigItem(cmd *cobra.Command) error {
 	mode, _ := cmd.Flags().GetString("mode")
 	cvmRoleName, _ := cmd.Flags().GetString("cvm_role_name")
 	closeAutoSwitchHost, _ := cmd.Flags().GetString("close_auto_switch_host")
+	disableEncryption, _ := cmd.Flags().GetString("disable_encryption")
 	if secretID != "" {
 		flag = true
 		if secretID == "@" {
@@ -97,13 +99,24 @@ func setConfigItem(cmd *cobra.Command) error {
 		}
 	}
 
+	if disableEncryption != "" {
+		flag = true
+		if disableEncryption == "@" {
+			config.Base.DisableEncryption = ""
+		} else {
+			config.Base.DisableEncryption = disableEncryption
+		}
+	}
+
 	if !flag {
 		return fmt.Errorf("Enter at least one configuration item to be modified!")
 	}
-	// 默认加密存储
-	config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
-	config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
-	config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
+	// 若未关闭秘钥加密，则先加密秘钥
+	if config.Base.DisableEncryption != "true" {
+		config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
+		config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
+		config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
+	}
 
 	// 判断config文件是否存在。不存在则创建
 	home, err := homedir.Dir()
