@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
+	"os"
 	"time"
 
 	"coscli/util"
@@ -131,8 +133,11 @@ Example:
 		if err != nil {
 			return err
 		}
+		var operate string
 		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
+			operate = "Upload"
+			logger.Infof("Upload %s to %s start", srcUrl.ToString(), destUrl.ToString())
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
@@ -159,6 +164,8 @@ Example:
 				return err
 			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
+			operate = "Download"
+			logger.Infof("Download %s to %s start", srcUrl.ToString(), destUrl.ToString())
 			if storageClass != "" {
 				return fmt.Errorf("--storage-class can not use in download")
 			}
@@ -205,6 +212,8 @@ Example:
 				return err
 			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
+			operate = "Copy"
+			logger.Infof("Copy %s to %s start", srcUrl.ToString(), destUrl.ToString())
 			// 实例化来源 cos client
 			srcBucketName := srcUrl.(*util.CosUrl).Bucket
 			srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
@@ -248,6 +257,12 @@ Example:
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 
+		if fo.Monitor.ErrNum > 0 {
+			logger.Warningf("%s %s to %s %s", operate, srcUrl.ToString(), destUrl.ToString(), fo.Monitor.GetFinishInfo())
+			os.Exit(2)
+		} else {
+			logger.Infof("%s %s to %s %s", operate, srcUrl.ToString(), destUrl.ToString(), fo.Monitor.GetFinishInfo())
+		}
 		return nil
 	},
 }
