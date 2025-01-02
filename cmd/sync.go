@@ -133,11 +133,15 @@ Example:
 		if err != nil {
 			return err
 		}
+
+		srcPath := srcUrl.ToString()
+		destPath := destUrl.ToString()
+
 		var operate string
 		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
 			operate = "Upload"
-			logger.Infof("Upload %s to %s start", srcUrl.ToString(), destUrl.ToString())
+			logger.Infof("Upload %s to %s start", srcPath, destPath)
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
@@ -165,7 +169,7 @@ Example:
 			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
 			operate = "Download"
-			logger.Infof("Download %s to %s start", srcUrl.ToString(), destUrl.ToString())
+			logger.Infof("Download %s to %s start", srcPath, destPath)
 			if storageClass != "" {
 				return fmt.Errorf("--storage-class can not use in download")
 			}
@@ -213,7 +217,7 @@ Example:
 			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
 			operate = "Copy"
-			logger.Infof("Copy %s to %s start", srcUrl.ToString(), destUrl.ToString())
+			logger.Infof("Copy %s to %s start", srcPath, destPath)
 			// 实例化来源 cos client
 			srcBucketName := srcUrl.(*util.CosUrl).Bucket
 			srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
@@ -258,10 +262,10 @@ Example:
 		util.PrintCostTime(startT, endT)
 
 		if fo.Monitor.ErrNum > 0 {
-			logger.Warningf("%s %s to %s %s", operate, srcUrl.ToString(), destUrl.ToString(), fo.Monitor.GetFinishInfo())
+			logger.Warningf("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
 			os.Exit(2)
 		} else {
-			logger.Infof("%s %s to %s %s", operate, srcUrl.ToString(), destUrl.ToString(), fo.Monitor.GetFinishInfo())
+			logger.Infof("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
 		}
 		return nil
 	},
