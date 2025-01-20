@@ -67,7 +67,7 @@ Example:
 		if recursive {
 			err = util.RestoreObjects(c, cosUrl, fo)
 		} else {
-			err = util.RestoreObject(c, bucketName, cosUrl.(*util.CosUrl).Object, days, mode)
+			_, err = util.TryRestoreObject(c, bucketName, cosUrl.(*util.CosUrl).Object, days, mode)
 		}
 		return err
 	},
