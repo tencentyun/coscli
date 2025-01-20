@@ -7,6 +7,7 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/url"
+	"path/filepath"
 )
 
 var succeedNum, failedNum, errTypeNum int
@@ -41,7 +42,15 @@ func RestoreObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error 
 	} else {
 		err = restoreCosObjects(c, cosUrl, fo)
 	}
-	logger.Infof("Restore %s completed,total num: %d,success num: %d,restore error num: %d,error type num: %d", cosUrl.(*CosUrl).Bucket+cosUrl.(*CosUrl).Object, succeedNum+failedNum+errTypeNum, succeedNum, failedNum, errTypeNum)
+
+	absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
+
+	if failedNum > 0 || errTypeNum > 0 {
+		logger.Warningf("Restore %s completed, total num: %d,success num: %d,restore error num: %d,error type num: %d,Some objects restore failed, please check the detailed information in dir %s.\n", cosUrl.(*CosUrl).Bucket+cosUrl.(*CosUrl).Object, succeedNum+failedNum+errTypeNum, succeedNum, failedNum, errTypeNum, absErrOutputPath)
+	} else {
+		logger.Infof("Restore %s completed,total num: %d,success num: %d,restore error num: %d,error type num: %d", cosUrl.(*CosUrl).Bucket+cosUrl.(*CosUrl).Object, succeedNum+failedNum+errTypeNum, succeedNum, failedNum, errTypeNum)
+	}
+
 	return nil
 }
 
@@ -71,7 +80,6 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) err
 				}
 			} else {
 				errTypeNum += 1
-				writeError(fmt.Sprintf("restore %s failed , errMsg:The file type is %s, and restore only supports Archive, MAZArchive, and DeepArchive three types.\n", object.Key, object.StorageClass), fo)
 			}
 
 		}
@@ -106,7 +114,6 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, fo *FileOperati
 				}
 			} else {
 				errTypeNum += 1
-				writeError(fmt.Sprintf("restore %s failed , errMsg:The file type is %s, and restore only supports Archive, MAZArchive, and DeepArchive three types.\n", object.Key, object.StorageClass), fo)
 			}
 		}
 
