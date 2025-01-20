@@ -99,6 +99,8 @@ type Operation struct {
 	Delete            bool
 	BackupDir         string
 	Force             bool
+	Days              int
+	RestoreMode       string
 }
 
 type ErrOutput struct {

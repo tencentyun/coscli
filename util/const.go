@@ -13,10 +13,11 @@ const (
 )
 
 const (
-	CommandCP   = "cp"
-	CommandSync = "sync"
-	CommandLs   = "ls"
-	CommandRm   = "rm"
+	CommandCP      = "cp"
+	CommandSync    = "sync"
+	CommandLs      = "ls"
+	CommandRm      = "rm"
+	CommandRestore = "restore"
 )
 
 const (
