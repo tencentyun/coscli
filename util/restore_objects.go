@@ -56,17 +56,22 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) err
 			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
-					resp, err := TryRestoreObject(c, cosUrl.(*CosUrl).Bucket, object.Key, fo.Operation.Days, fo.Operation.RestoreMode)
-					if err != nil {
-						if resp != nil && resp.StatusCode == 409 {
-							succeedNum += 1
-						} else {
-							failedNum += 1
-							writeError(fmt.Sprintf("restore %s failed , errMsg:%v\n", object.Key, err), fo)
-						}
-					} else {
+					if object.RestoreStatus == "ONGOING" {
 						succeedNum += 1
+					} else {
+						resp, err := TryRestoreObject(c, cosUrl.(*CosUrl).Bucket, object.Key, fo.Operation.Days, fo.Operation.RestoreMode)
+						if err != nil {
+							if resp != nil && resp.StatusCode == 409 {
+								succeedNum += 1
+							} else {
+								failedNum += 1
+								writeError(fmt.Sprintf("restore %s failed , errMsg:%v\n", object.Key, err), fo)
+							}
+						} else {
+							succeedNum += 1
+						}
 					}
+
 				}
 			} else {
 				errTypeNum += 1
@@ -126,17 +131,22 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, fo *FileOperati
 			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
-					resp, err := TryRestoreObject(c, bucketName, object.Key, fo.Operation.Days, fo.Operation.RestoreMode)
-					if err != nil {
-						if resp != nil && resp.StatusCode == 409 {
-							succeedNum += 1
-						} else {
-							failedNum += 1
-							writeError(fmt.Sprintf("restore %s failed , errMsg:%v\n", object.Key, err), fo)
-						}
-					} else {
+					if object.RestoreStatus == "ONGOING" {
 						succeedNum += 1
+					} else {
+						resp, err := TryRestoreObject(c, bucketName, object.Key, fo.Operation.Days, fo.Operation.RestoreMode)
+						if err != nil {
+							if resp != nil && resp.StatusCode == 409 {
+								succeedNum += 1
+							} else {
+								failedNum += 1
+								writeError(fmt.Sprintf("restore %s failed , errMsg:%v\n", object.Key, err), fo)
+							}
+						} else {
+							succeedNum += 1
+						}
 					}
+
 				}
 			} else {
 				errTypeNum += 1
