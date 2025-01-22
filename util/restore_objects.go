@@ -56,7 +56,7 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) err
 			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
-					if object.RestoreStatus == "ONGOING" {
+					if object.RestoreStatus == "ONGOING" || object.RestoreStatus == "ONGING" {
 						succeedNum += 1
 					} else {
 						resp, err := TryRestoreObject(c, cosUrl.(*CosUrl).Bucket, object.Key, fo.Operation.Days, fo.Operation.RestoreMode)
@@ -131,7 +131,7 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, fo *FileOperati
 			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
-					if object.RestoreStatus == "ONGOING" {
+					if object.RestoreStatus == "ONGOING" || object.RestoreStatus == "ONGING" {
 						succeedNum += 1
 					} else {
 						resp, err := TryRestoreObject(c, bucketName, object.Key, fo.Operation.Days, fo.Operation.RestoreMode)
