@@ -101,6 +101,7 @@ type Operation struct {
 	Force             bool
 	Days              int
 	RestoreMode       string
+	Move              bool
 }
 
 type ErrOutput struct {

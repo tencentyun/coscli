@@ -199,5 +199,13 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		return
 	}
 
+	if fo.Operation.Move {
+		if err == nil {
+			_, err = srcClient.Object.Delete(context.Background(), object, nil)
+			rErr = err
+			return
+		}
+	}
+
 	return
 }
