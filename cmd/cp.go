@@ -258,6 +258,11 @@ Example:
 			if err != nil {
 				return err
 			}
+
+			if move && (srcUrl.(*util.CosUrl).Object == destUrl.(*util.CosUrl).Object) {
+				return fmt.Errorf("using --move is not allowed when the target path and source path for cos are the same")
+			}
+
 			// 拷贝
 			err = util.CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
 			if err != nil {
