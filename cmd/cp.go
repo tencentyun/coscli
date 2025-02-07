@@ -215,7 +215,10 @@ Example:
 			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
 			operate = "Copy"
-			logger.Infof("Copy %s to %s start", srcPath, destPath)
+			if move {
+				operate = "Move"
+			}
+			logger.Infof("%s %s to %s start", operate, srcPath, destPath)
 			// 实例化来源 cos client
 			srcBucketName := srcUrl.(*util.CosUrl).Bucket
 			srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
