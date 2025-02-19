@@ -36,6 +36,7 @@ func showConfig() {
 	fmt.Printf("  Mode: %s\n", config.Base.Mode)
 	fmt.Printf("  CvmRoleName: %s\n", config.Base.CvmRoleName)
 	fmt.Printf("  CloseAutoSwitchHost: %s\n", config.Base.CloseAutoSwitchHost)
+	fmt.Printf("  DisableEncryption: %s\n", config.Base.DisableEncryption)
 	fmt.Println("====================")
 	fmt.Println("Bucket Configuration Information:")
 
