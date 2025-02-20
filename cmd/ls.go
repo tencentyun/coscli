@@ -49,6 +49,7 @@ Example:
 				return err
 			}
 			err = util.ListBuckets(c, limit)
+			return err
 		} else if cosUrl.IsCosUrl() {
 			// 实例化cos client
 			bucketName := cosUrl.(*util.CosUrl).Bucket
