@@ -67,7 +67,7 @@ Example:
 				}
 
 				if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-					fo.Operation.AllVersions = true
+					fo.Operation.AllVersions = false
 				} else {
 					// 判桶断是否开启版本控制，开启后需清理历史版本
 					res, _, err := util.GetBucketVersioning(c)
