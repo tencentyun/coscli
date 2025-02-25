@@ -20,6 +20,7 @@ type BaseCfg struct {
 	Mode                string `yaml:"mode"`
 	CvmRoleName         string `yaml:"cvmrolename"`
 	CloseAutoSwitchHost string `yaml:"closeautoswitchhost"`
+	DisableEncryption   string `yaml:"disableencryption"`
 }
 
 type Bucket struct {
@@ -92,10 +93,15 @@ type Operation struct {
 	DisableChecksum   bool
 	DisableLongLinks  bool
 	LongLinksNums     int
+	VersionId         string
+	AllVersions       bool
 	SnapshotPath      string
 	Delete            bool
 	BackupDir         string
 	Force             bool
+	Days              int
+	RestoreMode       string
+	Move              bool
 }
 
 type ErrOutput struct {

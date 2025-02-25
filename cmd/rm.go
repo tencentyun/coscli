@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 var rmCmd = &cobra.Command{
@@ -39,8 +38,18 @@ Example:
 		exclude, _ := cmd.Flags().GetString("exclude")
 		failOutput, _ := cmd.Flags().GetBool("fail-output")
 		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+		allVersions, _ := cmd.Flags().GetBool("all-versions")
+		versionId, _ := cmd.Flags().GetString("version-id")
 
 		_, filters := util.GetFilter(include, exclude)
+
+		if versionId != "" && recursive {
+			return fmt.Errorf("version-id can only be used to delete a single version of an object")
+		}
+
+		if allVersions && !recursive {
+			return fmt.Errorf("all-versions can not be used to delete single object")
+		}
 
 		fo := &util.FileOperations{
 			Operation: util.Operation{
@@ -51,11 +60,14 @@ Example:
 				RetryNum:       retryNum,
 				FailOutput:     failOutput,
 				FailOutputPath: failOutputPath,
+				AllVersions:    allVersions,
+				VersionId:      versionId,
 			},
 			Monitor:   &util.FileProcessMonitor{},
 			Config:    &config,
 			Param:     &param,
 			ErrOutput: &util.ErrOutput{},
+			Command:   util.CommandRm,
 		}
 		var err error
 		if recursive {
@@ -76,30 +88,8 @@ func init() {
 	rmCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-10 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
 	rmCmd.Flags().String("include", "", "List files that meet the specified criteria")
 	rmCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
-	rmCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
-	rmCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
-}
-
-// 获取所有文件和目录
-func getFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
-	objects, _, _, commonPrefixes, err := util.GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
-	if err != nil {
-		return files, err
-	}
-	tempFiles := make([]string, 0)
-	tempFiles = append(tempFiles, cosDir)
-	for _, v := range objects {
-		files = append(files, v.Key)
-	}
-	if len(commonPrefixes) > 0 {
-		for _, v := range commonPrefixes {
-			subFiles, err := getFilesAndDirs(c, v, nextMarker, include, exclude)
-			if err != nil {
-				return files, err
-			}
-			tempFiles = append(tempFiles, subFiles...)
-		}
-	}
-	files = append(files, tempFiles...)
-	return files, nil
+	rmCmd.Flags().Bool("fail-output", true, "This option determines whether error output for failed file deletions is enabled. If enabled, any error messages for failed file deletions will be recorded in a file within the specified directory (if not specified, the default directory is coscli_output). If disabled, only the number of error files will be output to the console.")
+	rmCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the error output folder where error messages for failed file deletions will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
+	rmCmd.Flags().BoolP("all-versions", "", false, "remove all versions of objects, only available if bucket versioning is enabled.")
+	rmCmd.Flags().String("version-id", "", "remove Downloading a specified version of a object, only available if bucket versioning is enabled.")
 }

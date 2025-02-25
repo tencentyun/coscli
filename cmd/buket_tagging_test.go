@@ -12,12 +12,12 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-func TestBucket_taggingCmd(t *testing.T) {
-	fmt.Println("TestBucket_taggingCmd")
+func TestBucketTaggingCmd(t *testing.T) {
+	fmt.Println("TestBucketTaggingCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
@@ -191,8 +191,8 @@ func TestBucket_taggingCmd(t *testing.T) {
 func TestDesDeleteBucketTagging(t *testing.T) {
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true

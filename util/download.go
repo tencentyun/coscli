@@ -41,7 +41,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 			relativeKey = cosUrl.(*CosUrl).Object[index+1:]
 		}
 		// 获取文件信息
-		resp, err := getHead(c, cosUrl.(*CosUrl).Object)
+		resp, err := GetHead(c, cosUrl.(*CosUrl).Object, fo.Operation.VersionId)
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				// 文件不在cos上
@@ -55,7 +55,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 		freshProgress()
 
 		// 下载文件
-		skip, err, isDir, size, _, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl)
+		skip, err, isDir, size, _, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl, fo.Operation.VersionId)
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
 			return fmt.Errorf("%s failed: %v", msg, err)
@@ -128,7 +128,8 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 			if err == nil {
 				break // Download succeeded, break the loop
 			} else {
-				if retry < fo.Operation.ErrRetryNum {
+				// 服务端重试在go sdk内部进行，客户端仅重试文件上传完完整性校验不通过的case
+				if retry < fo.Operation.ErrRetryNum && strings.HasPrefix(err.Error(), "verification failed, want:") {
 					if fo.Operation.ErrRetryInterval == 0 {
 						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
 						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
@@ -137,7 +138,6 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 					}
 
 					fo.Monitor.updateDealSize(-transferSize)
-
 				}
 			}
 		}
@@ -152,7 +152,7 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 	chError <- nil
 }
 
-func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType, cosUrl, fileUrl StorageUrl) (skip bool, rErr error, isDir bool, size, transferSize int64, msg string) {
+func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType, cosUrl, fileUrl StorageUrl, VersionId ...string) (skip bool, rErr error, isDir bool, size, transferSize int64, msg string) {
 	skip = false
 	rErr = nil
 	isDir = false
@@ -227,7 +227,10 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		size = 0
 	}
 
-	resp, err := c.Object.Download(context.Background(), object, localFilePath, opt)
+	var resp *cos.Response
+
+	resp, err = c.Object.Download(context.Background(), object, localFilePath, opt, VersionId...)
+
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "verification failed, want:") {
 			transferSize = counter.TransferSize

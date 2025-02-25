@@ -1,8 +1,10 @@
 package util
 
 import (
+	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/http"
+	"time"
 )
 
 var secretID, secretKey, secretToken string
@@ -37,6 +39,14 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		secretToken = param.SessionToken
 	}
 
+	if secretID == "" {
+		return client, fmt.Errorf("secretID is missing ")
+	}
+
+	if secretKey == "" {
+		return client, fmt.Errorf("secretKey is missing")
+	}
+
 	if bucketName == "" { // 不指定 bucket，则创建用于发送 Service 请求的客户端
 		client = cos.NewClient(GenBaseURL(config, param), &http.Client{
 			Transport: &cos.AuthorizationTransport{
@@ -45,7 +55,6 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 				SessionToken: secretToken,
 			},
 		})
-
 	} else {
 		url, err := GenURL(config, param, bucketName)
 		if err != nil {
@@ -91,9 +100,18 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		client.Conf.RetryOpt.AutoSwitchHost = false
 	}
 
-	// 错误重试
-	client.Conf.RetryOpt.Count = 10
-	client.Conf.RetryOpt.Interval = 2
+	// 服务端错误重试（默认10次，每次间隔1s）
+	if len(options) > 0 && options[0] != nil && options[0].Operation.ErrRetryNum > 0 {
+		client.Conf.RetryOpt.Count = options[0].Operation.ErrRetryNum
+		if options[0].Operation.ErrRetryInterval > 0 {
+			client.Conf.RetryOpt.Interval = time.Duration(options[0].Operation.ErrRetryInterval)
+		} else {
+			client.Conf.RetryOpt.Interval = time.Duration(1)
+		}
+	} else {
+		client.Conf.RetryOpt.Count = 10
+		client.Conf.RetryOpt.Interval = time.Duration(1)
+	}
 
 	// 修改 UserAgent
 	client.UserAgent = Package + "-" + Version

@@ -57,7 +57,7 @@ func getFileListStatistic(dpath string, fo *FileOperations) error {
 
 		if f.IsDir() {
 			if fpath != dpath {
-				if matchPatterns(f.Name(), fo.Operation.Filters) {
+				if matchPatterns(filepath.Join(dpath, fileName), fo.Operation.Filters) {
 					fo.Monitor.updateScanNum(1)
 				}
 			}
@@ -92,7 +92,7 @@ func getFileListStatistic(dpath string, fo *FileOperations) error {
 				return nil
 			}
 		}
-		if matchPatterns(f.Name(), fo.Operation.Filters) {
+		if matchPatterns(filepath.Join(dpath, fileName), fo.Operation.Filters) {
 			fo.Monitor.updateScanSizeNum(realFileSize, 1)
 		}
 		return nil
@@ -132,8 +132,7 @@ func getCurrentDirFilesStatistic(dpath string, fo *FileOperations) error {
 				// for symlink
 				continue
 			}
-
-			if matchPatterns(fileInfo.Name(), fo.Operation.Filters) {
+			if matchPatterns(filepath.Join(dpath, fileInfo.Name()), fo.Operation.Filters) {
 				fo.Monitor.updateScanSizeNum(fileInfo.Size(), 1)
 			}
 		}
@@ -187,7 +186,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 
 		if f.IsDir() {
 			if fpath != dpath {
-				if matchPatterns(fileName, fo.Operation.Filters) {
+				if matchPatterns(filepath.Join(dpath, fileName), fo.Operation.Filters) {
 					if strings.HasSuffix(fileName, "\\") || strings.HasSuffix(fileName, "/") {
 						chFiles <- fileInfoType{fileName, name}
 					} else {
@@ -218,7 +217,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 			}
 		}
 
-		if matchPatterns(fileName, fo.Operation.Filters) {
+		if matchPatterns(filepath.Join(dpath, fileName), fo.Operation.Filters) {
 			chFiles <- fileInfoType{fileName, name}
 		}
 		return nil
@@ -259,7 +258,7 @@ func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOp
 				continue
 			}
 
-			if matchPatterns(fileInfo.Name(), fo.Operation.Filters) {
+			if matchPatterns(filepath.Join(dpath, fileInfo.Name()), fo.Operation.Filters) {
 				chFiles <- fileInfoType{fileInfo.Name(), dpath}
 			}
 		}

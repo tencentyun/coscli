@@ -51,8 +51,6 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 		prefix += CosSeparator
 	}
 
-	retries := fo.Operation.RetryNum
-
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
 		Delimiter:    "",
@@ -61,7 +59,7 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 		MaxKeys:      limit,
 	}
 
-	res, err := tryGetBucket(c, opt, retries)
+	res, err := tryGetObjects(c, opt)
 	if err != nil {
 		return isDir, err
 	}
@@ -77,17 +75,60 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 	return isDir, nil
 }
 
-func CheckCosObjectExist(c *cos.Client, prefix string) (exist bool, err error) {
+func CheckCosObjectExist(c *cos.Client, prefix string, id ...string) (exist bool, err error) {
 	if prefix == "" {
 		return false, nil
 	}
-
-	exist, err = c.Object.IsExist(context.Background(), prefix)
+	exist, err = c.Object.IsExist(context.Background(), prefix, id...)
 	if err != nil {
 		return exist, err
 	}
 
 	return exist, nil
+}
+
+func CheckUploadExist(c *cos.Client, cosUrl StorageUrl, uploadId string) (exist bool, err error) {
+	var uploads []struct {
+		Key          string
+		UploadID     string `xml:"UploadId"`
+		StorageClass string
+		Initiator    *cos.Initiator
+		Owner        *cos.Owner
+		Initiated    string
+	}
+	isTruncated := true
+	var keyMarker, uploadIDMarker string
+	for isTruncated {
+		err, uploads, isTruncated, uploadIDMarker, keyMarker = GetUploadsListForLs(c, cosUrl, uploadIDMarker, keyMarker, 0, false)
+		for _, object := range uploads {
+			if uploadId == object.UploadID {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func CheckDeleteMarkerExist(c *cos.Client, cosUrl StorageUrl, versionId string) (exist bool, err error) {
+
+	isTruncated := true
+	var versionIdMarker, keyMarker string
+	var deleteMarkers []cos.ListVersionsResultDeleteMarker
+
+	for isTruncated {
+		err, _, deleteMarkers, _, isTruncated, versionIdMarker, keyMarker = getCosObjectVersionListForLs(c, cosUrl, versionIdMarker, keyMarker, 0, false)
+
+		for _, object := range deleteMarkers {
+			if versionId == object.VersionId {
+				return true, nil
+			}
+		}
+	}
+
+	if err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool, withFinishSignal bool) {
@@ -98,7 +139,6 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	prefix := cosUrl.(*CosUrl).Object
 	marker := ""
 	limit := 0
-	retries := fo.Operation.RetryNum
 	delimiter := ""
 	if fo.Operation.OnlyCurrentDir {
 		delimiter = "/"
@@ -114,7 +154,7 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 			Marker:       marker,
 			MaxKeys:      limit,
 		}
-		res, err := tryGetBucket(c, opt, retries)
+		res, err := tryGetObjects(c, opt)
 		if err != nil {
 			if scanSizeNum {
 				fo.Monitor.setScanError(err)
@@ -160,7 +200,6 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {
 
 	prefix := cosUrl.(*CosUrl).Object
-	retries := 0
 	delimiter := ""
 	if !recursive {
 		delimiter = "/"
@@ -174,7 +213,7 @@ func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limi
 		Marker:       marker,
 		MaxKeys:      limit,
 	}
-	res, err := tryGetBucket(c, opt, retries)
+	res, err := tryGetObjects(c, opt)
 	if err != nil {
 		return
 	}
@@ -184,4 +223,59 @@ func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limi
 	isTruncated = res.IsTruncated
 	nextMarker, _ = url.QueryUnescape(res.NextMarker)
 	return
+}
+
+func getCosObjectVersionListForLs(c *cos.Client, cosUrl StorageUrl, versionIdMarker, keyMarker string, limit int, recursive bool) (err error, versions []cos.ListVersionsResultVersion, deleteMarkers []cos.ListVersionsResultDeleteMarker, commonPrefixes []string, isTruncated bool, nextVersionIdMarker, nextKeyMarker string) {
+
+	prefix := cosUrl.(*CosUrl).Object
+	delimiter := ""
+	if !recursive {
+		delimiter = "/"
+	}
+
+	// 实例化请求参数
+	opt := &cos.BucketGetObjectVersionsOptions{
+		Prefix:          prefix,
+		Delimiter:       delimiter,
+		EncodingType:    "url",
+		VersionIdMarker: versionIdMarker,
+		KeyMarker:       keyMarker,
+		MaxKeys:         limit,
+	}
+	res, err := tryGetObjectVersions(c, opt)
+	if err != nil {
+		return
+	}
+
+	versions = res.Version
+	deleteMarkers = res.DeleteMarker
+	commonPrefixes = res.CommonPrefixes
+	isTruncated = res.IsTruncated
+	nextVersionIdMarker, _ = url.QueryUnescape(res.NextVersionIdMarker)
+	nextKeyMarker, _ = url.QueryUnescape(res.NextKeyMarker)
+	return
+}
+
+// 获取所有文件和目录
+func GetFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
+	objects, _, _, commonPrefixes, err := GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
+	if err != nil {
+		return files, err
+	}
+	tempFiles := make([]string, 0)
+	tempFiles = append(tempFiles, cosDir)
+	for _, v := range objects {
+		files = append(files, v.Key)
+	}
+	if len(commonPrefixes) > 0 {
+		for _, v := range commonPrefixes {
+			subFiles, err := GetFilesAndDirs(c, v, nextMarker, include, exclude)
+			if err != nil {
+				return files, err
+			}
+			tempFiles = append(tempFiles, subFiles...)
+		}
+	}
+	files = append(files, tempFiles...)
+	return files, nil
 }

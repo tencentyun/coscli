@@ -6,7 +6,7 @@ import (
 )
 
 func PrintTransferStats(startT, endT int64, fo *FileOperations) {
-	if fo.Monitor.errNum > 0 && fo.Operation.FailOutput {
+	if fo.Monitor.ErrNum > 0 && fo.Operation.FailOutput {
 		absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
 		fmt.Printf("Some file upload failed, please check the detailed information in dir %s.\n", absErrOutputPath)
 	}

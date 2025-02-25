@@ -8,6 +8,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/url"
 	"os"
+	"strings"
 )
 
 var standardCnt, standardIACnt, intelligentTieringCnt, archiveCnt, deepArchiveCnt int
@@ -15,10 +16,11 @@ var mazStandardCnt, mazStandardIACnt, mazIntelligentTieringCnt, mazArchiveCnt in
 var standardSize, standardIASize, intelligentTieringSize, archiveSize, deepArchiveSize int64
 var mazStandardSize, mazStandardIASize, mazIntelligentTieringSize, mazArchiveSize int64
 
+var deleteMarkerCnt int
 var totalCnt int
 var totalSize int64
 
-func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duType int) error {
+func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duType int, allVersions bool) error {
 	// 根据s.Header判断是否是融合桶或者普通桶
 	s, err := c.Bucket.Head(context.Background())
 	if err != nil {
@@ -29,7 +31,12 @@ func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duT
 		prefix := cosUrl.(*CosUrl).Object
 		err = countOfsObjects(c, prefix, filters, "", duType)
 	} else {
-		err = countCosObjects(c, cosUrl, filters, duType)
+		if allVersions {
+			err = countCosObjectVersions(c, cosUrl, filters, duType)
+		} else {
+			err = countCosObjects(c, cosUrl, filters, duType)
+		}
+
 	}
 
 	if err != nil {
@@ -38,7 +45,7 @@ func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duT
 
 	if duType == DU_TYPE_CATEGORIZATION {
 		// 输出最终统计数据
-		printStatistic()
+		printStatistic(allVersions)
 	}
 
 	return nil
@@ -57,10 +64,43 @@ func countCosObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionTyp
 		}
 		for _, object := range objects {
 			object.Key, _ = url.QueryUnescape(object.Key)
+			if strings.HasSuffix(object.Key, "/") {
+				continue
+			}
 			if cosObjectMatchPatterns(object.Key, filters) {
 				statisticObjects(object, duType)
 			}
 
+		}
+	}
+
+	return nil
+}
+
+func countCosObjectVersions(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duType int) error {
+	var err error
+	var versions []cos.ListVersionsResultVersion
+	var deleteMarkers []cos.ListVersionsResultDeleteMarker
+	var nextKeyMarker, nextVersionIdMarker string
+	isTruncated := true
+
+	for isTruncated {
+		err, versions, deleteMarkers, _, isTruncated, nextVersionIdMarker, nextKeyMarker = getCosObjectVersionListForLs(c, cosUrl, nextVersionIdMarker, nextKeyMarker, 0, true)
+		if err != nil {
+			return fmt.Errorf("list objects error : %v", err)
+		}
+		for _, object := range versions {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, filters) {
+				statisticObjectVersions(object, duType)
+			}
+		}
+
+		for _, object := range deleteMarkers {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, filters) {
+				deleteMarkerCnt += 1
+			}
 		}
 	}
 
@@ -138,7 +178,43 @@ func statisticObjects(object cos.Object, duType int) {
 	totalCnt += 1
 }
 
-func printStatistic() {
+func statisticObjectVersions(object cos.ListVersionsResultVersion, duType int) {
+	if duType == DU_TYPE_CATEGORIZATION {
+		switch object.StorageClass {
+		case Standard:
+			standardCnt++
+			standardSize += object.Size
+		case StandardIA:
+			standardIACnt++
+			standardIASize += object.Size
+		case IntelligentTiering:
+			intelligentTieringCnt++
+			intelligentTieringSize += object.Size
+		case Archive:
+			archiveCnt++
+			archiveSize += object.Size
+		case DeepArchive:
+			deepArchiveCnt++
+			deepArchiveSize += object.Size
+		case MAZStandard:
+			mazStandardCnt++
+			mazStandardSize += object.Size
+		case MAZStandardIA:
+			mazStandardIACnt++
+			mazStandardIASize += object.Size
+		case MAZIntelligentTiering:
+			mazIntelligentTieringCnt++
+			mazIntelligentTieringSize += object.Size
+		case MAZArchive:
+			mazArchiveCnt++
+			mazArchiveSize += object.Size
+		}
+	}
+	totalSize += object.Size
+	totalCnt += 1
+}
+
+func printStatistic(allVersions bool) {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Storage Class", "Objects Count", "Total Size"})
 	table.Append([]string{Standard, fmt.Sprintf("%d", standardCnt), FormatSize(standardSize)})
@@ -161,6 +237,10 @@ func printStatistic() {
 	table.Render()
 	logger.Infof("Total Objects Count: %d\n", totalCnt)
 	logger.Infof("Total Objects Size:  %s\n", FormatSize(totalSize))
+	if allVersions {
+		logger.Infof("Total DeleteMarker Count:  %d\n", deleteMarkerCnt)
+	}
+
 }
 
 type CosInfo struct {
@@ -193,7 +273,7 @@ func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType
 					if err != nil {
 						return fmt.Errorf("cos url format error:%v", err)
 					}
-					DuObjects(c, cosDirUrl, filters, DU_TYPE_TOTAL)
+					DuObjects(c, cosDirUrl, filters, DU_TYPE_TOTAL, false)
 					// 记录统计数据
 					dirs = append(dirs, CosInfo{
 						Name:       commonPrefix,

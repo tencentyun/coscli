@@ -66,6 +66,8 @@ func initConfigFile(cfgFlag bool) error {
 		_, _ = fmt.Scanf("%s\n", &config.Base.SecretKey)
 		fmt.Println("Input Your Session Token:")
 		_, _ = fmt.Scanf("%s\n", &config.Base.SessionToken)
+		fmt.Println("Input Disable Encryption:")
+		_, _ = fmt.Scanf("%s\n", &config.Base.DisableEncryption)
 	}
 
 	fmt.Println("Input Auto Switch Host:")
@@ -94,9 +96,11 @@ func initConfigFile(cfgFlag bool) error {
 	}
 	fmt.Printf("\nIf you want to configure more buckets, you can use the \"config add\" command later.\n")
 	// 默认加密存储
-	config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
-	config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
-	config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
+	if config.Base.DisableEncryption != "true" {
+		config.Base.SecretKey, _ = util.EncryptSecret(config.Base.SecretKey)
+		config.Base.SecretID, _ = util.EncryptSecret(config.Base.SecretID)
+		config.Base.SessionToken, _ = util.EncryptSecret(config.Base.SessionToken)
+	}
 
 	viper.Set("cos", config)
 

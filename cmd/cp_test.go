@@ -19,25 +19,92 @@ func TestCpCmd(t *testing.T) {
 	testAlias1 = testBucket1 + "-alias"
 	testBucket2 = randStr(8)
 	testAlias2 = testBucket2 + "-alias"
-	setUp(testBucket1, testAlias1, testEndpoint, false)
-	defer tearDown(testBucket1, testAlias1, testEndpoint)
-	setUp(testBucket2, testAlias2, testEndpoint, false)
-	defer tearDown(testBucket2, testAlias2, testEndpoint)
+	testVersionBucket = randStr(8)
+	testVersionBucketAlias = testVersionBucket + "-alias"
+	setUp(testBucket1, testAlias1, testEndpoint, false, false)
+	defer tearDown(testBucket1, testAlias1, testEndpoint, false)
+	setUp(testBucket2, testAlias2, testEndpoint, false, false)
+	defer tearDown(testBucket2, testAlias2, testEndpoint, false)
+	setUp(testVersionBucket, testVersionBucketAlias, testEndpoint, false, true)
+	defer tearDown(testVersionBucket, testVersionBucketAlias, testEndpoint, true)
+	c, _ := util.NewClient(&config, &param, testVersionBucketAlias)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 	genDir(testDir, 3)
 	defer delDir(testDir)
-
 	Convey("Test coscli cp", t, func() {
+		Convey("上传单个小文件到多版本桶", func() {
+			clearCmd()
+			cmd := rootCmd
+			localFileName := fmt.Sprintf("%s/small-file/0", testDir)
+			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			args := []string{"cp", localFileName, cosFileName, "--disable-crc64"}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+		Convey("下载单个文件的指定版本", func() {
+			clearCmd()
+			cmd := rootCmd
+			localFileName := fmt.Sprintf("%s/download/single-small", testDir)
+			cosFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			opt := &cos.BucketGetObjectVersionsOptions{
+				Prefix:          "single-small",
+				Delimiter:       "",
+				EncodingType:    "url",
+				VersionIdMarker: "",
+				KeyMarker:       "",
+				MaxKeys:         0,
+			}
+
+			res, _, _ := c.Bucket.GetObjectVersions(context.Background(), opt)
+
+			var versionId string
+			for _, object := range res.Version {
+				versionId = object.VersionId
+				break
+			}
+
+			args := []string{"cp", cosFileName, localFileName, "--version-id", versionId}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+		Convey("跨桶拷贝单个文件的指定版本", func() {
+			clearCmd()
+			cmd := rootCmd
+			srcPath := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "single-small")
+			dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
+			opt := &cos.BucketGetObjectVersionsOptions{
+				Prefix:          "single-small",
+				Delimiter:       "",
+				EncodingType:    "url",
+				VersionIdMarker: "",
+				KeyMarker:       "",
+				MaxKeys:         0,
+			}
+
+			res, _, _ := c.Bucket.GetObjectVersions(context.Background(), opt)
+
+			var versionId string
+			for _, object := range res.Version {
+				versionId = object.VersionId
+				break
+			}
+			args := []string{"cp", srcPath, dstPath, "--version-id", versionId}
+			cmd.SetArgs(args)
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
 		Convey("upload", func() {
-			Convey("上传单个小文件", func() {
+			Convey("上传单个小文件并关闭crc64校验", func() {
 				clearCmd()
 				cmd := rootCmd
 				localFileName := fmt.Sprintf("%s/small-file/0", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "single-small")
-				args := []string{"cp", localFileName, cosFileName}
+				args := []string{"cp", localFileName, cosFileName, "--disable-crc64"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -190,7 +257,7 @@ func TestCpCmd(t *testing.T) {
 			Convey("storageClass", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"cp", "cos://abc", "cos://abc", "--storage-class", "STANDARD"}
+				args := []string{"cp", "cos://abc", "./test", "--storage-class", "STANDARD"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
@@ -457,158 +524,6 @@ func TestCpCmd(t *testing.T) {
 					fmt.Printf(" : %v", e)
 					So(e, ShouldBeError)
 				})
-			})
-		})
-	})
-}
-
-func TestCosCopy(t *testing.T) {
-	testBucket1 = randStr(8)
-	testAlias1 = testBucket1 + "-alias"
-	setUp(testBucket1, testAlias1, testEndpoint, false)
-	defer tearDown(testBucket1, testAlias1, testEndpoint)
-	srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
-	dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
-	args := []string{srcPath, dstPath}
-	Convey("cosCopy", t, func() {
-		Convey("NewClient", func() {
-			patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-				return nil, fmt.Errorf("test NewClient CosCopy error")
-			})
-			defer patches.Reset()
-			e := cosCopy(args, false, "", "", util.Meta{}, "")
-			fmt.Printf(" : %v", e)
-			So(e, ShouldBeError)
-		})
-		Convey("recursive", func() {
-			Convey("NewClient", func() {
-				var idx bool = false
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					if idx {
-						return nil, fmt.Errorf("test NewClient recursive error")
-					} else {
-						idx = true
-						return nil, nil
-					}
-				})
-				defer patches.Reset()
-				e := cosCopy(args, true, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("CheckCosPathType", func() {
-				patches := ApplyFunc(util.CheckCosPathType, func(c *cos.Client, prefix string, limit int, fo *util.FileOperations) (isDir bool, err error) {
-					return true, fmt.Errorf("test CheckCosPathType error")
-				})
-				defer patches.Reset()
-				e := cosCopy(args, true, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("cosPath1是文件夹,cosPath2以路径分隔符结尾", func() {
-				patches := ApplyFunc(util.GetObjectsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object, commonPrefixes []string, err error) {
-					return nil, nil, fmt.Errorf("test GetObjectsListRecursive error")
-				})
-				defer patches.Reset()
-				patches.ApplyFunc(util.CheckCosPathType, func(c *cos.Client, prefix string, limit int, fo *util.FileOperations) (isDir bool, err error) {
-					return true, nil
-				})
-				args := []string{srcPath, fmt.Sprintf("cos://%s/", testAlias1)}
-				e := cosCopy(args, true, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("cosPath1不是文件夹且不以路径分隔符结尾", func() {
-				patches := ApplyFunc(util.GetObjectsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object, commonPrefixes []string, err error) {
-					return nil, nil, fmt.Errorf("test GetObjectsListRecursive error")
-				})
-				defer patches.Reset()
-				patches.ApplyFunc(util.CheckCosPathType, func(c *cos.Client, prefix string, limit int, fo *util.FileOperations) (isDir bool, err error) {
-					return false, nil
-				})
-				args := []string{srcPath, fmt.Sprintf("cos://%s/", testAlias1)}
-				e := cosCopy(args, true, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("格式化文件名 and GenURL", func() {
-				patches := ApplyFunc(util.GetObjectsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object, commonPrefixes []string, err error) {
-					res := []cos.Object{
-						{
-							Key: "single-big",
-						},
-					}
-					return res, nil, nil
-				})
-				defer patches.Reset()
-				patches.ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return &cos.Client{}, nil
-				})
-				patches.ApplyFunc(util.CheckCosPathType, func(c *cos.Client, prefix string, limit int, fo *util.FileOperations) (isDir bool, err error) {
-					return false, nil
-				})
-				patches.ApplyFunc(util.GenURL, func(config *util.Config, param *util.Param, bucketName string) (url *cos.BaseURL, err error) {
-					return nil, fmt.Errorf("test GenURL error")
-				})
-				args := []string{srcPath, fmt.Sprintf("cos://%s/", testAlias1)}
-				e := cosCopy(args, true, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("Copy", func() {
-				var c *cos.ObjectService
-				patches := ApplyFunc(util.GetObjectsListRecursive, func(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object, commonPrefixes []string, err error) {
-					res := []cos.Object{
-						{
-							Key: "single-big",
-						},
-					}
-					return res, nil, nil
-				})
-				defer patches.Reset()
-				patches.ApplyMethodFunc(c, "Copy", func(ctx context.Context, name string, sourceURL string, opt *cos.ObjectCopyOptions, id ...string) (*cos.ObjectCopyResult, *cos.Response, error) {
-					return nil, nil, fmt.Errorf("test Copy error")
-				})
-				e := cosCopy(args, true, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-		})
-		Convey("no recursive", func() {
-			Convey("Invalid srcPath", func() {
-				args := []string{fmt.Sprintf("cos://%s", testAlias1), dstPath}
-				e := cosCopy(args, false, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("srcPath is a dir", func() {
-				args := []string{fmt.Sprintf("%s/", srcPath), dstPath}
-				e := cosCopy(args, false, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("cosPath2 and GenURL", func() {
-				patches := ApplyFunc(util.GenURL, func(config *util.Config, param *util.Param, bucketName string) (url *cos.BaseURL, err error) {
-					return nil, fmt.Errorf("test GenURL error")
-				})
-				defer patches.Reset()
-				patches.ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return &cos.Client{}, nil
-				})
-				args := []string{srcPath, fmt.Sprintf("cos://%s/", testAlias1)}
-				e := cosCopy(args, false, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("Copy", func() {
-				var c *cos.ObjectService
-				patches := ApplyMethodFunc(c, "Copy", func(ctx context.Context, name string, sourceURL string, opt *cos.ObjectCopyOptions, id ...string) (*cos.ObjectCopyResult, *cos.Response, error) {
-					return nil, nil, fmt.Errorf("test Copy error")
-				})
-				defer patches.Reset()
-				e := cosCopy(args, false, "", "", util.Meta{}, "")
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
 			})
 		})
 	})

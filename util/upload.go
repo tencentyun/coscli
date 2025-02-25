@@ -81,7 +81,8 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 			if err == nil {
 				break // Upload succeeded, break the loop
 			} else {
-				if retry < fo.Operation.ErrRetryNum {
+				// 服务端重试在go sdk内部进行，客户端仅重试文件上传完完整性校验不通过的case
+				if retry < fo.Operation.ErrRetryNum && strings.HasPrefix(err.Error(), "verification failed, want:") {
 					if fo.Operation.ErrRetryInterval == 0 {
 						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
 						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)

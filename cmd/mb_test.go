@@ -16,13 +16,31 @@ func TestMbCmd(t *testing.T) {
 	fmt.Println("TestMbCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 	Convey("Test coscli mb", t, func() {
+		Convey("success", func() {
+			Convey("Create maz bucket", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"mb",
+					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "--maz"}
+
+				var c *cos.BucketService
+				patches := ApplyMethodFunc(reflect.TypeOf(c), "Put", func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
+					return nil, nil
+				})
+				defer patches.Reset()
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeNil)
+			})
+		})
 		Convey("fail", func() {
 			Convey("Already exist", func() {
 				clearCmd()

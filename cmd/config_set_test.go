@@ -61,7 +61,7 @@ func TestConfigSetCmd(t *testing.T) {
 				defer patches.Reset()
 				args := []string{"config", "set", "--secret_id", "@",
 					"--secret_key", "@", "--session_token", "@", "--mode", "",
-					"--cvm_role_name", "@", "--close_auto_switch_host", "@"}
+					"--cvm_role_name", "@", "--close_auto_switch_host", "@", "--disable_encryption", "@"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
@@ -101,7 +101,7 @@ func TestConfigSetCmd(t *testing.T) {
 				cmd := rootCmd
 				args := []string{"config", "set", "--secret_id", oldconfig.Base.SecretID,
 					"--secret_key", oldconfig.Base.SecretKey, "--session_token", "@", "--mode", oldconfig.Base.Mode,
-					"--cvm_role_name", "@", "--close_auto_switch_host", oldconfig.Base.CloseAutoSwitchHost}
+					"--cvm_role_name", "@", "--close_auto_switch_host", oldconfig.Base.CloseAutoSwitchHost, "--disable_encryption", oldconfig.Base.DisableEncryption}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
