@@ -6,7 +6,7 @@
 
 ## 下载链接
 
-当前版本：v1.0.3
+当前版本：v1.0.4
 
 [Linux-386](https://github.com/tencentyun/coscli/releases/download/v1.0.3/coscli-v1.0.3-linux-386)
 
