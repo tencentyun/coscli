@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
+	"os"
 	"time"
 
 	"coscli/util"
@@ -28,10 +30,6 @@ Example:
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(2)(cmd, args); err != nil {
 			return err
-		}
-		storageClass, _ := cmd.Flags().GetString("storage-class")
-		if storageClass != "" && util.IsCosPath(args[0]) {
-			return fmt.Errorf("--storage-class can only use in upload")
 		}
 		return nil
 	},
@@ -135,8 +133,15 @@ Example:
 		if err != nil {
 			return err
 		}
+
+		srcPath := srcUrl.ToString()
+		destPath := destUrl.ToString()
+
+		var operate string
 		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
+			operate = "Upload"
+			logger.Infof("Upload %s to %s start", srcPath, destPath)
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
@@ -163,6 +168,11 @@ Example:
 				return err
 			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
+			operate = "Download"
+			logger.Infof("Download %s to %s start", srcPath, destPath)
+			if storageClass != "" {
+				return fmt.Errorf("--storage-class can not use in download")
+			}
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
@@ -206,6 +216,8 @@ Example:
 				return err
 			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
+			operate = "Copy"
+			logger.Infof("Copy %s to %s start", srcPath, destPath)
 			// 实例化来源 cos client
 			srcBucketName := srcUrl.(*util.CosUrl).Bucket
 			srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
@@ -249,6 +261,12 @@ Example:
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 
+		if fo.Monitor.ErrNum > 0 {
+			logger.Warningf("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
+			os.Exit(2)
+		} else {
+			logger.Infof("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
+		}
 		return nil
 	},
 }

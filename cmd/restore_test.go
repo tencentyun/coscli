@@ -14,8 +14,8 @@ func TestRestoreCmd(t *testing.T) {
 	fmt.Println("TestRestoreCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	genDir(testDir, 3)
 	defer delDir(testDir)
 	localObject := fmt.Sprintf("%s/small-file/0", testDir)
@@ -64,6 +64,15 @@ func TestRestoreCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("days over range", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"restore", fmt.Sprintf("%s/0", cosObject), "--days", "366"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
 			Convey("FormatUrl", func() {
 				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
 					return nil, fmt.Errorf("test formaturl fail")
@@ -103,7 +112,7 @@ func TestRestoreCmd(t *testing.T) {
 			Convey("RestoreObjects", func() {
 				clearCmd()
 				cmd := rootCmd
-				patches := ApplyFunc(util.RestoreObjects, func(c *cos.Client, cosUrl util.StorageUrl, days int, mode string, filters []util.FilterOptionType) error {
+				patches := ApplyFunc(util.RestoreObjects, func(c *cos.Client, cosUrl util.StorageUrl, fo *util.FileOperations) error {
 					return fmt.Errorf("test RestoreObjects error")
 				})
 				defer patches.Reset()

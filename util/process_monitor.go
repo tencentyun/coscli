@@ -38,7 +38,7 @@ type FileProcessMonitor struct {
 	dirNum         int64
 	skipNum        int64
 	skipNumDir     int64
-	errNum         int64
+	ErrNum         int64
 	lastSnapSize   int64
 	tickDuration   int64
 	seekAheadError error
@@ -76,7 +76,7 @@ func (fpm *FileProcessMonitor) init(op CpType) {
 	fpm.fileNum = 0
 	fpm.dirNum = 0
 	fpm.skipNum = 0
-	fpm.errNum = 0
+	fpm.ErrNum = 0
 	fpm.finish = false
 	fpm.lastSnapSize = 0
 	fpm.lastSnapTime = time.Now()
@@ -125,7 +125,7 @@ func (fpm *FileProcessMonitor) updateSkipDir(num int64) {
 }
 
 func (fpm *FileProcessMonitor) updateErr(size, num int64) {
-	atomic.AddInt64(&fpm.errNum, num)
+	atomic.AddInt64(&fpm.ErrNum, num)
 	//atomic.AddInt64(&fpm.TransferSize, size)
 }
 
@@ -221,7 +221,7 @@ func (fpm *FileProcessMonitor) getSnapshot() *FileProcessMonitorSnap {
 	snap.fileNum = fpm.fileNum
 	snap.dirNum = fpm.dirNum
 	snap.skipNum = fpm.skipNum
-	snap.errNum = fpm.errNum
+	snap.errNum = fpm.ErrNum
 	snap.okNum = snap.fileNum + snap.dirNum + snap.skipNum
 	snap.dealNum = snap.okNum + snap.errNum
 	snap.skipNumDir = fpm.skipNumDir
@@ -336,4 +336,19 @@ func (fpm *FileProcessMonitor) getSubject() string {
 	default:
 		return "objects"
 	}
+}
+
+func (fpm *FileProcessMonitor) GetFinishInfo() string {
+	snap := fpm.getSnapshot()
+	if fpm.seekAheadEnd && fpm.seekAheadError == nil {
+		if snap.errNum == 0 {
+			return fmt.Sprintf("Succeed: Total num: %d, size: %s. OK num: %d%s%s.\n", fpm.totalNum, getSizeString(fpm.TotalSize), snap.okNum, fpm.getDealNumDetail(snap), fpm.getSkipSize(snap))
+		}
+		return fmt.Sprintf("FinishWithError: Total num: %d, size: %s. Error num: %d. OK num: %d%s%s.\n", fpm.totalNum, getSizeString(fpm.TotalSize), snap.errNum, snap.okNum, fpm.getOKNumDetail(snap), fpm.getSizeDetail(snap))
+	}
+	scanNum := max(fpm.totalNum, snap.dealNum)
+	if snap.errNum == 0 {
+		return fmt.Sprintf("Succeed: Total num: %d, size: %s. OK num: %d%s%s.\n", scanNum, getSizeString(snap.dealSize), snap.okNum, fpm.getDealNumDetail(snap), fpm.getSkipSize(snap))
+	}
+	return fmt.Sprintf("FinishWithError: Scanned %d %s. Error num: %d. OK num: %d%s%s.\n", scanNum, fpm.getSubject(), snap.errNum, snap.okNum, fpm.getOKNumDetail(snap), fpm.getSizeDetail(snap))
 }

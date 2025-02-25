@@ -13,8 +13,8 @@ func TestConfigAddCmd(t *testing.T) {
 	fmt.Println("TestConfigAddCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	copyYaml()
 	defer delYaml()
 	clearCmd()

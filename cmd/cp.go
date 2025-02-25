@@ -4,11 +4,8 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-	"path/filepath"
-	"strings"
+	"os"
 	"time"
-
-	"github.com/tencentyun/cos-go-sdk-v5"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -32,10 +29,6 @@ Example:
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(2)(cmd, args); err != nil {
 			return err
-		}
-		storageClass, _ := cmd.Flags().GetString("storage-class")
-		if storageClass != "" && util.IsCosPath(args[0]) {
-			return fmt.Errorf("--storage-class can only use in upload")
 		}
 		return nil
 	},
@@ -61,6 +54,8 @@ Example:
 		disableChecksum, _ := cmd.Flags().GetBool("disable-checksum")
 		disableLongLinks, _ := cmd.Flags().GetBool("disable-long-links")
 		longLinksNums, _ := cmd.Flags().GetInt("long-links-nums")
+		versionId, _ := cmd.Flags().GetString("version-id")
+		move, _ := cmd.Flags().GetBool("move")
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
@@ -93,6 +88,10 @@ Example:
 			return fmt.Errorf("not support cp between local directory")
 		}
 
+		if move && !(srcUrl.IsCosUrl() && destUrl.IsCosUrl()) {
+			return fmt.Errorf("move only supports cp between cos paths")
+		}
+
 		_, filters := util.GetFilter(include, exclude)
 
 		fo := &util.FileOperations{
@@ -117,6 +116,8 @@ Example:
 				DisableChecksum:   disableChecksum,
 				DisableLongLinks:  disableLongLinks,
 				LongLinksNums:     longLinksNums,
+				VersionId:         versionId,
+				Move:              move,
 			},
 			Monitor:    &util.FileProcessMonitor{},
 			Config:     &config,
@@ -131,8 +132,14 @@ Example:
 			return fmt.Errorf("--include or --exclude only work with --recursive")
 		}
 
+		srcPath := srcUrl.ToString()
+		destPath := destUrl.ToString()
+
+		var operate string
 		startT := time.Now().UnixNano() / 1000 / 1000
 		if srcUrl.IsFileUrl() && destUrl.IsCosUrl() {
+			operate = "Upload"
+			logger.Infof("Upload %s to %s start", srcPath, destPath)
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
@@ -156,6 +163,11 @@ Example:
 			// 上传
 			util.Upload(c, srcUrl, destUrl, fo)
 		} else if srcUrl.IsCosUrl() && destUrl.IsFileUrl() {
+			operate = "Download"
+			logger.Infof("Download %s to %s start", srcPath, destPath)
+			if storageClass != "" {
+				return fmt.Errorf("--storage-class can not use in download")
+			}
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
 			if err != nil {
@@ -166,6 +178,18 @@ Example:
 			if err != nil {
 				return err
 			}
+
+			if versionId != "" {
+				res, _, err := util.GetBucketVersioning(c)
+				if err != nil {
+					return err
+				}
+
+				if res.Status != util.VersionStatusEnabled {
+					return fmt.Errorf("versioning is not enabled on the current bucket")
+				}
+			}
+
 			// 判断桶是否是ofs桶
 			s, err := c.Bucket.Head(context.Background())
 			if err != nil {
@@ -190,11 +214,27 @@ Example:
 				return err
 			}
 		} else if srcUrl.IsCosUrl() && destUrl.IsCosUrl() {
+			operate = "Copy"
+			if move {
+				operate = "Move"
+			}
+			logger.Infof("%s %s to %s start", operate, srcPath, destPath)
 			// 实例化来源 cos client
 			srcBucketName := srcUrl.(*util.CosUrl).Bucket
 			srcClient, err := util.NewClient(fo.Config, fo.Param, srcBucketName)
 			if err != nil {
 				return err
+			}
+
+			if versionId != "" {
+				res, _, err := util.GetBucketVersioning(srcClient)
+				if err != nil {
+					return err
+				}
+
+				if res.Status != util.VersionStatusEnabled {
+					return fmt.Errorf("versioning is not enabled on the src bucket")
+				}
 			}
 
 			// 实例化目标 cos client
@@ -221,6 +261,11 @@ Example:
 			if err != nil {
 				return err
 			}
+
+			if move && (srcUrl.(*util.CosUrl).Object == destUrl.(*util.CosUrl).Object) {
+				return fmt.Errorf("using --move is not allowed when the target path and source path for cos are the same")
+			}
+
 			// 拷贝
 			err = util.CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
 			if err != nil {
@@ -232,6 +277,13 @@ Example:
 		util.CloseErrorOutputFile(fo)
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
+
+		if fo.Monitor.ErrNum > 0 {
+			logger.Warningf("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
+			os.Exit(2)
+		} else {
+			logger.Infof("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
+		}
 
 		return nil
 	},
@@ -263,138 +315,8 @@ func init() {
 	cpCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
 	cpCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 	cpCmd.Flags().Int("long-links-nums", 0, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
-}
-
-func cosCopy(args []string, recursive bool, include string, exclude string, meta util.Meta, storageClass string) error {
-	bucketName1, cosPath1 := util.ParsePath(args[0])
-	bucketName2, cosPath2 := util.ParsePath(args[1])
-	c2, err := util.NewClient(&config, &param, bucketName2)
-	if err != nil {
-		return err
-	}
-
-	if recursive {
-		c1, err := util.NewClient(&config, &param, bucketName1)
-		if err != nil {
-			return err
-		}
-		// 路径分隔符
-		// 记录是否是代码添加的路径分隔符
-		isAddSeparator := false
-		// 源路径若不以路径分隔符结尾，则添加
-		if !strings.HasSuffix(cosPath1, "/") && cosPath1 != "" {
-			isAddSeparator = true
-			cosPath1 += "/"
-		}
-		// 判断cosDir是否是文件夹
-		isDir, err := util.CheckCosPathType(c1, cosPath1, 0, &util.FileOperations{})
-		if err != nil {
-			return err
-		}
-
-		if isDir {
-			// cosPath1是文件夹 且 cosPath2不以路径分隔符结尾，则添加
-			if cosPath2 != "" && !strings.HasSuffix(cosPath2, string(filepath.Separator)) {
-				cosPath2 += string(filepath.Separator)
-			} else {
-				// 若cosPath2以路径分隔符结尾，且cosPath1传入时不以路径分隔符结尾，则需将cos路径的最终文件拼接至local路径最后
-				if isAddSeparator {
-					fileName := filepath.Base(cosPath1)
-					cosPath2 += fileName
-					cosPath2 += string(filepath.Separator)
-				}
-			}
-		} else {
-			// cosPath1不是文件夹且路径分隔符为代码添加,则去掉路径分隔符
-			if isAddSeparator {
-				cosPath1 = strings.TrimSuffix(cosPath1, "/")
-			}
-		}
-
-		objects, _, err := util.GetObjectsListRecursive(c1, cosPath1, 0, include, exclude)
-		if err != nil {
-			return err
-		}
-
-		opt := &cos.ObjectCopyOptions{
-			ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{
-				CacheControl:       meta.CacheControl,
-				ContentDisposition: meta.ContentDisposition,
-				ContentEncoding:    meta.ContentEncoding,
-				ContentType:        meta.ContentType,
-				Expires:            meta.Expires,
-				XCosStorageClass:   storageClass,
-				XCosMetaXXX:        meta.XCosMetaXXX,
-			},
-		}
-
-		if meta.CacheControl != "" || meta.ContentDisposition != "" || meta.ContentEncoding != "" ||
-			meta.ContentType != "" || meta.Expires != "" || meta.MetaChange {
-		}
-		{
-			opt.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
-		}
-
-		for _, o := range objects {
-			srcKey := o.Key
-			objName := srcKey[len(cosPath1):]
-
-			// 格式化文件名
-			dstKey := cosPath2 + objName
-			if objName == "" && (strings.HasSuffix(cosPath2, "/") || cosPath2 == "") {
-				fileName := filepath.Base(o.Key)
-				dstKey = cosPath2 + fileName
-			}
-
-			if dstKey == "" {
-				continue
-			}
-
-			srcPath := fmt.Sprintf("cos://%s/%s", bucketName1, srcKey)
-			dstPath := fmt.Sprintf("cos://%s/%s", bucketName2, dstKey)
-			logger.Infoln("Copy", srcPath, "=>", dstPath)
-
-			url, err := util.GenURL(&config, &param, bucketName1)
-			if err != nil {
-				return err
-			}
-			srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, srcKey)
-
-			_, _, err = c2.Object.Copy(context.Background(), dstKey, srcURL, opt)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-
-		if len(cosPath1) == 0 {
-			return fmt.Errorf("Invalid srcPath")
-		}
-
-		if strings.HasSuffix(cosPath1, "/") {
-			return fmt.Errorf("srcPath is a dir")
-		}
-
-		if cosPath2 == "" || strings.HasSuffix(cosPath2, "/") {
-			fileName := filepath.Base(cosPath1)
-			cosPath2 = filepath.Join(cosPath2, fileName)
-			args[1] = filepath.Join(args[1], fileName)
-		}
-
-		logger.Infoln("Copy", args[0], "=>", args[1])
-		url, err := util.GenURL(&config, &param, bucketName1)
-		if err != nil {
-			return err
-		}
-		srcURL := fmt.Sprintf("%s/%s", url.BucketURL.Host, cosPath1)
-
-		_, _, err = c2.Object.Copy(context.Background(), cosPath2, srcURL, nil)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	cpCmd.Flags().String("version-id", "", "Downloading a specified version of a file , only available if bucket versioning is enabled.")
+	cpCmd.Flags().Bool("move", false, "Enable migration mode (only available between COS paths), which will delete the source file after it has been successfully copied to the destination path.")
 }
 
 func getCommandType(srcUrl util.StorageUrl, destUrl util.StorageUrl) util.CpType {

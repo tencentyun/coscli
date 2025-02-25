@@ -4,7 +4,6 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +23,7 @@ Example:
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
+		allVersions, _ := cmd.Flags().GetBool("all-versions")
 
 		if limit == 0 {
 			limit = 10000
@@ -49,6 +49,7 @@ Example:
 				return err
 			}
 			err = util.ListBuckets(c, limit)
+			return err
 		} else if cosUrl.IsCosUrl() {
 			// 实例化cos client
 			bucketName := cosUrl.(*util.CosUrl).Bucket
@@ -56,6 +57,17 @@ Example:
 			if err != nil {
 				return err
 			}
+			// 判断存储桶是否开启版本控制
+			if allVersions {
+				res, _, err := util.GetBucketVersioning(c)
+				if err != nil {
+					return err
+				}
+				if res.Status != util.VersionStatusEnabled {
+					return fmt.Errorf("versioning is not enabled on the current bucket")
+				}
+			}
+
 			_, filters := util.GetFilter(include, exclude)
 			// 根据s.Header判断是否是融合桶或者普通桶
 			s, err := c.Bucket.Head(context.Background())
@@ -63,9 +75,18 @@ Example:
 				return err
 			}
 			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-				err = util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
+				if allVersions {
+					return fmt.Errorf("the OFS bucket does not support listing multiple versions")
+				} else {
+					err = util.ListOfsObjects(c, cosUrl, limit, recursive, filters)
+				}
 			} else {
-				err = util.ListObjects(c, cosUrl, limit, recursive, filters)
+				if allVersions {
+					err = util.ListObjectVersions(c, cosUrl, limit, recursive, filters)
+				} else {
+					err = util.ListObjects(c, cosUrl, limit, recursive, filters)
+				}
+
 			}
 
 			if err != nil {
@@ -86,4 +107,5 @@ func init() {
 	lsCmd.Flags().BoolP("recursive", "r", false, "List objects recursively")
 	lsCmd.Flags().String("include", "", "List files that meet the specified criteria")
 	lsCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
+	lsCmd.Flags().BoolP("all-versions", "", false, "List all versions of objects, only available if bucket versioning is enabled.")
 }

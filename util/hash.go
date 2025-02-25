@@ -77,7 +77,7 @@ func CalculateHash(path string, hashType string) (h string, b string, err error)
 	return h, b, nil
 }
 
-func getHead(c *cos.Client, cosPath string) (*cos.Response, error) {
+func GetHead(c *cos.Client, cosPath string, id ...string) (*cos.Response, error) {
 	headOpt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",
 		XCosSSECustomerAglo:   "",
@@ -85,5 +85,5 @@ func getHead(c *cos.Client, cosPath string) (*cos.Response, error) {
 		XCosSSECustomerKeyMD5: "",
 		XOptionHeader:         nil,
 	}
-	return c.Object.Head(context.Background(), cosPath, headOpt)
+	return c.Object.Head(context.Background(), cosPath, headOpt, id...)
 }

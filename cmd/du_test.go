@@ -14,8 +14,16 @@ func TestDuCmd(t *testing.T) {
 	fmt.Println("TestDuCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false)
-	defer tearDown(testBucket, testAlias, testEndpoint)
+	testOfsBucket = randStr(8)
+	testOfsBucketAlias = testOfsBucket + "-alias"
+	testVersionBucket = randStr(8)
+	testVersionBucketAlias = testVersionBucket + "-alias"
+	setUp(testBucket, testAlias, testEndpoint, false, false)
+	defer tearDown(testBucket, testAlias, testEndpoint, false)
+	setUp(testOfsBucket, testOfsBucketAlias, testEndpoint, true, false)
+	defer tearDown(testOfsBucket, testOfsBucketAlias, testEndpoint, false)
+	setUp(testVersionBucket, testVersionBucketAlias, testEndpoint, false, true)
+	//defer tearDown(testVersionBucket, testVersionBucketAlias, testEndpoint, true)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
@@ -23,8 +31,20 @@ func TestDuCmd(t *testing.T) {
 	genDir(testDir, 3)
 	defer delDir(testDir)
 	localFileName := fmt.Sprintf("%s/small-file", testDir)
+
 	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
 	args := []string{"cp", localFileName, cosFileName, "-r"}
+	cmd.SetArgs(args)
+	cmd.Execute()
+
+	ofsFileName := fmt.Sprintf("cos://%s/%s", testOfsBucketAlias, "multi-small")
+
+	args = []string{"cp", localFileName, ofsFileName, "-r"}
+	cmd.SetArgs(args)
+	cmd.Execute()
+
+	versioningFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "multi-small")
+	args = []string{"cp", localFileName, versioningFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
 	Convey("Test coscli du", t, func() {
@@ -37,10 +57,26 @@ func TestDuCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
-			Convey("duObjects", func() {
+			Convey("duCosObjects", func() {
 				clearCmd()
 				cmd := rootCmd
 				args = []string{"du", cosFileName}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("duOfsObjects", func() {
+				clearCmd()
+				cmd := rootCmd
+				args = []string{"du", ofsFileName}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("duCosObjectVersions", func() {
+				clearCmd()
+				cmd := rootCmd
+				args = []string{"du", versioningFileName, "--all-versions"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)

@@ -3,18 +3,15 @@ package util
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"io/ioutil"
 	"math/rand"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
 
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
@@ -55,28 +52,8 @@ func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []Up
 	return res
 }
 
-func MatchPattern(strs []string, pattern string, include bool) []string {
-	res := make([]string, 0)
-	re := regexp.MustCompile(pattern)
-	for _, s := range strs {
-		match := re.MatchString(s)
-		if !include {
-			match = !match
-		}
-		if match {
-			res = append(res, s)
-		}
-	}
-	return res
-}
-
 func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object,
 	commonPrefixes []string, err error) {
-
-	retries := 0
-	if len(retryCount) > 0 {
-		retries = retryCount[0]
-	}
 
 	opt := &cos.BucketGetOptions{
 		Prefix:       prefix,
@@ -91,7 +68,7 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 	for isTruncated {
 		opt.Marker = marker
 
-		res, err := tryGetBucket(c, opt, retries)
+		res, err := tryGetObjects(c, opt)
 		if err != nil {
 			return objects, commonPrefixes, err
 		}
@@ -120,12 +97,13 @@ func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include st
 	return objects, commonPrefixes, nil
 }
 
-func tryGetBucket(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*cos.BucketGetResult, error) {
-	for i := 0; i <= retryCount; i++ {
+// get objects限频重试(最多重试10次，每次重试间隔1-10s随机)
+func tryGetObjects(c *cos.Client, opt *cos.BucketGetOptions) (*cos.BucketGetResult, error) {
+	for i := 0; i <= 10; i++ {
 		res, resp, err := c.Bucket.Get(context.Background(), opt)
 		if err != nil {
 			if resp != nil && resp.StatusCode == 503 {
-				if i == retryCount {
+				if i == 10 {
 					return res, err
 				} else {
 					fmt.Println("Error 503: Service Unavailable. Retrying...")
@@ -143,118 +121,73 @@ func tryGetBucket(c *cos.Client, opt *cos.BucketGetOptions, retryCount int) (*co
 	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
-// 已废弃 todo
-func GetLocalFilesListRecursive(localPath string, include string, exclude string) (files []string) {
-	// bfs遍历文件夹
-	var dirs []string
-	dirs = append(dirs, localPath)
-	for len(dirs) > 0 {
-		dirName := dirs[0]
-		dirs = dirs[1:]
-
-		fileInfos, err := ioutil.ReadDir(dirName)
+func tryGetObjectVersions(c *cos.Client, opt *cos.BucketGetObjectVersionsOptions) (*cos.BucketGetObjectVersionsResult, error) {
+	for i := 0; i <= 10; i++ {
+		res, resp, err := c.Bucket.GetObjectVersions(context.Background(), opt)
 		if err != nil {
-			logger.Fatalln(err)
-			os.Exit(1)
-		}
-		if len(fileInfos) == 0 {
-			logger.Warningf("skip empty dir: %s", dirName)
-			continue
-		}
-
-		for _, f := range fileInfos {
-			fileName := filepath.Join(dirName, f.Name())
-			if f.Mode().IsRegular() { // 普通文件，直接添加
-				fileName = fileName[len(localPath):]
-				files = append(files, fileName)
-			} else if f.IsDir() { // 普通目录，添加到继续迭代
-				dirs = append(dirs, fileName)
-			} else if f.Mode()&os.ModeSymlink == fs.ModeSymlink { // 软链接
-				linkTarget, err := os.Readlink(fileName)
-				if err != nil {
-					logger.Infoln(fmt.Sprintf("Failed to read symlink %s, will be excluded", fileName))
-					continue
-				}
-				fmt.Println(dirName, linkTarget)
-				linkTargetPath := filepath.Join(dirName, linkTarget)
-				linkTargetInfo, err := os.Stat(linkTargetPath)
-				if err != nil {
-					logger.Infoln(fmt.Sprintf("Failed to stat symlink target %s, will be excluded", linkTargetPath))
-					continue
-				}
-				if linkTargetInfo.Mode().IsRegular() {
-					linkTargetPath = linkTargetPath[len(localPath):]
-					files = append(files, linkTargetPath)
-				} else if linkTargetInfo.IsDir() {
-					dirs = append(dirs, linkTargetPath)
+			if resp != nil && resp.StatusCode == 503 {
+				if i == 10 {
+					return res, err
 				} else {
-					logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", linkTargetPath))
+					fmt.Println("Error 503: Service Unavailable. Retrying...")
+					waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+					time.Sleep(waitTime)
 					continue
 				}
 			} else {
-				logger.Infoln(fmt.Sprintf("List %s file is not regular file, will be excluded", fileName))
-				continue
+				return res, err
 			}
+		} else {
+			return res, err
 		}
 	}
-
-	if len(include) > 0 {
-		files = MatchPattern(files, include, true)
-	}
-	if len(exclude) > 0 {
-		files = MatchPattern(files, exclude, false)
-	}
-
-	return files
+	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
-func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []UploadInfo, err error) {
-	opt := &cos.ListMultipartUploadsOptions{
-		Delimiter:      "",
-		EncodingType:   "",
-		Prefix:         prefix,
-		MaxUploads:     limit,
-		KeyMarker:      "",
-		UploadIDMarker: "",
-	}
-
-	isTruncated := true
-	keyMarker := ""
-	uploadIDMarker := ""
-	for isTruncated {
-		opt.KeyMarker = keyMarker
-		opt.UploadIDMarker = uploadIDMarker
-
-		res, _, err := c.Bucket.ListMultipartUploads(context.Background(), opt)
+func tryGetUploads(c *cos.Client, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, error) {
+	for i := 0; i <= 10; i++ {
+		res, resp, err := c.Bucket.ListMultipartUploads(context.Background(), opt)
 		if err != nil {
-			return uploads, err
-		}
-
-		for _, u := range res.Uploads {
-			uploads = append(uploads, UploadInfo{
-				Key:       u.Key,
-				UploadID:  u.UploadID,
-				Initiated: u.Initiated,
-			})
-		}
-
-		if limit > 0 {
-			isTruncated = false
+			if resp != nil && resp.StatusCode == 503 {
+				if i == 10 {
+					return res, err
+				} else {
+					fmt.Println("Error 503: Service Unavailable. Retrying...")
+					waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+					time.Sleep(waitTime)
+					continue
+				}
+			} else {
+				return res, err
+			}
 		} else {
-			isTruncated = res.IsTruncated
-			keyMarker = res.NextKeyMarker
-			uploadIDMarker = res.NextUploadIDMarker
+			return res, err
 		}
 	}
+	return nil, fmt.Errorf("Retry limit exceeded")
+}
 
-	if len(include) > 0 {
-		uploads = MatchUploadPattern(uploads, include, true)
+func tryGetParts(c *cos.Client, prefix, uploadId string, opt *cos.ObjectListPartsOptions) (*cos.ObjectListPartsResult, error) {
+	for i := 0; i <= 10; i++ {
+		res, resp, err := c.Object.ListParts(context.Background(), prefix, uploadId, opt)
+		if err != nil {
+			if resp != nil && resp.StatusCode == 503 {
+				if i == 10 {
+					return res, err
+				} else {
+					fmt.Println("Error 503: Service Unavailable. Retrying...")
+					waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+					time.Sleep(waitTime)
+					continue
+				}
+			} else {
+				return res, err
+			}
+		} else {
+			return res, err
+		}
 	}
-	if len(exclude) > 0 {
-		uploads = MatchUploadPattern(uploads, exclude, false)
-	}
-
-	return uploads, nil
+	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
 // =====new
@@ -309,6 +242,86 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 
 		if !isTruncated || total >= limit {
 			table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
+			table.Render()
+			break
+		}
+		table.Render()
+
+		// 重置表格
+		table = tablewriter.NewWriter(os.Stdout)
+		table.SetBorder(false)
+		table.SetAlignment(tablewriter.ALIGN_LEFT)
+		table.SetAutoWrapText(false)
+	}
+
+	return nil
+}
+
+func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) error {
+	var err error
+	var versions []cos.ListVersionsResultVersion
+	var deleteMarkers []cos.ListVersionsResultDeleteMarker
+	var commonPrefixes []string
+	total := 0
+	isTruncated := true
+
+	var keyMarker, versionIdMarker string
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Key", "Type", "VersionId", "IsLatest", "Delete Marker", "Last Modified", "Etag", "Size"})
+	table.SetBorder(false)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAutoWrapText(false)
+
+	for isTruncated && total < limit {
+		table.ClearRows()
+		queryLimit := 1000
+		if limit-total < 1000 {
+			queryLimit = limit - total
+		}
+
+		err, versions, deleteMarkers, commonPrefixes, isTruncated, versionIdMarker, keyMarker = getCosObjectVersionListForLs(c, cosUrl, versionIdMarker, keyMarker, queryLimit, recursive)
+
+		if err != nil {
+			return fmt.Errorf("list objects error : %v", err)
+		}
+
+		if len(commonPrefixes) > 0 {
+			for _, commonPrefix := range commonPrefixes {
+				if cosObjectMatchPatterns(commonPrefix, filters) {
+					table.Append([]string{commonPrefix, "DIR", "", "", "", "", "", ""})
+					total++
+				}
+			}
+		}
+
+		for _, object := range versions {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, filters) {
+				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
+				if err != nil {
+					return fmt.Errorf("Error parsing time:%v", err)
+				}
+
+				table.Append([]string{object.Key, object.StorageClass, object.VersionId, strconv.FormatBool(object.IsLatest), strconv.FormatBool(false), utcTime.Local().Format(time.RFC3339), object.ETag, formatBytes(float64(object.Size))})
+				total++
+			}
+		}
+
+		for _, object := range deleteMarkers {
+			object.Key, _ = url.QueryUnescape(object.Key)
+			if cosObjectMatchPatterns(object.Key, filters) {
+				utcTime, err := time.Parse(time.RFC3339, object.LastModified)
+				if err != nil {
+					return fmt.Errorf("Error parsing time:%v", err)
+				}
+				table.Append([]string{object.Key, "", object.VersionId, strconv.FormatBool(object.IsLatest), strconv.FormatBool(true), utcTime.Local().Format(time.RFC3339), "", ""})
+				total++
+			}
+		}
+
+		if !isTruncated || total >= limit {
+			table.SetFooter([]string{"", "", "", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
 			table.Render()
 			break
 		}

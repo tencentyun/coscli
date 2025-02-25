@@ -33,6 +33,7 @@ var rootCmd = &cobra.Command{
 
 func Execute() error {
 	rootCmd.SilenceErrors = true
+	rootCmd.SilenceUsage = true
 	return rootCmd.Execute()
 }
 
@@ -120,18 +121,20 @@ func initConfig() {
 		if config.Base.Protocol == "" {
 			config.Base.Protocol = "https"
 		}
-		// 尝试解码secretId/secretKey/session, 能解开就是加密的，否则就不解
-		secretKey, err := util.DecryptSecret(config.Base.SecretKey)
-		if err == nil {
-			config.Base.SecretKey = secretKey
-		}
-		secretId, err := util.DecryptSecret(config.Base.SecretID)
-		if err == nil {
-			config.Base.SecretID = secretId
-		}
-		sessionToken, err := util.DecryptSecret(config.Base.SessionToken)
-		if err == nil {
-			config.Base.SessionToken = sessionToken
+		// 若未关闭秘钥加密，则先解密秘钥
+		if config.Base.DisableEncryption != "true" {
+			secretKey, err := util.DecryptSecret(config.Base.SecretKey)
+			if err == nil {
+				config.Base.SecretKey = secretKey
+			}
+			secretId, err := util.DecryptSecret(config.Base.SecretID)
+			if err == nil {
+				config.Base.SecretID = secretId
+			}
+			sessionToken, err := util.DecryptSecret(config.Base.SessionToken)
+			if err == nil {
+				config.Base.SessionToken = sessionToken
+			}
 		}
 
 	} else {

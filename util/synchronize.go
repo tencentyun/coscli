@@ -42,7 +42,7 @@ func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFile
 		}
 	}
 
-	resp, err := getHead(c, cosPath)
+	resp, err := GetHead(c, cosPath)
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
 			// 文件不在cos上，上传
@@ -106,7 +106,7 @@ func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPa
 	if err != nil {
 		return false, err
 	}
-	resp, err := getHead(c, object)
+	resp, err := GetHead(c, object)
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
 			// 文件不在cos上
@@ -132,7 +132,7 @@ func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPa
 
 func skipCopy(srcClient, destClient *cos.Client, object, destPath string) (bool, error) {
 	// 获取目标对象的crc64
-	resp, err := getHead(destClient, destPath)
+	resp, err := GetHead(destClient, destPath)
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
 			// 文件不在目标cos上，直接copy
@@ -145,7 +145,7 @@ func skipCopy(srcClient, destClient *cos.Client, object, destPath string) (bool,
 			destCrc := resp.Header.Get("x-cos-hash-crc64ecma")
 
 			// 获取来源对象的crc64
-			resp, err = getHead(srcClient, object)
+			resp, err = GetHead(srcClient, object)
 			srcCrc := ""
 			if err != nil {
 				if resp != nil && resp.StatusCode == 404 {

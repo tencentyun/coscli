@@ -88,6 +88,10 @@ func GenURL(config *Config, param *Param, bucketName string) (url *cos.BaseURL, 
 		endpoint = fmt.Sprintf("cos.%s.myqcloud.com", bucket.Region)
 	}
 
+	if endpoint == "" {
+		return nil, fmt.Errorf("endpoint is missing")
+	}
+
 	protocol := "https"
 	if config.Base.Protocol != "" {
 		protocol = config.Base.Protocol

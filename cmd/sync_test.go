@@ -19,10 +19,10 @@ func TestSyncCmd(t *testing.T) {
 	testAlias1 = testBucket1 + "-alias"
 	testBucket2 = randStr(8)
 	testAlias2 = testBucket2 + "-alias"
-	setUp(testBucket1, testAlias1, testEndpoint, false)
-	defer tearDown(testBucket1, testAlias1, testEndpoint)
-	setUp(testBucket2, testAlias2, testEndpoint, false)
-	defer tearDown(testBucket2, testAlias2, testEndpoint)
+	setUp(testBucket1, testAlias1, testEndpoint, false, false)
+	defer tearDown(testBucket1, testAlias1, testEndpoint, false)
+	setUp(testBucket2, testAlias2, testEndpoint, false, false)
+	defer tearDown(testBucket2, testAlias2, testEndpoint, false)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
@@ -31,12 +31,12 @@ func TestSyncCmd(t *testing.T) {
 	defer delDir(testDir)
 	Convey("Test coscli sync", t, func() {
 		Convey("upload", func() {
-			Convey("上传单个小文件", func() {
+			Convey("上传单个小文件并关闭crc64校验", func() {
 				clearCmd()
 				cmd := rootCmd
 				localFileName := fmt.Sprintf("%s/small-file/0", testDir)
 				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "single-small")
-				args := []string{"sync", localFileName, cosFileName}
+				args := []string{"sync", localFileName, cosFileName, "--disable-crc64"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -189,7 +189,7 @@ func TestSyncCmd(t *testing.T) {
 			Convey("storageClass", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"sync", "cos://abc", "cos://abc", "--storage-class", "STANDARD"}
+				args := []string{"cp", "cos://abc", "./test", "--storage-class", "STANDARD"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
@@ -298,6 +298,17 @@ func TestSyncCmd(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"sync", "./abc", "cos://123"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("check backup dir error", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/download/small-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-small")
+				args := []string{"sync", cosFileName, localFileName, "-r", "--delete", "--backup-dir", testDir + "/download/small-file"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)

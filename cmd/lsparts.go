@@ -3,9 +3,6 @@ package cmd
 import (
 	"coscli/util"
 	"fmt"
-	"os"
-
-	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -24,11 +21,37 @@ Example:
 		limit, _ := cmd.Flags().GetInt("limit")
 		include, _ := cmd.Flags().GetString("include")
 		exclude, _ := cmd.Flags().GetString("exclude")
-		if limit < 0 || limit > 1000 {
-			return fmt.Errorf("Flag --limit should in range 0~1000")
+		uploadId, _ := cmd.Flags().GetString("upload-id")
+		if limit == 0 {
+			limit = 10000
+		} else if limit < 0 {
+			return fmt.Errorf("Flag --limit should be greater than 0")
 		}
 
-		err := listParts(args[0], limit, include, exclude)
+		cosUrl, err := util.FormatUrl(args[0])
+		if err != nil {
+			return fmt.Errorf("cos url format error:%v", err)
+		}
+
+		if !cosUrl.IsCosUrl() {
+			return fmt.Errorf("cospath needs to contain cos://")
+		}
+
+		_, filters := util.GetFilter(include, exclude)
+
+		bucketName := cosUrl.(*util.CosUrl).Bucket
+
+		c, err := util.NewClient(&config, &param, bucketName)
+		if err != nil {
+			return err
+		}
+
+		if uploadId != "" {
+			err = util.ListParts(c, cosUrl, limit, uploadId)
+		} else {
+			err = util.ListUploads(c, cosUrl, limit, filters)
+		}
+
 		return err
 	},
 }
@@ -39,28 +62,5 @@ func init() {
 	lspartsCmd.Flags().Int("limit", 0, "Limit the number of parts listed(0~1000)")
 	lspartsCmd.Flags().String("include", "", "List files that meet the specified criteria")
 	lspartsCmd.Flags().String("exclude", "", "Exclude files that meet the specified criteria")
-}
-
-func listParts(arg string, limit int, include string, exclude string) error {
-	bucketName, cosPath := util.ParsePath(arg)
-	c, err := util.NewClient(&config, &param, bucketName)
-	if err != nil {
-		return err
-	}
-
-	uploads, err := util.GetUploadsListRecursive(c, cosPath, limit, include, exclude)
-	if err != nil {
-		return err
-	}
-
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Key", "Upload ID", "Initiate time"})
-	for _, u := range uploads {
-		table.Append([]string{u.Key, u.UploadID, u.Initiated})
-	}
-	table.SetBorder(false)
-	table.SetAlignment(tablewriter.ALIGN_RIGHT)
-	table.SetFooter([]string{"", "", fmt.Sprintf("Total: %d", len(uploads))})
-	table.Render()
-	return nil
+	lspartsCmd.Flags().String("upload-id", "", "Identify the ID of this multipart upload, which is obtained when initializing the multipart upload using the Initiate Multipart Upload interface.")
 }
