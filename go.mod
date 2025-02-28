@@ -13,7 +13,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.10.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/tencentyun/cos-go-sdk-v5 v0.7.57
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.62
 )
 
 require golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
