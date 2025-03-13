@@ -1,10 +1,11 @@
 package util
 
 import (
-	"github.com/olekukonko/tablewriter"
-	"github.com/syndtr/goleveldb/leveldb"
 	"net/http"
 	"os"
+
+	"github.com/olekukonko/tablewriter"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type Config struct {
@@ -126,6 +127,8 @@ type Meta struct {
 	// 自定义的 x-cos-meta-* header
 	XCosMetaXXX *http.Header
 	MetaChange  bool
+	// 自定义其他 header
+	XOptionHeader *http.Header
 }
 
 type LsCounter struct {
