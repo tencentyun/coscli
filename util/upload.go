@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 var (
@@ -176,7 +177,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 					XCosSSECustomerAglo:      "",
 					XCosSSECustomerKey:       "",
 					XCosSSECustomerKeyMD5:    "",
-					XOptionHeader:            nil,
+					XOptionHeader:            fo.Operation.Meta.XOptionHeader,
 					XCosTrafficLimit:         (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
 				},
 			},

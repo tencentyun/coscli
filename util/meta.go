@@ -16,6 +16,8 @@ func MetaStringToHeader(meta string) (result Meta, err error) {
 	kvs := strings.Split(meta, "#")
 	header := http.Header{}
 	metaXXX := &http.Header{}
+	optionHeader := http.Header{}
+
 	var metaChange bool
 	for _, kv := range kvs {
 		if kv == "" {
@@ -35,6 +37,8 @@ func MetaStringToHeader(meta string) (result Meta, err error) {
 			header.Set(k, v)
 		}
 	}
+
+	optionHeader.Set("x-cos-forbid-overwrite", header.Get("x-cos-forbid-overwrite"))
 
 	expires := header.Get("Expires")
 	if expires != "" {
@@ -56,6 +60,7 @@ func MetaStringToHeader(meta string) (result Meta, err error) {
 		Expires:            expires,
 		XCosMetaXXX:        metaXXX,
 		MetaChange:         metaChange,
+		XOptionHeader:      &optionHeader,
 	}
 
 	cl := header.Get("Content-Length")
