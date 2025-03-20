@@ -733,7 +733,7 @@ func RemoveObjectOrVersion(c *cos.Client, cosUrl StorageUrl, fo *FileOperations)
 			}
 		}
 	} else {
-		_, err = c.Object.Delete(context.Background(), cosPath, opt)
+		_, err = c.Object.Delete(context.Background(), cosUrl.(*CosUrl).Object, opt)
 		if err != nil {
 			return err
 		}
