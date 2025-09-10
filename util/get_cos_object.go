@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/url"
 	"runtime"
@@ -257,12 +256,12 @@ func CheckDeleteMarkerExist(c *cos.Client, cosUrl StorageUrl, versionId string) 
 }
 
 func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool, withFinishSignal bool) {
-	startTime := time.Now().UnixNano() / 1000 / 1000
-	defer func() {
-		endTime := time.Now().UnixNano() / 1000 / 1000
-		costTime := int(endTime - startTime)
-		logger.Info(fmt.Sprintf("get cos list cost %ds", costTime/1000))
-	}()
+	//startTime := time.Now().UnixNano() / 1000 / 1000
+	//defer func() {
+	//	endTime := time.Now().UnixNano() / 1000 / 1000
+	//	costTime := int(endTime - startTime)
+	//	logger.Info(fmt.Sprintf("get cos list cost %ds", costTime/1000))
+	//}()
 	if chObjects != nil {
 		defer close(chObjects)
 	}
