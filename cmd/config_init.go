@@ -92,6 +92,10 @@ func initConfigFile(cfgFlag bool) error {
 	if bucket.Alias == "" {
 		bucket.Alias = bucket.Name
 	}
+	var customizedStr string
+	fmt.Println("Use customized endpoint for this bucket? (true/false, default: false):")
+	_, _ = fmt.Scanf("%s\n", &customizedStr)
+	bucket.Customized = customizedStr == "true"
 
 	config.Buckets = append(config.Buckets, bucket)
 	fmt.Println("You have configured the bucket:")

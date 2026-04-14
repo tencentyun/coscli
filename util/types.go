@@ -28,11 +28,12 @@ type BaseCfg struct {
 
 // Bucket 桶信息
 type Bucket struct {
-	Name     string `yaml:"name"`
-	Alias    string `yaml:"alias"`
-	Region   string `yaml:"region"`
-	Endpoint string `yaml:"endpoint"`
-	Ofs      bool   `yaml:"ofs"`
+	Name       string `yaml:"name"`
+	Alias      string `yaml:"alias"`
+	Region     string `yaml:"region"`
+	Endpoint   string `yaml:"endpoint"`
+	Ofs        bool   `yaml:"ofs"`
+	Customized bool   `yaml:"customized"`
 }
 
 // Param 命令传入参数

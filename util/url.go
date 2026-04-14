@@ -114,7 +114,11 @@ func GenURL(config *Config, param *Param, bucketName string) (url *cos.BaseURL, 
 		protocol = param.Protocol
 	}
 
+	// 优先使用命令行参数 --customized，若未指定则回退到配置文件中桶的 customized 字段
 	customized := param.Customized
+	if !customized {
+		customized = bucket.Customized
+	}
 
 	return CreateURL(idName, protocol, endpoint, customized), nil
 }

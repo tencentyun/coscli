@@ -47,5 +47,6 @@ func showConfig() {
 		fmt.Printf("  Endpoint:\t%s\n", b.Endpoint)
 		fmt.Printf("  Alias: \t%s\n", b.Alias)
 		fmt.Printf("  Ofs: \t%v\n", b.Ofs)
+		fmt.Printf("  Customized:\t%v\n", b.Customized)
 	}
 }
