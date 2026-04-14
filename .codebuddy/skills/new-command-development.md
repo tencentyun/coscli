@@ -191,6 +191,31 @@ const (
 **核心原则：**
 1. **所有涉及外部服务调用的部分（COS API、网络请求等）必须使用打桩，禁止在单测中产生真实的外部服务调用。**
 2. **禁止依赖真实的 `~/.cos.yaml`，必须创建临时测试配置文件，测试结束后删除。**
+3. **单测覆盖率必须达到 95% 以上，必须覆盖命令的所有执行分支。**
+
+### 覆盖率达标清单
+
+每个命令的测试用例必须覆盖以下所有分支：
+
+| 分支类型 | 测试用例 | 是否必须 |
+|---|---|---|
+| 参数数量不足 | 不传参数或参数不够 | ✅ |
+| URL 格式错误 | 传入非 `cos://` 路径 | ✅ |
+| NewClient 失败 | 打桩返回 error | ✅ |
+| 业务函数失败 | 打桩返回 error | ✅ |
+| 成功路径 | 打桩返回 nil | ✅ |
+| 各 Flag 组合 | 覆盖所有重要 Flag | ✅ |
+
+### 覆盖率检查命令
+
+```bash
+# 运行单个命令的测试并查看覆盖率
+go test -v -gcflags="all=-l" -coverprofile=coverage.out ./cmd/ -run TestStatCmd
+go tool cover -func=coverage.out | grep -E "(stat|total)"
+
+# 查看 HTML 覆盖报告
+go tool cover -html=coverage.out -o coverage.html
+```
 
 创建 `cmd/stat_test.go`：
 
@@ -243,13 +268,11 @@ func TestStatCmd(t *testing.T) {
     defer teardownStatTestConfig()  // 测试结束后删除
 
     Convey("Test coscli stat", t, func() {
-        Convey("正常获取对象元数据", func() {
-            // 打桩 NewClient，返回空 Client（不发真实请求）
+        Convey("成功获取对象元数据", func() {
             patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
                 return &cos.Client{}, nil
             })
             defer patches.Reset()
-            // 打桩业务函数，模拟成功
             patches.ApplyFunc(util.StatObject, func(*cos.Client, string, string) error {
                 return nil
             })
@@ -257,6 +280,22 @@ func TestStatCmd(t *testing.T) {
             clearCmd()
             cmd := rootCmd
             args := []string{"stat", "cos://test-alias/test-object"}
+            cmd.SetArgs(args)
+            e := cmd.Execute()
+            So(e, ShouldBeNil)
+        })
+        Convey("带 --version-id 参数的成功路径", func() {
+            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
+                return &cos.Client{}, nil
+            })
+            defer patches.Reset()
+            patches.ApplyFunc(util.StatObject, func(*cos.Client, string, string) error {
+                return nil
+            })
+
+            clearCmd()
+            cmd := rootCmd
+            args := []string{"stat", "cos://test-alias/test-object", "--version-id", "v1"}
             cmd.SetArgs(args)
             e := cmd.Execute()
             So(e, ShouldBeNil)

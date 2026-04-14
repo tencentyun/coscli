@@ -14,32 +14,68 @@ import (
 - 测试文件与命令文件同包（`package cmd`），文件名为 `<command>_test.go`
 - 公共测试基础设施在 `cmd/testconfig_test.go` 中定义
 
+## 覆盖率要求
+
+**单测覆盖率必须达到 95% 以上**，包括：
+
+- `cmd/<command>.go` 中 `RunE` 函数的所有分支（参数校验、Client 创建失败、业务函数失败、成功路径）
+- `util/<command>.go` 中所有业务函数的主要分支
+
+### 覆盖率检查命令
+
+```bash
+# 运行单个命令的测试并查看覆盖率
+go test -v -gcflags="all=-l" -coverprofile=coverage.out ./cmd/ -run TestXxxCmd
+go tool cover -func=coverage.out | grep -E "(xxx|total)"
+
+# 查看覆盖率 HTML 报告
+go tool cover -html=coverage.out -o coverage.html
+```
+
+### 覆盖率达标清单
+
+每个命令的测试用例必须覆盖以下所有分支：
+
+| 分支类型 | 测试用例 | 是否必须 |
+|---|---|---|
+| 参数数量不足 | 不传参数或参数不够 | ✅ |
+| URL 格式错误 | 传入非 `cos://` 路径 | ✅ |
+| NewClient 失败 | 打桩返回 error | ✅ |
+| 业务函数失败 | 打桩返回 error | ✅ |
+| 成功路径 | 打桩返回 nil | ✅ |
+| 各 Flag 组合 | 覆盖所有重要 Flag | ✅ |
+| 边界条件 | 空字符串、特殊字符等 | 视情况 |
+
 ## 测试函数结构
 
 **所有测试用例中涉及外部服务调用的部分（COS API、网络请求等）都必须使用打桩方式，禁止在单测中产生真实的外部服务调用。**
 
+测试用例必须覆盖命令的**所有执行分支**，确保覆盖率达到 95% 以上。
+
 ```go
 func TestXxxCmd(t *testing.T) {
-    Convey("Test coscli xxx", t, func() {
-        Convey("正常场景描述", func() {
-            // 打桩所有外部服务调用
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return &cos.Client{}, nil
-            })
-            defer patches.Reset()
-            patches.ApplyFunc(util.XxxFunc, func(...) error {
-                return nil  // 模拟成功
-            })
+    setupTestConfig()           // 创建临时配置文件
+    defer teardownTestConfig()  // 测试结束后删除
 
-            clearCmd()  // 每个子用例必须先 clearCmd()
+    Convey("Test coscli xxx", t, func() {
+        // ① 参数数量不足（无需打桩）
+        Convey("参数不足", func() {
+            clearCmd()
             cmd := rootCmd
-            args := []string{"xxx", "cos://bucket/key", "--flag", "value"}
-            cmd.SetArgs(args)
+            cmd.SetArgs([]string{"xxx"})
             e := cmd.Execute()
-            So(e, ShouldBeNil)
+            So(e, ShouldBeError)
         })
-        Convey("错误场景描述", func() {
-            // 打桩模拟外部服务失败
+        // ② URL 格式错误（无需打桩）
+        Convey("URL 格式错误", func() {
+            clearCmd()
+            cmd := rootCmd
+            cmd.SetArgs([]string{"xxx", "invalid-path"})
+            e := cmd.Execute()
+            So(e, ShouldBeError)
+        })
+        // ③ NewClient 失败
+        Convey("NewClient 失败", func() {
             patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
                 return nil, fmt.Errorf("mock NewClient error")
             })
@@ -47,19 +83,57 @@ func TestXxxCmd(t *testing.T) {
 
             clearCmd()
             cmd := rootCmd
-            args := []string{"xxx", "cos://bucket/key"}
-            cmd.SetArgs(args)
+            cmd.SetArgs([]string{"xxx", "cos://bucket/key"})
             e := cmd.Execute()
             So(e, ShouldBeError)
         })
-        Convey("参数校验错误（无需打桩）", func() {
-            // 纯参数校验不涉及外部调用，无需打桩
+        // ④ 业务函数失败
+        Convey("业务函数失败", func() {
+            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
+                return &cos.Client{}, nil
+            })
+            defer patches.Reset()
+            patches.ApplyFunc(util.XxxFunc, func(...) error {
+                return fmt.Errorf("mock XxxFunc error")
+            })
+
             clearCmd()
             cmd := rootCmd
-            args := []string{"xxx", "invalid-path"}
-            cmd.SetArgs(args)
+            cmd.SetArgs([]string{"xxx", "cos://bucket/key"})
             e := cmd.Execute()
             So(e, ShouldBeError)
+        })
+        // ⑤ 成功路径
+        Convey("成功路径", func() {
+            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
+                return &cos.Client{}, nil
+            })
+            defer patches.Reset()
+            patches.ApplyFunc(util.XxxFunc, func(...) error {
+                return nil
+            })
+
+            clearCmd()  // 每个子用例必须先 clearCmd()
+            cmd := rootCmd
+            cmd.SetArgs([]string{"xxx", "cos://bucket/key", "--flag", "value"})
+            e := cmd.Execute()
+            So(e, ShouldBeNil)
+        })
+        // ⑥ 重要 Flag 组合（覆盖各 Flag 分支）
+        Convey("带 --flag 参数的成功路径", func() {
+            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
+                return &cos.Client{}, nil
+            })
+            defer patches.Reset()
+            patches.ApplyFunc(util.XxxFunc, func(...) error {
+                return nil
+            })
+
+            clearCmd()
+            cmd := rootCmd
+            cmd.SetArgs([]string{"xxx", "cos://bucket/key", "--flag", "value"})
+            e := cmd.Execute()
+            So(e, ShouldBeNil)
         })
     })
 }
