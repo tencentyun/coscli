@@ -45,6 +45,24 @@ go tool cover -html=coverage.out -o coverage.html
 | 各 Flag 组合 | 覆盖所有重要 Flag | ✅ |
 | 边界条件 | 空字符串、特殊字符等 | 视情况 |
 
+## goconvey 执行机制说明
+
+goconvey 采用**深度优先树形遍历**执行，每次只执行一条从根到叶的完整路径：
+
+```
+第1次执行：根 → success → 0 success 0 fail
+第2次执行：根 → success → 1 success
+第3次执行：根 → failed → not enough argument
+...
+```
+
+每次执行都会**重新进入所有父级 Convey 块**。因此：
+
+- **`defer patches.Reset()` 在嵌套 Convey 中不可靠**：`defer` 是函数级别的，不是 Convey 块级别的，会在整个 `TestXxxCmd` 函数返回时才执行，导致多个子用例的桩叠加，行为不可预期。
+- **手动在每个子用例写 `clearCmd()` 容易遗漏**，且顺序不统一。
+
+**正确做法：使用 `Reset()` 钩子统一管理**，`Reset()` 在每条路径执行完毕后自动调用，等价于 xUnit 的 `AfterEach`，完全契合 goconvey 的树形遍历机制。
+
 ## 测试函数结构
 
 **所有测试用例中只对直接调用 cos go SDK 的方法打桩，禁止在单测中产生真实的外部服务调用。util 层的方法（包括 `util.NewClient`、`util.Upload` 等）不需要打桩，让它们正常执行。**
@@ -57,9 +75,19 @@ func TestXxxCmd(t *testing.T) {
     defer teardownTestConfig()  // 测试结束后删除
 
     Convey("Test coscli xxx", t, func() {
+        // ✅ 用 Reset() 统一管理 patches 清理和 clearCmd()，替代每个子用例手动写
+        // Reset() 在每条路径执行完毕后自动调用，行为可预期
+        var patches *Patches
+        Reset(func() {
+            if patches != nil {
+                patches.Reset()
+                patches = nil
+            }
+            clearCmd()
+        })
+
         // ① 参数数量不足（无需打桩）
         Convey("参数不足", func() {
-            clearCmd()
             cmd := rootCmd
             cmd.SetArgs([]string{"xxx"})
             e := cmd.Execute()
@@ -67,7 +95,6 @@ func TestXxxCmd(t *testing.T) {
         })
         // ② URL 格式错误（无需打桩）
         Convey("URL 格式错误", func() {
-            clearCmd()
             cmd := rootCmd
             cmd.SetArgs([]string{"xxx", "invalid-path"})
             e := cmd.Execute()
@@ -76,13 +103,10 @@ func TestXxxCmd(t *testing.T) {
         // ③ SDK 调用失败（只打桩 cos SDK 方法）
         Convey("SDK 调用失败", func() {
             var obj *cos.ObjectService
-            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put",
+            patches = ApplyMethodFunc(reflect.TypeOf(obj), "Put",
                 func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
                     return nil, fmt.Errorf("mock sdk error")
                 })
-            defer patches.Reset()
-
-            clearCmd()
             cmd := rootCmd
             cmd.SetArgs([]string{"xxx", "cos://bucket/key"})
             e := cmd.Execute()
@@ -91,13 +115,10 @@ func TestXxxCmd(t *testing.T) {
         // ④ 成功路径（只打桩 cos SDK 方法）
         Convey("成功路径", func() {
             var obj *cos.ObjectService
-            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put",
+            patches = ApplyMethodFunc(reflect.TypeOf(obj), "Put",
                 func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
                     return &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
                 })
-            defer patches.Reset()
-
-            clearCmd()  // 每个子用例必须先 clearCmd()
             cmd := rootCmd
             cmd.SetArgs([]string{"xxx", "cos://bucket/key", "--flag", "value"})
             e := cmd.Execute()
@@ -106,13 +127,10 @@ func TestXxxCmd(t *testing.T) {
         // ⑤ 重要 Flag 组合（覆盖各 Flag 分支）
         Convey("带 --flag 参数的成功路径", func() {
             var obj *cos.ObjectService
-            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put",
+            patches = ApplyMethodFunc(reflect.TypeOf(obj), "Put",
                 func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
                     return &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
                 })
-            defer patches.Reset()
-
-            clearCmd()
             cmd := rootCmd
             cmd.SetArgs([]string{"xxx", "cos://bucket/key", "--flag", "value"})
             e := cmd.Execute()
@@ -124,7 +142,7 @@ func TestXxxCmd(t *testing.T) {
 
 ## clearCmd() 规范
 
-**每个 Convey 子用例开头必须调用 `clearCmd()`**，重置所有 Flag 到默认值：
+**`clearCmd()` 通过 `Reset()` 钩子在每条路径执行完毕后自动调用**，无需在每个子用例中手动写：
 
 ```go
 func clearCmd() {
@@ -143,47 +161,64 @@ func clearCmd() {
 
 **打桩边界原则：只对直接调用 cos go SDK 的方法打桩，util 层的所有方法（包括 `util.NewClient`、`util.Upload`、`util.GetBucketType` 等）均不需要打桩，让它们正常执行。**
 
+**打桩变量必须声明在父级 Convey 块中**（如 `var patches *Patches`），通过 `Reset()` 钩子统一清理，禁止在子用例中使用 `defer patches.Reset()`。
+
 ```go
-// ✅ 正确：打桩 cos SDK Object 方法（使用 reflect.TypeOf + ApplyMethodFunc）
-var obj *cos.ObjectService
-patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put",
-    func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
-        return &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
+// ✅ 正确：在父级 Convey 中声明 patches，通过 Reset() 统一清理
+Convey("Test coscli xxx", t, func() {
+    var patches *Patches
+    Reset(func() {
+        if patches != nil {
+            patches.Reset()
+            patches = nil
+        }
+        clearCmd()
     })
-defer patches.Reset()
 
-// ✅ 正确：打桩 cos SDK Bucket 方法
-var bucket *cos.BucketService
-patches := ApplyMethodFunc(reflect.TypeOf(bucket), "Head",
-    func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
-        return nil, fmt.Errorf("mock bucket head error")
+    Convey("SDK 调用失败", func() {
+        // 打桩 cos SDK Object 方法（使用 reflect.TypeOf + ApplyMethodFunc）
+        var obj *cos.ObjectService
+        patches = ApplyMethodFunc(reflect.TypeOf(obj), "Put",
+            func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
+                return nil, fmt.Errorf("mock sdk error")
+            })
+        // ...
     })
-defer patches.Reset()
 
-// ✅ 正确：多个 SDK 方法打桩叠加（使用同一个 patches 对象）
-var obj *cos.ObjectService
-patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put", func(...) (*cos.Response, error) {
-    return &cos.Response{}, nil
+    Convey("多个 SDK 方法打桩叠加", func() {
+        // 使用同一个 patches 对象叠加多个打桩
+        var obj *cos.ObjectService
+        patches = ApplyMethodFunc(reflect.TypeOf(obj), "Put", func(...) (*cos.Response, error) {
+            return &cos.Response{}, nil
+        })
+        var bucket *cos.BucketService
+        patches.ApplyMethodFunc(reflect.TypeOf(bucket), "GetObjectVersions", func(...) (*cos.BucketGetObjectVersionsResult, *cos.Response, error) {
+            return &cos.BucketGetObjectVersionsResult{}, &cos.Response{}, nil
+        })
+        // ...
+    })
 })
-defer patches.Reset()
-var bucket *cos.BucketService
-patches.ApplyMethodFunc(reflect.TypeOf(bucket), "GetObjectVersions", func(...) (*cos.BucketGetObjectVersionsResult, *cos.Response, error) {
-    return &cos.BucketGetObjectVersionsResult{}, &cos.Response{}, nil
-})
+
+// ❌ 错误：在子用例中使用 defer patches.Reset()（在 goconvey 嵌套中不可靠）
+// Convey("SDK 调用失败", func() {
+//     patches := ApplyMethodFunc(...)
+//     defer patches.Reset()  // 禁止：defer 是函数级别的，不是 Convey 块级别的
+// })
 
 // ❌ 错误：不应打桩 util 层的普通方法
-// patches := ApplyFunc(util.NewClient, ...)        // 禁止
-// patches := ApplyFunc(util.Upload, ...)           // 禁止
-// patches := ApplyFunc(util.GetBucketType, ...)    // 禁止
-// patches := ApplyFunc(util.FormatUrl, ...)        // 禁止
+// patches = ApplyFunc(util.NewClient, ...)        // 禁止
+// patches = ApplyFunc(util.Upload, ...)           // 禁止
+// patches = ApplyFunc(util.GetBucketType, ...)    // 禁止
+// patches = ApplyFunc(util.FormatUrl, ...)        // 禁止
 
 // ✅ 例外：util 层中内部直接发起 HTTP 请求的方法需要打桩（如 util.CamAuth）
 // util.CamAuth 内部使用 http.Client 直接发起 HTTP 请求，不经过 cos go SDK
-// 可以打桩整个方法，也可以打桩其内部的 http.Client.Do
-patches := ApplyFunc(util.CamAuth, func(roleName string) (util.Data, error) {
-    return util.Data{TmpSecretId: "mock-id", TmpSecretKey: "mock-key", Token: "mock-token"}, nil
+Convey("CamAuth 打桩示例", func() {
+    patches = ApplyFunc(util.CamAuth, func(roleName string) (util.Data, error) {
+        return util.Data{TmpSecretId: "mock-id", TmpSecretKey: "mock-key", Token: "mock-token"}, nil
+    })
+    // ...
 })
-defer patches.Reset()
 ```
 
 ## 打桩覆盖范围要求
@@ -274,6 +309,8 @@ func TestXxxCmd(t *testing.T) {
     })
 }
 ```
+
+**注意**：`testconfig_test.go` 中的 `init()` 函数**不应调用** `setupTestConfig()`，避免与每个 `TestXxxCmd` 函数中的调用产生冗余。每个测试函数自己管理配置文件的生命周期。
 
 `setUp` / `tearDown` 会产生真实的 COS API 调用（创建/删除桶），**单测中禁止使用**，仅在需要真实环境验证的集成测试中使用。
 

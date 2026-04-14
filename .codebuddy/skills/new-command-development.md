@@ -192,6 +192,7 @@ const (
 1. **只对直接调用 cos go SDK 的方法打桩，禁止在单测中产生真实的外部服务调用。util 层的所有方法（包括 `util.NewClient`、`util.Upload`、`util.GetBucketType` 等）不需要打桩，让它们正常执行。**
 2. **禁止依赖真实的 `~/.cos.yaml`，必须创建临时测试配置文件，测试结束后删除。**
 3. **单测覆盖率必须达到 95% 以上，必须覆盖命令的所有执行分支。**
+4. **使用 `Reset()` 钩子统一管理 patches 清理和 `clearCmd()`，禁止在子用例中使用 `defer patches.Reset()`。**
 
 ### 覆盖率达标清单
 
@@ -224,101 +225,69 @@ package cmd
 import (
     "context"
     "fmt"
-    "os"
+    "net/http"
     "reflect"
     "testing"
 
     . "github.com/agiledragon/gomonkey/v2"
     . "github.com/smartystreets/goconvey/convey"
-    "coscli/util"
-    "github.com/spf13/viper"
     "github.com/tencentyun/cos-go-sdk-v5"
 )
 
-const statTestConfigPath = "/tmp/coscli-stat-test.yaml"
-
-func setupStatTestConfig() {
-    content := `cos:
-  base:
-    secretid: "test-secret-id"
-    secretkey: "test-secret-key"
-    sessiontoken: ""
-    protocol: "https"
-  buckets:
-    - name: "test-bucket-1234567890"
-      alias: "test-alias"
-      region: "ap-guangzhou"
-      endpoint: "cos.ap-guangzhou.myqcloud.com"
-      ofs: false
-      customized: false
-`
-    os.WriteFile(statTestConfigPath, []byte(content), 0644)
-    viper.SetConfigFile(statTestConfigPath)
-    viper.ReadInConfig()
-    viper.UnmarshalKey("cos", &config)
-}
-
-func teardownStatTestConfig() {
-    os.Remove(statTestConfigPath)
-}
-
 func TestStatCmd(t *testing.T) {
-    setupStatTestConfig()           // 创建临时配置文件
-    defer teardownStatTestConfig()  // 测试结束后删除
+    setupTestConfig()           // 创建临时配置文件
+    defer teardownTestConfig()  // 测试结束后删除
 
     Convey("Test coscli stat", t, func() {
-        Convey("路径不含 cos://（纯参数校验，无需打桩）", func() {
+        // ✅ 用 Reset() 统一管理 patches 清理和 clearCmd()
+        // Reset() 在每条路径执行完毕后自动调用，替代每个子用例手动写 clearCmd() 和 defer patches.Reset()
+        var patches *Patches
+        Reset(func() {
+            if patches != nil {
+                patches.Reset()
+                patches = nil
+            }
             clearCmd()
+        })
+
+        Convey("路径不含 cos://（纯参数校验，无需打桩）", func() {
             cmd := rootCmd
-            args := []string{"stat", "invalid-path"}
-            cmd.SetArgs(args)
+            cmd.SetArgs([]string{"stat", "invalid-path"})
             e := cmd.Execute()
             So(e, ShouldBeError)
         })
         Convey("SDK 调用失败", func() {
             // 只打桩 cos SDK 方法
             var obj *cos.ObjectService
-            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Head",
+            patches = ApplyMethodFunc(reflect.TypeOf(obj), "Head",
                 func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
                     return nil, fmt.Errorf("mock sdk error")
                 })
-            defer patches.Reset()
-
-            clearCmd()
             cmd := rootCmd
-            args := []string{"stat", "cos://test-alias/test-object"}
-            cmd.SetArgs(args)
+            cmd.SetArgs([]string{"stat", "cos://test-alias/test-object"})
             e := cmd.Execute()
             So(e, ShouldBeError)
         })
         Convey("成功获取对象元数据", func() {
             // 只打桩 cos SDK 方法
             var obj *cos.ObjectService
-            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Head",
+            patches = ApplyMethodFunc(reflect.TypeOf(obj), "Head",
                 func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
                     return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
                 })
-            defer patches.Reset()
-
-            clearCmd()
             cmd := rootCmd
-            args := []string{"stat", "cos://test-alias/test-object"}
-            cmd.SetArgs(args)
+            cmd.SetArgs([]string{"stat", "cos://test-alias/test-object"})
             e := cmd.Execute()
             So(e, ShouldBeNil)
         })
         Convey("带 --version-id 参数的成功路径", func() {
             var obj *cos.ObjectService
-            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Head",
+            patches = ApplyMethodFunc(reflect.TypeOf(obj), "Head",
                 func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
                     return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
                 })
-            defer patches.Reset()
-
-            clearCmd()
             cmd := rootCmd
-            args := []string{"stat", "cos://test-alias/test-object", "--version-id", "v1"}
-            cmd.SetArgs(args)
+            cmd.SetArgs([]string{"stat", "cos://test-alias/test-object", "--version-id", "v1"})
             e := cmd.Execute()
             So(e, ShouldBeNil)
         })
