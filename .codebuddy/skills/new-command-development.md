@@ -189,7 +189,7 @@ const (
 ## Step 5：编写测试文件
 
 **核心原则：**
-1. **所有涉及外部服务调用的部分（COS API、网络请求等）必须使用打桩，禁止在单测中产生真实的外部服务调用。**
+1. **只对直接调用 cos go SDK 的方法打桩，禁止在单测中产生真实的外部服务调用。util 层的所有方法（包括 `util.NewClient`、`util.Upload`、`util.GetBucketType` 等）不需要打桩，让它们正常执行。**
 2. **禁止依赖真实的 `~/.cos.yaml`，必须创建临时测试配置文件，测试结束后删除。**
 3. **单测覆盖率必须达到 95% 以上，必须覆盖命令的所有执行分支。**
 
@@ -201,9 +201,8 @@ const (
 |---|---|---|
 | 参数数量不足 | 不传参数或参数不够 | ✅ |
 | URL 格式错误 | 传入非 `cos://` 路径 | ✅ |
-| NewClient 失败 | 打桩返回 error | ✅ |
-| 业务函数失败 | 打桩返回 error | ✅ |
-| 成功路径 | 打桩返回 nil | ✅ |
+| SDK 调用失败 | 打桩 cos SDK 方法返回 error | ✅ |
+| 成功路径 | 打桩 cos SDK 方法返回成功 | ✅ |
 | 各 Flag 组合 | 覆盖所有重要 Flag | ✅ |
 
 ### 覆盖率检查命令
@@ -268,14 +267,38 @@ func TestStatCmd(t *testing.T) {
     defer teardownStatTestConfig()  // 测试结束后删除
 
     Convey("Test coscli stat", t, func() {
-        Convey("成功获取对象元数据", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return &cos.Client{}, nil
-            })
+        Convey("路径不含 cos://（纯参数校验，无需打桩）", func() {
+            clearCmd()
+            cmd := rootCmd
+            args := []string{"stat", "invalid-path"}
+            cmd.SetArgs(args)
+            e := cmd.Execute()
+            So(e, ShouldBeError)
+        })
+        Convey("SDK 调用失败", func() {
+            // 只打桩 cos SDK 方法
+            var obj *cos.ObjectService
+            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Head",
+                func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+                    return nil, fmt.Errorf("mock sdk error")
+                })
             defer patches.Reset()
-            patches.ApplyFunc(util.StatObject, func(*cos.Client, string, string) error {
-                return nil
-            })
+
+            clearCmd()
+            cmd := rootCmd
+            args := []string{"stat", "cos://test-alias/test-object"}
+            cmd.SetArgs(args)
+            e := cmd.Execute()
+            So(e, ShouldBeError)
+        })
+        Convey("成功获取对象元数据", func() {
+            // 只打桩 cos SDK 方法
+            var obj *cos.ObjectService
+            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Head",
+                func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+                    return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+                })
+            defer patches.Reset()
 
             clearCmd()
             cmd := rootCmd
@@ -285,13 +308,12 @@ func TestStatCmd(t *testing.T) {
             So(e, ShouldBeNil)
         })
         Convey("带 --version-id 参数的成功路径", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return &cos.Client{}, nil
-            })
+            var obj *cos.ObjectService
+            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Head",
+                func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+                    return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+                })
             defer patches.Reset()
-            patches.ApplyFunc(util.StatObject, func(*cos.Client, string, string) error {
-                return nil
-            })
 
             clearCmd()
             cmd := rootCmd
@@ -300,82 +322,22 @@ func TestStatCmd(t *testing.T) {
             e := cmd.Execute()
             So(e, ShouldBeNil)
         })
-        Convey("路径不含 cos://（纯参数校验，无需打桩）", func() {
-            clearCmd()
-            cmd := rootCmd
-            args := []string{"stat", "invalid-path"}
-            cmd.SetArgs(args)
-            e := cmd.Execute()
-            So(e, ShouldBeError)
-        })
-        Convey("NewClient 失败", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return nil, fmt.Errorf("mock NewClient error")
-            })
-            defer patches.Reset()
-
-            clearCmd()
-            cmd := rootCmd
-            args := []string{"stat", "cos://test-alias/test-object"}
-            cmd.SetArgs(args)
-            e := cmd.Execute()
-            So(e, ShouldBeError)
-        })
-        Convey("StatObject 失败", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return &cos.Client{}, nil
-            })
-            defer patches.Reset()
-            patches.ApplyFunc(util.StatObject, func(*cos.Client, string, string) error {
-                return fmt.Errorf("mock stat error")
-            })
-
-            clearCmd()
-            cmd := rootCmd
-            args := []string{"stat", "cos://test-alias/test-object"}
-            cmd.SetArgs(args)
-            e := cmd.Execute()
-            So(e, ShouldBeError)
-        })
-        Convey("SDK 方法打桩示例（直接打桩 cos SDK 方法）", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return &cos.Client{}, nil
-            })
-            defer patches.Reset()
-            // 打桩 SDK 方法（使用 reflect.TypeOf + ApplyMethodFunc）
-            var obj *cos.ObjectService
-            patches.ApplyMethodFunc(reflect.TypeOf(obj), "Head",
-                func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
-                    return &cos.Response{}, nil
-                })
-
-            clearCmd()
-            cmd := rootCmd
-            args := []string{"stat", "cos://test-alias/test-object"}
-            cmd.SetArgs(args)
-            e := cmd.Execute()
-            So(e, ShouldBeNil)
-        })
     })
 }
 ```
 
-### 打桩覆盖范围要求
+### 打桩边界原则
 
-以下类型的调用**必须**打桩，不得产生真实外部请求：
+**只对直接调用 cos go SDK 的方法打桩**，其余所有方法正常执行：
 
-| 调用类型 | 必须打桩的函数 |
-|---|---|
-| Client 创建 | `util.NewClient`、`util.CreateClient` |
-| COS 对象操作 | `util.Upload`、`util.Download`、`util.CosCopy`、`util.DeleteObjects` 等 |
-| 路径格式化 | `util.FormatUploadPath`、`util.FormatDownloadPath`、`util.FormatCopyPath` |
-| 桶类型获取 | `util.GetBucketType`（会发 HEAD Bucket 请求） |
-| SDK 直接调用 | `cos.BucketService.Head`、`cos.ObjectService.Head` 等所有 SDK 方法 |
-| 路径检查 | `util.CheckPath`（可能访问本地文件系统或 COS） |
-
-**无需打桩**的情况（纯本地逻辑）：
-- URL 格式校验（`util.FormatUrl` 返回错误）
-- 参数合法性校验（参数数量、范围检查等）
+| 类型 | 是否打桩 | 说明 |
+|---|---|---|
+| `cos.ObjectService` 的所有方法 | ✅ 必须打桩 | 会产生真实 HTTP 请求 |
+| `cos.BucketService` 的所有方法 | ✅ 必须打桩 | 会产生真实 HTTP 请求 |
+| `cos.ServiceService` 的所有方法 | ✅ 必须打桩 | 会产生真实 HTTP 请求 |
+| `util.NewClient`、`util.Upload`、`util.GetBucketType` 等 | ❌ 不打桩 | 让其正常执行，通过打桩内部 SDK 方法屏蔽网络请求 |
+| `util.FormatUrl`、`util.GetFilter` 等纯逻辑函数 | ❌ 不打桩 | 纯本地逻辑，应正常执行以提升覆盖率 |
+| `util.CamAuth` 等 util 层中**内部直接发起 HTTP 请求**的方法 | ✅ 需要打桩 | 不经过 cos go SDK，直接使用 `http.Client` 发起请求 |
 
 ---
 

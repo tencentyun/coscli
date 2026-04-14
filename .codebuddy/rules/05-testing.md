@@ -40,15 +40,14 @@ go tool cover -html=coverage.out -o coverage.html
 |---|---|---|
 | 参数数量不足 | 不传参数或参数不够 | ✅ |
 | URL 格式错误 | 传入非 `cos://` 路径 | ✅ |
-| NewClient 失败 | 打桩返回 error | ✅ |
-| 业务函数失败 | 打桩返回 error | ✅ |
-| 成功路径 | 打桩返回 nil | ✅ |
+| SDK 调用失败 | 打桩 cos SDK 方法返回 error | ✅ |
+| 成功路径 | 打桩 cos SDK 方法返回成功 | ✅ |
 | 各 Flag 组合 | 覆盖所有重要 Flag | ✅ |
 | 边界条件 | 空字符串、特殊字符等 | 视情况 |
 
 ## 测试函数结构
 
-**所有测试用例中涉及外部服务调用的部分（COS API、网络请求等）都必须使用打桩方式，禁止在单测中产生真实的外部服务调用。**
+**所有测试用例中只对直接调用 cos go SDK 的方法打桩，禁止在单测中产生真实的外部服务调用。util 层的方法（包括 `util.NewClient`、`util.Upload` 等）不需要打桩，让它们正常执行。**
 
 测试用例必须覆盖命令的**所有执行分支**，确保覆盖率达到 95% 以上。
 
@@ -74,11 +73,13 @@ func TestXxxCmd(t *testing.T) {
             e := cmd.Execute()
             So(e, ShouldBeError)
         })
-        // ③ NewClient 失败
-        Convey("NewClient 失败", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return nil, fmt.Errorf("mock NewClient error")
-            })
+        // ③ SDK 调用失败（只打桩 cos SDK 方法）
+        Convey("SDK 调用失败", func() {
+            var obj *cos.ObjectService
+            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put",
+                func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
+                    return nil, fmt.Errorf("mock sdk error")
+                })
             defer patches.Reset()
 
             clearCmd()
@@ -87,31 +88,14 @@ func TestXxxCmd(t *testing.T) {
             e := cmd.Execute()
             So(e, ShouldBeError)
         })
-        // ④ 业务函数失败
-        Convey("业务函数失败", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return &cos.Client{}, nil
-            })
-            defer patches.Reset()
-            patches.ApplyFunc(util.XxxFunc, func(...) error {
-                return fmt.Errorf("mock XxxFunc error")
-            })
-
-            clearCmd()
-            cmd := rootCmd
-            cmd.SetArgs([]string{"xxx", "cos://bucket/key"})
-            e := cmd.Execute()
-            So(e, ShouldBeError)
-        })
-        // ⑤ 成功路径
+        // ④ 成功路径（只打桩 cos SDK 方法）
         Convey("成功路径", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return &cos.Client{}, nil
-            })
+            var obj *cos.ObjectService
+            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put",
+                func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
+                    return &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
+                })
             defer patches.Reset()
-            patches.ApplyFunc(util.XxxFunc, func(...) error {
-                return nil
-            })
 
             clearCmd()  // 每个子用例必须先 clearCmd()
             cmd := rootCmd
@@ -119,15 +103,14 @@ func TestXxxCmd(t *testing.T) {
             e := cmd.Execute()
             So(e, ShouldBeNil)
         })
-        // ⑥ 重要 Flag 组合（覆盖各 Flag 分支）
+        // ⑤ 重要 Flag 组合（覆盖各 Flag 分支）
         Convey("带 --flag 参数的成功路径", func() {
-            patches := ApplyFunc(util.NewClient, func(*util.Config, *util.Param, string, ...*util.FileOperations) (*cos.Client, error) {
-                return &cos.Client{}, nil
-            })
+            var obj *cos.ObjectService
+            patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put",
+                func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
+                    return &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
+                })
             defer patches.Reset()
-            patches.ApplyFunc(util.XxxFunc, func(...) error {
-                return nil
-            })
 
             clearCmd()
             cmd := rootCmd
@@ -158,46 +141,60 @@ func clearCmd() {
 
 ## gomonkey 打桩规范
 
+**打桩边界原则：只对直接调用 cos go SDK 的方法打桩，util 层的所有方法（包括 `util.NewClient`、`util.Upload`、`util.GetBucketType` 等）均不需要打桩，让它们正常执行。**
+
 ```go
-// 打桩普通函数
-patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (*cos.Client, error) {
-    return nil, fmt.Errorf("mock error")
-})
+// ✅ 正确：打桩 cos SDK Object 方法（使用 reflect.TypeOf + ApplyMethodFunc）
+var obj *cos.ObjectService
+patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put",
+    func(ctx context.Context, name string, r io.Reader, opt *cos.ObjectPutOptions) (*cos.Response, error) {
+        return &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
+    })
 defer patches.Reset()
 
-// 打桩方法（需要 reflect.TypeOf）
-var c *cos.BucketService
-patches := ApplyMethodFunc(reflect.TypeOf(c), "Head", func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
-    return nil, fmt.Errorf("test Head error")
-})
+// ✅ 正确：打桩 cos SDK Bucket 方法
+var bucket *cos.BucketService
+patches := ApplyMethodFunc(reflect.TypeOf(bucket), "Head",
+    func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+        return nil, fmt.Errorf("mock bucket head error")
+    })
 defer patches.Reset()
 
-// 多个打桩叠加（使用同一个 patches 对象）
-patches := ApplyFunc(util.FormatDownloadPath, func(...) error {
-    return fmt.Errorf("test error")
+// ✅ 正确：多个 SDK 方法打桩叠加（使用同一个 patches 对象）
+var obj *cos.ObjectService
+patches := ApplyMethodFunc(reflect.TypeOf(obj), "Put", func(...) (*cos.Response, error) {
+    return &cos.Response{}, nil
 })
 defer patches.Reset()
-var h http.Header
-patches.ApplyMethodFunc(h, "Get", func(key string) string {
-    if key == "X-Cos-Bucket-Arch" {
-        return "OFS"
-    }
-    return ""
+var bucket *cos.BucketService
+patches.ApplyMethodFunc(reflect.TypeOf(bucket), "GetObjectVersions", func(...) (*cos.BucketGetObjectVersionsResult, *cos.Response, error) {
+    return &cos.BucketGetObjectVersionsResult{}, &cos.Response{}, nil
 })
+
+// ❌ 错误：不应打桩 util 层的普通方法
+// patches := ApplyFunc(util.NewClient, ...)        // 禁止
+// patches := ApplyFunc(util.Upload, ...)           // 禁止
+// patches := ApplyFunc(util.GetBucketType, ...)    // 禁止
+// patches := ApplyFunc(util.FormatUrl, ...)        // 禁止
+
+// ✅ 例外：util 层中内部直接发起 HTTP 请求的方法需要打桩（如 util.CamAuth）
+// util.CamAuth 内部使用 http.Client 直接发起 HTTP 请求，不经过 cos go SDK
+// 可以打桩整个方法，也可以打桩其内部的 http.Client.Do
+patches := ApplyFunc(util.CamAuth, func(roleName string) (util.Data, error) {
+    return util.Data{TmpSecretId: "mock-id", TmpSecretKey: "mock-key", Token: "mock-token"}, nil
+})
+defer patches.Reset()
 ```
 
 ## 打桩覆盖范围要求
 
-以下类型的调用**必须**打桩，不得产生真实的外部请求：
+**只打桩 cos go SDK 的方法**，不得产生真实的外部请求：
 
-| 调用类型 | 必须打桩的函数 |
-|---|---|
-| Client 创建 | `util.NewClient`、`util.CreateClient` |
-| COS 对象操作 | `util.Upload`、`util.Download`、`util.CosCopy`、`util.DeleteObjects` 等 |
-| 路径格式化 | `util.FormatUploadPath`、`util.FormatDownloadPath`、`util.FormatCopyPath` |
-| 桶类型获取 | `util.GetBucketType`（会发 HEAD Bucket 请求） |
-| SDK 方法 | `cos.BucketService.Head`、`cos.ObjectService.Head` 等所有 SDK 方法 |
-| 路径检查 | `util.CheckPath`（可能访问本地文件系统或 COS） |
+| 调用类型 | 是否打桩 | 说明 |
+|---|---|---|
+| `cos.ObjectService` / `cos.BucketService` / `cos.ServiceService` / `cos.CIService` 的所有方法 | ✅ 必须打桩 | 会产生真实 HTTP 请求 |
+| `util.*` 的大多数方法（`util.NewClient`、`util.Upload`、`util.GetBucketType`、`util.FormatUrl` 等） | ❌ 不打桩 | 让其正常执行，通过打桩内部 SDK 方法屏蔽网络请求 |
+| `util.CamAuth` 等 util 层中**内部直接发起 HTTP 请求**的方法 | ✅ 需要打桩 | 不经过 cos go SDK，直接使用 `http.Client` 发起请求 |
 
 ## 测试配置初始化
 
