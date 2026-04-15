@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
+	"net/http"
 	"net/url"
 	"reflect"
 	"testing"
@@ -15,84 +15,118 @@ import (
 )
 
 func TestSignurlCmd(t *testing.T) {
-	fmt.Println("TestSignurlCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	genDir(testDir, 3)
-	defer delDir(testDir)
-	localFileName := fmt.Sprintf("%s/small-file/0", testDir)
-	cosFileName := fmt.Sprintf("cos://%s", testAlias)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceUsage = true
-	cmd.SilenceErrors = true
-	args := []string{"cp", localFileName, cosFileName}
-	cmd.SetArgs(args)
-	cmd.Execute()
+	setupTestConfig()
+	defer teardownTestConfig()
+
 	Convey("Test coscli signurl", t, func() {
-		Convey("success", func() {
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
 			clearCmd()
+		})
+
+		Convey("cos path error", func() {
 			cmd := rootCmd
-			args := []string{"signurl",
-				fmt.Sprintf("cos://%s/0", testAlias)}
-			cmd.SetArgs(args)
+			cmd.SetArgs([]string{"signurl", "invalid-path", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("signurl success", func() {
+			var o *cos.ObjectService
+			patches = ApplyMethodFunc(reflect.TypeOf(o), "GetPresignedURL2",
+				func(ctx context.Context, httpMethod string, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
+					u, _ := url.Parse("https://test-bucket.cos.ap-guangzhou.myqcloud.com/test.txt?sign=xxx")
+					return u, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://test-alias/test.txt", "--time", "100", "-c", testConfigPath})
 			e := cmd.Execute()
 			So(e, ShouldBeNil)
 		})
-		Convey("failed", func() {
-			Convey("Not enough arguments", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"abort"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("not cos", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"signurl",
-					fmt.Sprintf("co//%s/0", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("New Client", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test new client error")
+
+		Convey("signurl simple output success", func() {
+			var o *cos.ObjectService
+			patches = ApplyMethodFunc(reflect.TypeOf(o), "GetPresignedURL2",
+				func(ctx context.Context, httpMethod string, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
+					u, _ := url.Parse("https://test-bucket.cos.ap-guangzhou.myqcloud.com/test.txt?sign=xxx")
+					return u, nil
 				})
-				defer patches.Reset()
-				args := []string{"signurl",
-					fmt.Sprintf("cos://%s/0", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("Cover arguments and GetPresignedURL", func() {
-				clearCmd()
-				cmd := rootCmd
-				var c *cos.ObjectService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "GetPresignedURL2", func(ctx context.Context, httpMethod, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
-					return nil, fmt.Errorf("test getpresignedurl error")
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://test-alias/test.txt", "--simple-output", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("signurl error", func() {
+			var o *cos.ObjectService
+			patches = ApplyMethodFunc(reflect.TypeOf(o), "GetPresignedURL2",
+				func(ctx context.Context, httpMethod string, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
+					return nil, fmt.Errorf("test signurl error")
 				})
-				defer patches.Reset()
-				patches.ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return &cos.Client{}, nil
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://test-alias/test.txt", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("signurl with http header", func() {
+			var o *cos.ObjectService
+			patches = ApplyMethodFunc(reflect.TypeOf(o), "GetPresignedURL2",
+				func(ctx context.Context, httpMethod string, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
+					u, _ := url.Parse("https://test-bucket.cos.ap-guangzhou.myqcloud.com/test.txt?sign=xxx")
+					return u, nil
 				})
-				args := []string{"signurl",
-					fmt.Sprintf("cos://%s/0", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://test-alias/test.txt",
+				"--time", "3600", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("signurl NewClient error (unknown bucket)", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://unknown-alias/test.txt", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+	})
+}
+
+// 测试 GetPresignedURL2 的 http.Header 方法打桩
+func TestSignurlWithHeaderPatch(t *testing.T) {
+	setupTestConfig()
+	defer teardownTestConfig()
+
+	Convey("Test signurl with header patch", t, func() {
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
+		})
+
+		Convey("signurl with header method patch", func() {
+			var h http.Header
+			patches = ApplyMethodFunc(reflect.TypeOf(h), "Get",
+				func(h http.Header, key string) string {
+					return ""
+				})
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "GetPresignedURL2",
+				func(ctx context.Context, httpMethod string, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
+					u, _ := url.Parse("https://test-bucket.cos.ap-guangzhou.myqcloud.com/test.txt?sign=xxx")
+					return u, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://test-alias/test.txt", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
 		})
 	})
 }

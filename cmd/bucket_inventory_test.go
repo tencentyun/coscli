@@ -2,152 +2,187 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
+	"reflect"
+	"testing"
+
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"reflect"
-	"testing"
+
+	"coscli/util"
 )
 
 func TestBucketInventoryCmd(t *testing.T) {
-	fmt.Println("TestBucketInventoryCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	genDir(testDir, 3)
-	defer delDir(testDir)
+	setupTestConfig()
+	defer teardownTestConfig()
 
 	Convey("test coscli bucket_inventory", t, func() {
-		Convey("success", func() {
-			Convey("put", func() {
-				clearCmd()
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "PutInventory", func(ctx context.Context, id string, opt *cos.BucketPutInventoryOptions) (*cos.Response, error) {
-					return nil, nil
-				})
-				defer patches.Reset()
-				cmd := rootCmd
-				args := []string{"inventory", "--method", "put",
-					fmt.Sprintf("cos://%s", testAlias), "--task-id", "list4", "--configuration", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><InventoryConfiguration xmlns=\"http://....\"><Id>list4</Id><IsEnabled>false</IsEnabled><Destination><COSBucketDestination><Format>CSV</Format><AccountId>100000000002</AccountId><Bucket>qcs::cos:ap-nanjing::test-1000000001</Bucket><Prefix>list4</Prefix><Encryption><SSE-COS></SSE-COS></Encryption></COSBucketDestination></Destination><Schedule><Frequency>Weekly</Frequency></Schedule><Filter><And><Prefix>myPrefix</Prefix><Tag><Key>age</Key><Value>18</Value></Tag></And><Period><StartTime>1768688761</StartTime><EndTime>1568688762</EndTime></Period></Filter><IncludedObjectVersions>All</IncludedObjectVersions><OptionalFields><Field>Size</Field><Field>Tag</Field><Field>LastModifiedDate</Field><Field>ETag</Field><Field>StorageClass</Field><Field>IsMultipartUploaded</Field></OptionalFields></InventoryConfiguration>"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("get", func() {
-				clearCmd()
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "GetInventory", func(ctx context.Context, id string) (*cos.BucketGetInventoryResult, *cos.Response, error) {
-					return &cos.BucketGetInventoryResult{}, nil, nil
-				})
-				defer patches.Reset()
-				cmd := rootCmd
-				args := []string{"inventory", "--method", "get",
-					fmt.Sprintf("cos://%s", testAlias), "--task-id", "list4"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("list", func() {
-				clearCmd()
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "ListInventoryConfigurations", func(ctx context.Context, token string) (*cos.ListBucketInventoryConfigResult, *cos.Response, error) {
-					return &cos.ListBucketInventoryConfigResult{}, nil, nil
-				})
-				defer patches.Reset()
-				cmd := rootCmd
-				args := []string{"inventory", "--method", "list",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("delete", func() {
-				clearCmd()
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "DeleteInventory", func(ctx context.Context, id string) (*cos.Response, error) {
-					return nil, nil
-				})
-				defer patches.Reset()
-				cmd := rootCmd
-				args := []string{"inventory", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("post", func() {
-				clearCmd()
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "PostInventory", func(ctx context.Context, id string, opt *cos.BucketPostInventoryOptions) (*cos.Response, error) {
-					return nil, nil
-				})
-				defer patches.Reset()
-				cmd := rootCmd
-				args := []string{"inventory", "--method", "post",
-					fmt.Sprintf("cos://%s", testAlias), "--task-id", "list4", "--configuration", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><InventoryConfiguration xmlns=\"http://....\"><Id>list4</Id><Destination><COSBucketDestination><Format>CSV</Format><AccountId>100000000002</AccountId><Bucket>qcs::cos:ap-nanjing::test-100000001</Bucket><Prefix>list4</Prefix><Encryption><SSE-COS>111</SSE-COS></Encryption></COSBucketDestination></Destination><Filter><And><Prefix>myPrefix</Prefix><Tag><Key>age</Key><Value>18</Value></Tag></And><Period><StartTime>1768688761</StartTime><EndTime>1568688762</EndTime></Period></Filter><IncludedObjectVersions>All</IncludedObjectVersions><OptionalFields><Field>Size</Field><Field>Tag</Field><Field>LastModifiedDate</Field><Field>ETag</Field><Field>StorageClass</Field><Field>IsMultipartUploaded</Field></OptionalFields></InventoryConfiguration>"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
 		})
-		Convey("fail", func() {
-			Convey("clinet err", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test put client error")
-				})
-				defer patches.Reset()
-				args := []string{"inventory", "--method", "list",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("FormatUrl err", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
-					return nil, fmt.Errorf("test format url error")
-				})
-				defer patches.Reset()
-				args := []string{"inventory", "--method", "list",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("cos path error", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"inventory", "--method", "list",
-					fmt.Sprintf("cos:/%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("invalid method", func() {
-				clearCmd()
-				cmd := rootCmd
 
-				args := []string{"inventory", "--method", "add",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
+		Convey("cos path error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "list", "cos:/test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("invalid method", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListInventoryConfigurations",
+				func(ctx context.Context, token string) (*cos.ListBucketInventoryConfigResult, *cos.Response, error) {
+					return &cos.ListBucketInventoryConfigResult{IsTruncated: false}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "add", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("put success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PutInventory",
+				func(ctx context.Context, id string, opt *cos.BucketPutInventoryOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "put",
+				"cos://test-alias", "--task-id", "list4", "--configuration", "<InventoryConfiguration/>", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("get success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetInventory",
+				func(ctx context.Context, id string) (*cos.BucketGetInventoryResult, *cos.Response, error) {
+					return &cos.BucketGetInventoryResult{}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "get", "cos://test-alias", "--task-id", "list4", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("list success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListInventoryConfigurations",
+				func(ctx context.Context, token string) (*cos.ListBucketInventoryConfigResult, *cos.Response, error) {
+					return &cos.ListBucketInventoryConfigResult{IsTruncated: false}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "list", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("delete success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "DeleteInventory",
+				func(ctx context.Context, id string) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "delete", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("post success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PostInventory",
+				func(ctx context.Context, id string, opt *cos.BucketPostInventoryOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "post",
+				"cos://test-alias", "--task-id", "list4", "--configuration", "<InventoryConfiguration/>", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("put error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PutInventory",
+				func(ctx context.Context, id string, opt *cos.BucketPutInventoryOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("test put inventory error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "put", "cos://test-alias", "--task-id", "list4", "--configuration", "<InventoryConfiguration/>", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("get error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetInventory",
+				func(ctx context.Context, id string) (*cos.BucketGetInventoryResult, *cos.Response, error) {
+					return nil, nil, fmt.Errorf("test get inventory error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "get", "cos://test-alias", "--task-id", "list4", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("list error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListInventoryConfigurations",
+				func(ctx context.Context, token string) (*cos.ListBucketInventoryConfigResult, *cos.Response, error) {
+					return nil, nil, fmt.Errorf("test list inventory error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "list", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("delete error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "DeleteInventory",
+				func(ctx context.Context, id string) (*cos.Response, error) {
+					return nil, fmt.Errorf("test delete inventory error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "delete", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("post error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PostInventory",
+				func(ctx context.Context, id string, opt *cos.BucketPostInventoryOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("test post inventory error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "post", "cos://test-alias", "--task-id", "list4", "--configuration", "<InventoryConfiguration/>", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("invalid cos url format", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "list", "cos:///invalid-object", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("NewClient error", func() {
+			patches = ApplyFunc(util.NewClient, func(cfg *util.Config, param *util.Param, bucketName string) (*cos.Client, error) {
+				return nil, fmt.Errorf("test NewClient error")
 			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "list", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
 	})
 }

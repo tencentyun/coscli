@@ -8,17 +8,20 @@ import (
 )
 
 func TestConfigShowCmd(t *testing.T) {
-	fmt.Println("TestConfigShowCmd")
-	Convey("Test coscil config show", t, func() {
-		Convey("success", func() {
-			Convey("give arguments", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"config", "show"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
+	setupTestConfig()
+	defer teardownTestConfig()
+
+	Convey("Test coscli config show", t, func() {
+		Reset(func() {
+			clearCmd()
+		})
+
+		Convey("show config", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"config", "show", "-c", testConfigPath})
+			e := cmd.Execute()
+			fmt.Printf(" : %v", e)
+			So(e, ShouldBeNil)
 		})
 	})
 }

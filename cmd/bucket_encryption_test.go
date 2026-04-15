@@ -1,94 +1,132 @@
 package cmd
 
 import (
-	"coscli/util"
+	"context"
 	"fmt"
+	"reflect"
+	"testing"
+
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"testing"
+
+	"coscli/util"
 )
 
 func TestBucketEncryptionCmd(t *testing.T) {
-	fmt.Println("TestBucketEncryptionCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	genDir(testDir, 3)
-	defer delDir(testDir)
+	setupTestConfig()
+	defer teardownTestConfig()
 
 	Convey("test coscli bucket_encryption", t, func() {
-		Convey("success", func() {
-			Convey("put", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-encryption", "--method", "put",
-					fmt.Sprintf("cos://%s", testAlias), "--sse-algorithm", "AES256"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("get", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-encryption", "--method", "get",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("delete", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-encryption", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
 		})
-		Convey("fail", func() {
-			Convey("clinet err", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test put client error")
+
+		Convey("cos path error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "get", "cos:/test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("invalid method", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetEncryption",
+				func(ctx context.Context) (*cos.BucketGetEncryptionResult, *cos.Response, error) {
+					return &cos.BucketGetEncryptionResult{}, &cos.Response{}, nil
 				})
-				defer patches.Reset()
-				args := []string{"bucket-encryption", "--method", "get",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("cos path error", func() {
-				clearCmd()
-				cmd := rootCmd
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "add", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
 
-				args := []string{"bucket-encryption", "--method", "get",
-					fmt.Sprintf("cos:/%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("invalid method", func() {
-				clearCmd()
-				cmd := rootCmd
+		Convey("put success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PutEncryption",
+				func(ctx context.Context, opt *cos.BucketPutEncryptionOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "put",
+				"cos://test-alias", "--sse-algorithm", "AES256", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
 
-				args := []string{"bucket-encryption", "--method", "add",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
+		Convey("get success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetEncryption",
+				func(ctx context.Context) (*cos.BucketGetEncryptionResult, *cos.Response, error) {
+					return &cos.BucketGetEncryptionResult{}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "get", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("delete success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "DeleteEncryption",
+				func(ctx context.Context) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "delete", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("put error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PutEncryption",
+				func(ctx context.Context, opt *cos.BucketPutEncryptionOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("test put encryption error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "put", "cos://test-alias", "--sse-algorithm", "AES256", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("get error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetEncryption",
+				func(ctx context.Context) (*cos.BucketGetEncryptionResult, *cos.Response, error) {
+					return nil, nil, fmt.Errorf("test get encryption error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "get", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("delete error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "DeleteEncryption",
+				func(ctx context.Context) (*cos.Response, error) {
+					return nil, fmt.Errorf("test delete encryption error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "delete", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("NewClient error", func() {
+			patches = ApplyFunc(util.NewClient, func(cfg *util.Config, param *util.Param, bucketName string) (*cos.Client, error) {
+				return nil, fmt.Errorf("test NewClient error")
 			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-encryption", "--method", "get", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
 	})
 }
