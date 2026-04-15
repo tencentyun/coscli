@@ -52,10 +52,18 @@ func setupTestConfig() {
 	}
 }
 
-// teardownTestConfig 删除临时测试配置文件
+// teardownTestConfig 删除临时测试配置文件及测试产生的临时目录
 func teardownTestConfig() {
 	if err := os.Remove(testConfigPath); err != nil && !os.IsNotExist(err) {
 		logger.Errorln("删除测试配置文件失败:", err)
+	}
+	// 清理 fail-output 产生的 coscli_output 目录
+	if err := os.RemoveAll("coscli_output"); err != nil && !os.IsNotExist(err) {
+		logger.Errorln("删除 coscli_output 目录失败:", err)
+	}
+	// 清理 cp/sync 下载测试产生的 abc 目录
+	if err := os.RemoveAll("abc"); err != nil && !os.IsNotExist(err) {
+		logger.Errorln("删除 abc 目录失败:", err)
 	}
 }
 
