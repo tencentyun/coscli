@@ -93,6 +93,39 @@ func TestSignurlCmd(t *testing.T) {
 			e := cmd.Execute()
 			So(e, ShouldBeError)
 		})
+
+		Convey("signurl PUT method success", func() {
+			var o *cos.ObjectService
+			patches = ApplyMethodFunc(reflect.TypeOf(o), "GetPresignedURL2",
+				func(ctx context.Context, httpMethod string, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
+					u, _ := url.Parse("https://test-bucket.cos.ap-guangzhou.myqcloud.com/test.txt?sign=xxx")
+					return u, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://test-alias/test.txt", "--method", "PUT", "--time", "3600", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("signurl PUT method simple output success", func() {
+			var o *cos.ObjectService
+			patches = ApplyMethodFunc(reflect.TypeOf(o), "GetPresignedURL2",
+				func(ctx context.Context, httpMethod string, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
+					u, _ := url.Parse("https://test-bucket.cos.ap-guangzhou.myqcloud.com/test.txt?sign=xxx")
+					return u, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://test-alias/test.txt", "--method", "put", "--simple-output", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("signurl unsupported method error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"signurl", "cos://test-alias/test.txt", "--method", "DELETE", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
 	})
 }
 
