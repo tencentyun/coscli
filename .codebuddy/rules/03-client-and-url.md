@@ -1,3 +1,7 @@
+---
+type: always
+---
+
 # 规则：Client 实例化与 URL 生成
 
 ## NewClient vs CreateClient 选择规则
