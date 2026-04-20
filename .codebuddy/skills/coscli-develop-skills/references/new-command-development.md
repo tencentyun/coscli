@@ -310,6 +310,66 @@ func TestStatCmd(t *testing.T) {
 
 ---
 
+## Step 5.5：为 util 层编写单元测试
+
+`cmd/` 层的集成测试（Step 5）通过 `cmd.Execute()` 间接覆盖了 util 层，但 util 层的业务函数还需要**独立的单元测试**来精确覆盖各分支。
+
+> **详细规范** → 参考 [`util-unit-test.md`](util-unit-test.md)
+
+### util 层单测与 cmd 层单测的关键差异
+
+| 对比项 | cmd 层 | util 层 |
+|---|---|---|
+| 测试框架 | goconvey + gomonkey | **标准 `testing.T` + gomonkey** |
+| patches 管理 | 父级 Convey + `Reset()` 钩子 | **单次打桩 + 全局变量控制行为** |
+| 配置文件 | 必须创建临时配置 | **不需要** |
+| 断言方式 | `So(e, ShouldBeNil)` | `t.Errorf / t.Fatalf` |
+
+### ARM64 兼容方案（必须遵守）
+
+在 Apple Silicon 上，对同一 SDK 方法多次独立打桩会失败。**正确做法**：
+
+```go
+// 全局 mock 变量
+var mockHeadFunc func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error)
+
+func TestStatObject(t *testing.T) {
+    // 只打桩一次，通过变量切换行为
+    var o *cos.ObjectService
+    patches := ApplyMethodFunc(reflect.TypeOf(o), "Head",
+        func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+            return mockHeadFunc(ctx, name, opt, id...)
+        })
+    defer patches.Reset()
+
+    t.Run("调用失败", func(t *testing.T) {
+        mockHeadFunc = func(...) (*cos.Response, error) { return nil, fmt.Errorf("mock error") }
+        info, err := StatObject(newTestClient(), "test.txt", "")
+        if err == nil { t.Error("期望返回错误") }
+    })
+
+    t.Run("调用成功", func(t *testing.T) {
+        mockHeadFunc = func(...) (*cos.Response, error) {
+            h := http.Header{}
+            h.Set("Content-Type", "text/plain")
+            return &cos.Response{Response: &http.Response{StatusCode: 200, Header: h}}, nil
+        }
+        info, err := StatObject(newTestClient(), "test.txt", "")
+        if err != nil { t.Fatalf("期望无错误: %v", err) }
+        // 断言字段...
+    })
+}
+```
+
+### 覆盖率检查命令
+
+```bash
+go test -v -gcflags="all=-l" -coverprofile=coverage_util.out ./util/ -run TestStatObject
+go tool cover -func=coverage_util.out | grep -E "(stat|total)"
+```
+
+---
+
 ## Step 6：验证 Long 描述格式
 
 每个命令的 `Long` 字段必须包含 `Format:` 和 `Example:` 两个段落：

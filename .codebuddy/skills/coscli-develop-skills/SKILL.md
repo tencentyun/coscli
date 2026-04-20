@@ -1,6 +1,6 @@
 ---
 name: coscli-develop-skills
-description: coscli（腾讯云 COS 命令行工具）完整开发规范，涵盖新命令开发流程、单元测试编写（goconvey + gomonkey）、桶类型判断（COS/OFS）、FileOperations 批量操作和配置命令开发等核心技能。
+description: coscli（腾讯云 COS 命令行工具）完整开发规范，涵盖新命令开发流程、cmd 层单元测试（goconvey + gomonkey）、util 层单元测试（标准 testing.T + 单次打桩方案）、桶类型判断（COS/OFS）、FileOperations 批量操作和配置命令开发等核心技能。
 ---
 
 # coscli 开发技能包
@@ -21,7 +21,8 @@ description: coscli（腾讯云 COS 命令行工具）完整开发规范，涵�
 
 | 文件 | 技能内容 |
 |---|---|
-| [new-command-development.md](references/new-command-development.md) | 新命令开发完整流程（命令模板、util层实现、测试编写） |
+| [new-command-development.md](references/new-command-development.md) | 新命令开发完整流程（命令模板、util层实现、cmd层测试编写） |
+| [util-unit-test.md](references/util-unit-test.md) | util 层单元测试规范（ARM64 兼容方案、单次打桩 + 变量控制、标准 testing.T） |
 | [bucket-type-detection.md](references/bucket-type-detection.md) | 桶类型判断与 OFS/COS 分支处理 |
 | [file-operations.md](references/file-operations.md) | 文件操作（上传、下载、复制、同步）的 FileOperations 使用规范 |
 | [config-command.md](references/config-command.md) | 配置命令开发规范（config add/set/delete/show） |
@@ -30,7 +31,9 @@ description: coscli（腾讯云 COS 命令行工具）完整开发规范，涵�
 
 **开发新命令** → 参考 `references/new-command-development.md`，按 Step 1~7 逐步完成
 
-**编写单测** → 参考 `references/new-command-development.md` Step 5，使用 goconvey + gomonkey，只打桩 cos SDK 方法
+**编写 cmd 层单测** → 参考 `references/new-command-development.md` Step 5，使用 goconvey + gomonkey，只打桩 cos SDK 方法
+
+**编写 util 层单测** → 参考 `references/util-unit-test.md`，使用标准 testing.T + 单次打桩方案（ARM64 兼容）
 
 **处理桶类型** → 参考 `references/bucket-type-detection.md`，使用 `util.GetBucketType`
 
