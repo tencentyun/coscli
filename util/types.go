@@ -112,6 +112,7 @@ type Operation struct {
 	PartSize             int64
 	CheckPoint           bool
 	ThreadNum            int
+	MaxThreadNum         int
 	Routines             int
 	FailOutput           bool
 	FailOutputPath       string

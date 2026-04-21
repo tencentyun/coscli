@@ -224,7 +224,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		threadNum := fo.Operation.ThreadNum
 		if threadNum == 0 {
 			// 若未设置文件分块并发数,需要根据文件大小和分块大小计算默认分块并发数
-			threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize)
+			threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize, fo.Operation.RateLimiting, fo.Operation.MaxThreadNum)
 			if err != nil {
 				rErr = err
 				return

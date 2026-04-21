@@ -41,6 +41,7 @@ Example:
 		rateLimiting, _ := cmd.Flags().GetFloat32("rate-limiting")
 		partSize, _ := cmd.Flags().GetInt64("part-size")
 		threadNum, _ := cmd.Flags().GetInt("thread-num")
+		maxThreadNum, _ := cmd.Flags().GetInt("max-thread-num")
 		metaString, _ := cmd.Flags().GetString("meta")
 		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		errRetryNum, _ := cmd.Flags().GetInt("err-retry-num")
@@ -152,6 +153,7 @@ Example:
 				RateLimiting:      rateLimiting,
 				PartSize:          partSize,
 				ThreadNum:         threadNum,
+				MaxThreadNum:      maxThreadNum,
 				Routines:          routines,
 				FailOutput:        failOutput,
 				FailOutputPath:    failOutputPath,
@@ -365,7 +367,8 @@ func init() {
 	syncCmd.Flags().String("storage-class", "", "Specifying a storage class")
 	syncCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
 	syncCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
-	syncCmd.Flags().Int("thread-num", 0, "Specifies the number of concurrent upload or download threads")
+	syncCmd.Flags().Int("thread-num", 0, "Specifies the number of concurrent upload or download threads. When set (>0), it overrides auto-derivation by file size and ignores --max-thread-num.")
+	syncCmd.Flags().Int("max-thread-num", 32, "Upper bound for auto-derived partition concurrency when --thread-num is 0. Has no effect if --thread-num is explicitly set.")
 	syncCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")

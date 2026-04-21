@@ -86,8 +86,12 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 				threadNum := options[0].Operation.ThreadNum
 				if threadNum <= 0 {
 					// ThreadNum=0 时由 getThreadNumByPartSize 按文件大小自动推导，
-					// 最大可达 12，这里按上限预留，避免运行期连接不足
-					threadNum = 12
+					// 上限由 --max-thread-num 控制（默认 32），这里按该上限预留连接池，
+					// 避免运行期连接不足导致长连接退化为短连接。
+					threadNum = options[0].Operation.MaxThreadNum
+					if threadNum <= 0 {
+						threadNum = defaultMaxThreadNum
+					}
 				}
 				longLinksNums = routines * threadNum
 			}
