@@ -74,9 +74,22 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		if len(options) > 0 && options[0] != nil && !options[0].Operation.DisableLongLinks {
 			longLinksNums := 0
 			if options[0].Operation.LongLinksNums > 0 {
+				// 用户显式指定，完全尊重用户配置
 				longLinksNums = options[0].Operation.LongLinksNums
 			} else {
-				longLinksNums = options[0].Operation.Routines
+				// 真实并发度 ≈ Routines（文件级并发） × ThreadNum（单文件分块并发）
+				// 仅按 Routines 设置会导致分块上传时连接频繁重建
+				routines := options[0].Operation.Routines
+				if routines <= 0 {
+					routines = 1
+				}
+				threadNum := options[0].Operation.ThreadNum
+				if threadNum <= 0 {
+					// ThreadNum=0 时由 getThreadNumByPartSize 按文件大小自动推导，
+					// 最大可达 12，这里按上限预留，避免运行期连接不足
+					threadNum = 12
+				}
+				longLinksNums = routines * threadNum
 			}
 			httpClient = &http.Client{
 				Transport: &cos.AuthorizationTransport{

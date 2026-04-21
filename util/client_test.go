@@ -162,6 +162,40 @@ func TestNewClient(t *testing.T) {
 		}
 	})
 
+	t.Run("传入 FileOperations 且 ThreadNum>0 时连接池按 Routines*ThreadNum 估算", func(t *testing.T) {
+		p := &Param{}
+		fo := &FileOperations{
+			Operation: Operation{
+				Routines:  4,
+				ThreadNum: 6,
+			},
+		}
+		c, err := NewClient(cfg, p, "test-alias", fo)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if c == nil {
+			t.Fatal("期望 client 不为 nil")
+		}
+	})
+
+	t.Run("传入 FileOperations 且 Routines<=0 时按 1*ThreadNum 兜底", func(t *testing.T) {
+		p := &Param{}
+		fo := &FileOperations{
+			Operation: Operation{
+				Routines:  0,
+				ThreadNum: 0,
+			},
+		}
+		c, err := NewClient(cfg, p, "test-alias", fo)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if c == nil {
+			t.Fatal("期望 client 不为 nil")
+		}
+	})
+
 	t.Run("传入 FileOperations 且 DisableLongLinks=true 时不使用长连接池", func(t *testing.T) {
 		p := &Param{}
 		fo := &FileOperations{
