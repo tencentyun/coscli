@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"reflect"
 	"testing"
 
-	. "github.com/agiledragon/gomonkey/v2"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
@@ -20,13 +18,7 @@ func newTestClient() *cos.Client {
 var mockHeadFunc func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error)
 
 func TestStatObject(t *testing.T) {
-	// 只打桩一次，通过 mockHeadFunc 变量控制每个子测试的行为
-	var o *cos.ObjectService
-	patches := ApplyMethodFunc(reflect.TypeOf(o), "Head",
-		func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
-			return mockHeadFunc(ctx, name, opt, id...)
-		})
-	defer patches.Reset()
+	// Object.Head 已在 TestMain 中全局打桩，通过 mockHeadFunc 变量控制每个子测试的行为
 
 	t.Run("SDK Head 调用失败（无 versionId）", func(t *testing.T) {
 		mockHeadFunc = func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
