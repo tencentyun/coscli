@@ -53,8 +53,13 @@ func writeError(errString string, fo *FileOperations) {
 }
 
 // CloseErrorOutputFile closes the error output file if it is not nil.
+// 该函数是幂等的：关闭后将文件指针置为 nil，重复调用是安全的。
 func CloseErrorOutputFile(fo *FileOperations) {
+	if fo == nil || fo.ErrOutput == nil {
+		return
+	}
 	if fo.ErrOutput.outputFile != nil {
-		defer fo.ErrOutput.outputFile.Close()
+		_ = fo.ErrOutput.outputFile.Close()
+		fo.ErrOutput.outputFile = nil
 	}
 }

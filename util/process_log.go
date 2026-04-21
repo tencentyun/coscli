@@ -49,8 +49,13 @@ func writeProcessLog(errString string, fo *FileOperations) {
 }
 
 // CloseProcessLoggerFile closes the process log file if it is not nil.
+// 该函数是幂等的：关闭后将文件指针置为 nil，重复调用是安全的。
 func CloseProcessLoggerFile(fo *FileOperations) {
+	if fo == nil || fo.ProcessLogger == nil {
+		return
+	}
 	if fo.ProcessLogger.logFile != nil {
-		defer fo.ProcessLogger.logFile.Close()
+		_ = fo.ProcessLogger.logFile.Close()
+		fo.ProcessLogger.logFile = nil
 	}
 }

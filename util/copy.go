@@ -54,8 +54,8 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 		batchCopyFiles(srcClient, destClient, srcUrl, destUrl, fo)
 	}
 
-	CloseErrorOutputFile(fo)
-	CloseProcessLoggerFile(fo)
+	// 注意：错误输出文件与进程日志文件由 cmd 层统一关闭（见 cmd/cp.go、cmd/sync.go），
+	// util 层不再重复调用 CloseErrorOutputFile / CloseProcessLoggerFile，避免重复 Close。
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
 
@@ -314,8 +314,8 @@ func CosCopyWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[
 	// 多对象copy
 	batchCopyFilesWithDelete(srcClient, destClient, srcKeys, copyKeys, srcUrl, destUrl, fo)
 
-	CloseErrorOutputFile(fo)
-	CloseProcessLoggerFile(fo)
+	// 注意：错误输出文件与进程日志文件由 cmd 层统一关闭（见 cmd/cp.go、cmd/sync.go），
+	// util 层不再重复调用 CloseErrorOutputFile / CloseProcessLoggerFile，避免重复 Close。
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
 
