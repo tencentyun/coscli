@@ -67,7 +67,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 
 func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
-	chError := make(chan error, fo.Operation.Routines)
+	chError := make(chan error, fo.Operation.Routines*10)
 	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
@@ -328,7 +328,7 @@ func CosCopyWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[
 // batchCopyFilesWithDelete todo
 func batchCopyFilesWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[string]commonInfoType, srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
-	chError := make(chan error, fo.Operation.Routines)
+	chError := make(chan error, fo.Operation.Routines*10)
 	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 

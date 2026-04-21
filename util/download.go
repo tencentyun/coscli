@@ -86,7 +86,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 
 func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
-	chError := make(chan error, fo.Operation.Routines)
+	chError := make(chan error, fo.Operation.Routines*10)
 	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
@@ -403,7 +403,7 @@ func DownloadWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonIn
 
 func batchDownloadFilesWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonInfoType, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
-	chError := make(chan error, fo.Operation.Routines)
+	chError := make(chan error, fo.Operation.Routines*10)
 	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 

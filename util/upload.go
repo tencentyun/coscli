@@ -33,7 +33,7 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 	go progressBar(fo)
 
 	chFiles := make(chan fileInfoType, ChannelSize)
-	chError := make(chan error, fo.Operation.Routines)
+	chError := make(chan error, fo.Operation.Routines*10)
 	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
@@ -312,7 +312,7 @@ func UploadWithDelete(c *cos.Client, cosUrl StorageUrl, srcKeys, uploadKeys map[
 	go progressBar(fo)
 
 	chFiles := make(chan fileInfoType, ChannelSize)
-	chError := make(chan error, fo.Operation.Routines)
+	chError := make(chan error, fo.Operation.Routines*10)
 	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
