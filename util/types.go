@@ -24,6 +24,7 @@ type BaseCfg struct {
 	CloseAutoSwitchHost        string `yaml:"closeautoswitchhost"`
 	DisableEncryption          string `yaml:"disableencryption"`
 	DisableAutoFetchBucketType string `yaml:"disableautofetchbuckettype"`
+	Proxy                      string `yaml:"proxy"`
 }
 
 // Bucket 桶信息
@@ -46,6 +47,7 @@ type Param struct {
 	Protocol            string
 	CloseAutoSwitchHost string
 	BucketType          string
+	Proxy               string
 }
 
 // UploadInfo 上传文件信息

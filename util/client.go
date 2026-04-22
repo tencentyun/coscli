@@ -4,10 +4,29 @@ import (
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 var secretID, secretKey, secretToken string
+
+// getProxyFunc 根据配置和参数返回 Transport 所需的 Proxy 函数，优先级：
+// 命令行参数 > 配置文件 base 级别。若均为空或解析失败则返回 nil（不使用代理）。
+// 支持 http/https/socks5 等 URL 格式，如：http://user:pass@127.0.0.1:8080 、 socks5://127.0.0.1:1080。
+func getProxyFunc(config *Config, param *Param) func(*http.Request) (*url.URL, error) {
+	proxyStr := param.Proxy
+	if proxyStr == "" {
+		proxyStr = config.Base.Proxy
+	}
+	if proxyStr == "" {
+		return nil
+	}
+	proxyURL, err := url.Parse(proxyStr)
+	if err != nil {
+		return nil
+	}
+	return http.ProxyURL(proxyURL)
+}
 
 // NewClient 创建一个新的客户端实例，根据配置文件加载信息。
 // 参数:
@@ -56,12 +75,16 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 	}
 
 	if bucketName == "" { // 不指定 bucket，则创建用于发送 Service 请求的客户端
+		authTransport := &cos.AuthorizationTransport{
+			SecretID:     secretID,
+			SecretKey:    secretKey,
+			SessionToken: secretToken,
+		}
+		if proxyFn := getProxyFunc(config, param); proxyFn != nil {
+			authTransport.Transport = &http.Transport{Proxy: proxyFn}
+		}
 		client = cos.NewClient(GenBaseURL(config, param), &http.Client{
-			Transport: &cos.AuthorizationTransport{
-				SecretID:     secretID,
-				SecretKey:    secretKey,
-				SessionToken: secretToken,
-			},
+			Transport: authTransport,
 		})
 	} else {
 		url, err := GenURL(config, param, bucketName)
@@ -69,6 +92,7 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 			return client, err
 		}
 
+		proxyFn := getProxyFunc(config, param)
 		var httpClient *http.Client
 		// 如果使用长链接则调整连接池大小至并发数
 		if len(options) > 0 && options[0] != nil && !options[0].Operation.DisableLongLinks {
@@ -95,25 +119,33 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 				}
 				longLinksNums = routines * threadNum
 			}
+			innerTransport := &http.Transport{
+				MaxIdleConnsPerHost: longLinksNums,
+				MaxIdleConns:        longLinksNums,
+			}
+			if proxyFn != nil {
+				innerTransport.Proxy = proxyFn
+			}
 			httpClient = &http.Client{
 				Transport: &cos.AuthorizationTransport{
 					SecretID:     secretID,
 					SecretKey:    secretKey,
 					SessionToken: secretToken,
-					Transport: &http.Transport{
-						MaxIdleConnsPerHost: longLinksNums,
-						MaxIdleConns:        longLinksNums,
-					},
+					Transport:    innerTransport,
 				},
 			}
 		} else {
 			// 若没有传递 options 或者没有设置 DisableLongLinks
+			authTransport := &cos.AuthorizationTransport{
+				SecretID:     secretID,
+				SecretKey:    secretKey,
+				SessionToken: secretToken,
+			}
+			if proxyFn != nil {
+				authTransport.Transport = &http.Transport{Proxy: proxyFn}
+			}
 			httpClient = &http.Client{
-				Transport: &cos.AuthorizationTransport{
-					SecretID:     secretID,
-					SecretKey:    secretKey,
-					SessionToken: secretToken,
-				},
+				Transport: authTransport,
 			}
 		}
 
@@ -194,12 +226,16 @@ func CreateClient(config *Config, param *Param, bucketIDName string) (client *co
 		protocol = param.Protocol
 	}
 
+	authTransport := &cos.AuthorizationTransport{
+		SecretID:     secretID,
+		SecretKey:    secretKey,
+		SessionToken: secretToken,
+	}
+	if proxyFn := getProxyFunc(config, param); proxyFn != nil {
+		authTransport.Transport = &http.Transport{Proxy: proxyFn}
+	}
 	client = cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint, false), &http.Client{
-		Transport: &cos.AuthorizationTransport{
-			SecretID:     secretID,
-			SecretKey:    secretKey,
-			SessionToken: secretToken,
-		},
+		Transport: authTransport,
 	})
 
 	// 切换域名开关，优先使用参数中的开关，若为空再使用配置文件中的开关

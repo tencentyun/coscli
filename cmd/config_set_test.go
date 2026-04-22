@@ -159,6 +159,26 @@ func TestConfigSetCmd(t *testing.T) {
 			So(e, ShouldBeNil)
 		})
 
+		Convey("set proxy", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"config", "set",
+				"--proxy", "http://127.0.0.1:8080",
+				"--disable_encryption", "true",
+				"-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("clear proxy with @", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"config", "set",
+				"--proxy", "@",
+				"--disable_encryption", "true",
+				"-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
 		Convey("set valid mode SecretKey", func() {
 			cmd := rootCmd
 			cmd.SetArgs([]string{"config", "set",

@@ -38,6 +38,7 @@ func showConfig() {
 	fmt.Printf("  CloseAutoSwitchHost: %s\n", config.Base.CloseAutoSwitchHost)
 	fmt.Printf("  DisableEncryption: %s\n", config.Base.DisableEncryption)
 	fmt.Printf("  DisableAutoFetchBucketType: %s\n", config.Base.DisableAutoFetchBucketType)
+	fmt.Printf("  Proxy: %s\n", config.Base.Proxy)
 	fmt.Println("====================")
 	fmt.Println("Bucket Configuration Information:")
 

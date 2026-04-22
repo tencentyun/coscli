@@ -39,6 +39,7 @@ func init() {
 	configSetCmd.Flags().StringP("close_auto_switch_host", "", "", "Close Auto Switch Host")
 	configSetCmd.Flags().StringP("disable_encryption", "", "", "Disable Encryption")
 	configSetCmd.Flags().StringP("disable_auto_fetch_bucket_type", "", "", "Disable Auto Fetch BucketType")
+	configSetCmd.Flags().StringP("proxy", "", "", "Proxy URL used to access COS, e.g. http://127.0.0.1:8080")
 }
 
 func setConfigItem(cmd *cobra.Command) error {
@@ -51,6 +52,7 @@ func setConfigItem(cmd *cobra.Command) error {
 	closeAutoSwitchHost, _ := cmd.Flags().GetString("close_auto_switch_host")
 	disableEncryption, _ := cmd.Flags().GetString("disable_encryption")
 	disableAutoFetchBucketType, _ := cmd.Flags().GetString("disable_auto_fetch_bucket_type")
+	proxy, _ := cmd.Flags().GetString("proxy")
 	if secretID != "" {
 		flag = true
 		if secretID == "@" {
@@ -116,6 +118,15 @@ func setConfigItem(cmd *cobra.Command) error {
 			config.Base.DisableAutoFetchBucketType = ""
 		} else {
 			config.Base.DisableAutoFetchBucketType = disableAutoFetchBucketType
+		}
+	}
+
+	if proxy != "" {
+		flag = true
+		if proxy == "@" {
+			config.Base.Proxy = ""
+		} else {
+			config.Base.Proxy = proxy
 		}
 	}
 

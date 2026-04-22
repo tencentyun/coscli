@@ -1,6 +1,7 @@
 package util
 
 import (
+	"net/http"
 	"testing"
 )
 
@@ -365,6 +366,68 @@ func TestCreateClient(t *testing.T) {
 		}
 		if c == nil {
 			t.Fatal("期望 client 不为 nil")
+		}
+	})
+}
+
+// TestGetProxyFunc 测试 getProxyFunc 所有分支：
+// 1. param.Proxy 为空 + config.Base.Proxy 为空 → 返回 nil
+// 2. config.Base.Proxy 非空 → 返回有效 ProxyFunc
+// 3. param.Proxy 非空 → 覆盖 config.Base.Proxy
+// 4. 非法 URL → 返回 nil（注：url.Parse 非常宽松，这里用包含控制字符的字符串触发失败）
+func TestGetProxyFunc(t *testing.T) {
+	t.Run("both empty returns nil", func(t *testing.T) {
+		cfg := &Config{}
+		p := &Param{}
+		fn := getProxyFunc(cfg, p)
+		if fn != nil {
+			t.Errorf("expected nil proxy func when both empty, got non-nil")
+		}
+	})
+
+	t.Run("use config base proxy", func(t *testing.T) {
+		cfg := &Config{}
+		cfg.Base.Proxy = "http://127.0.0.1:8080"
+		p := &Param{}
+		fn := getProxyFunc(cfg, p)
+		if fn == nil {
+			t.Fatalf("expected non-nil proxy func from config")
+		}
+		req, _ := http.NewRequest("GET", "https://examplebucket-1234567890.cos.ap-guangzhou.myqcloud.com/", nil)
+		u, err := fn(req)
+		if err != nil {
+			t.Fatalf("proxy func returned error: %v", err)
+		}
+		if u == nil || u.Host != "127.0.0.1:8080" {
+			t.Errorf("expected proxy host 127.0.0.1:8080, got %v", u)
+		}
+	})
+
+	t.Run("param proxy overrides config", func(t *testing.T) {
+		cfg := &Config{}
+		cfg.Base.Proxy = "http://127.0.0.1:8080"
+		p := &Param{Proxy: "socks5://10.0.0.1:1080"}
+		fn := getProxyFunc(cfg, p)
+		if fn == nil {
+			t.Fatalf("expected non-nil proxy func from param")
+		}
+		req, _ := http.NewRequest("GET", "https://examplebucket-1234567890.cos.ap-guangzhou.myqcloud.com/", nil)
+		u, err := fn(req)
+		if err != nil {
+			t.Fatalf("proxy func returned error: %v", err)
+		}
+		if u == nil || u.Scheme != "socks5" || u.Host != "10.0.0.1:1080" {
+			t.Errorf("expected param proxy socks5://10.0.0.1:1080, got %v", u)
+		}
+	})
+
+	t.Run("invalid url returns nil", func(t *testing.T) {
+		cfg := &Config{}
+		// 使用包含 ASCII 控制字符的 URL，使 url.Parse 返回 error
+		p := &Param{Proxy: "http://\x7f:8080"}
+		fn := getProxyFunc(cfg, p)
+		if fn != nil {
+			t.Errorf("expected nil proxy func for invalid url, got non-nil")
 		}
 	})
 }
