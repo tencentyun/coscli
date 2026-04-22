@@ -10,9 +10,27 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	logger "github.com/sirupsen/logrus"
 )
 
 var once sync.Once
+
+// recordSkipSymlink 记录因 stat 失败（悬空 / 权限不足等）而被跳过的 symlink：
+//   1. 终端 warning 日志
+//   2. 写入 error.report（始终写入，体例与 download/delete 等保持一致）
+//   3. 写入 process.log（受 --process-log 开关控制）
+func recordSkipSymlink(fpath string, cause error, fo *FileOperations) {
+	ts := time.Now().Format("2006-01-02 15:04:05")
+	msg := fmt.Sprintf("[%s] skip symlink %s , errMsg:%s\n", ts, fpath, cause.Error())
+	logger.Warningf("skip symlink %s: %s", fpath, cause.Error())
+	if fo != nil && fo.ErrOutput != nil {
+		writeError(msg, fo)
+	}
+	if fo != nil && fo.ProcessLogger != nil {
+		writeProcessLog(msg, fo)
+	}
+}
 
 func fileStatistic(localPath string, fo *FileOperations) {
 	f, err := os.Stat(localPath)
@@ -76,7 +94,10 @@ func getFileListStatistic(dpath string, fo *FileOperations) error {
 
 			realInfo, err := os.Stat(fpath)
 			if err != nil {
-				return err
+				// 悬空 symlink 或权限问题：降级为 warning + 跳过，不中断整个遍历；
+				// 同时写入 error.report / process.log，便于排查
+				recordSkipSymlink(fpath, err, fo)
+				return nil
 			}
 
 			if realInfo.IsDir() {
@@ -130,13 +151,33 @@ func getCurrentDirFilesStatistic(dpath string, fo *FileOperations) error {
 
 	for _, fileInfo := range fileList {
 		if !fileInfo.IsDir() {
-			realInfo, errF := os.Stat(dpath + fileInfo.Name())
-			if errF == nil && realInfo.IsDir() {
-				// for symlink
+			// P6 修复：only-current-dir 模式下也尊重 DisableAllSymlink 开关
+			if fo.Operation.DisableAllSymlink && (fileInfo.Mode()&os.ModeSymlink) != 0 {
 				continue
 			}
+
+			fullPath := dpath + fileInfo.Name()
+			realInfo, errF := os.Stat(fullPath)
+			if errF != nil {
+				// 悬空 symlink 或其他 stat 错误：降级为 warning + 跳过
+				if (fileInfo.Mode() & os.ModeSymlink) != 0 {
+					recordSkipSymlink(fullPath, errF, fo)
+					continue
+				}
+				// 非 symlink 的 stat 错误仍沿用原有行为（被下方统计覆盖）
+			} else if realInfo.IsDir() {
+				// 指向目录的 symlink：only-current-dir 语义下不展开
+				continue
+			}
+
+			// P1/P2 修复：symlink 文件取真实目标文件 size
+			fileSize := fileInfo.Size()
+			if errF == nil && (fileInfo.Mode()&os.ModeSymlink) != 0 {
+				fileSize = realInfo.Size()
+			}
+
 			if matchPatterns(filepath.Join(dpath, fileInfo.Name()), fo.Operation.Filters) {
-				fo.Monitor.updateScanSizeNum(fileInfo.Size(), 1)
+				fo.Monitor.updateScanSizeNum(fileSize, 1)
 			}
 		}
 	}
@@ -204,20 +245,31 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 			return nil
 		}
 
-		if fo.Operation.EnableSymlinkDir && (f.Mode()&os.ModeSymlink) != 0 {
+		// P1/P2/P5 修复：对所有 symlink 统一取真实 size，并将 stat 错误降级为 warning
+		if f.Mode()&os.ModeSymlink != 0 {
 			realInfo, err := os.Stat(fpath)
 			if err != nil {
-				return err
+				// 悬空 symlink 或权限问题：降级为 warning + 跳过，不中断整个遍历；
+				// 同时写入 error.report / process.log，便于排查
+				recordSkipSymlink(fpath, err, fo)
+				return nil
 			}
 
 			if realInfo.IsDir() {
-				if !strings.HasSuffix(name, string(os.PathSeparator)) {
-					name += string(os.PathSeparator)
+				realFileSize = 0
+				if fo.Operation.EnableSymlinkDir {
+					if !strings.HasSuffix(name, string(os.PathSeparator)) {
+						name += string(os.PathSeparator)
+					}
+					linkDir := name + fileName + string(os.PathSeparator)
+					symlinkDiretorys = append(symlinkDiretorys, linkDir)
+					return nil
 				}
-				linkDir := name + fileName + string(os.PathSeparator)
-				symlinkDiretorys = append(symlinkDiretorys, linkDir)
+				// 未启用 EnableSymlinkDir：不展开 symlink 目录，跳过
 				return nil
 			}
+			// symlink 文件：取真实目标文件的 size
+			realFileSize = realInfo.Size()
 		}
 
 		if matchPatterns(filepath.Join(dpath, fileName), fo.Operation.Filters) {
@@ -255,14 +307,34 @@ func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOp
 
 	for _, fileInfo := range fileList {
 		if !fileInfo.IsDir() {
-			realInfo, errF := os.Stat(dpath + fileInfo.Name())
-			if errF == nil && realInfo.IsDir() {
-				// for symlink
+			// P6 修复：only-current-dir 模式下也尊重 DisableAllSymlink 开关
+			if fo.Operation.DisableAllSymlink && (fileInfo.Mode()&os.ModeSymlink) != 0 {
 				continue
 			}
 
+			fullPath := dpath + fileInfo.Name()
+			realInfo, errF := os.Stat(fullPath)
+			if errF != nil {
+				// P5 修复：悬空 symlink 降级为 warning + 跳过
+				if (fileInfo.Mode() & os.ModeSymlink) != 0 {
+					recordSkipSymlink(fullPath, errF, fo)
+					continue
+				}
+			} else if realInfo.IsDir() {
+				// for symlink 指向目录的情况：only-current-dir 语义下不展开
+				continue
+			}
+
+			// P1/P2 修复：symlink 文件取真实目标文件 size
+			fileSize := fileInfo.Size()
+			lastMod := fileInfo.ModTime().Unix()
+			if errF == nil && (fileInfo.Mode()&os.ModeSymlink) != 0 {
+				fileSize = realInfo.Size()
+				lastMod = realInfo.ModTime().Unix()
+			}
+
 			if matchPatterns(filepath.Join(dpath, fileInfo.Name()), fo.Operation.Filters) {
-				chFiles <- fileInfoType{filePath: fileInfo.Name(), dir: dpath, size: fileInfo.Size(), lastModified: fileInfo.ModTime().Unix(), isDir: fileInfo.IsDir()}
+				chFiles <- fileInfoType{filePath: fileInfo.Name(), dir: dpath, size: fileSize, lastModified: lastMod, isDir: fileInfo.IsDir()}
 			}
 		}
 	}

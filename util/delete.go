@@ -533,27 +533,41 @@ func moveFileToPath(srcName, destName string) error {
 	err := os.Rename(srcName, destName)
 	if err == nil {
 		return nil
-	} else {
-		inputFile, err := os.Open(srcName)
-		defer inputFile.Close()
-		if err != nil {
-			return err
-		}
-		outputFile, err := os.Create(destName)
-		defer outputFile.Close()
-		if err != nil {
-			return err
-		}
-		_, err = io.Copy(outputFile, inputFile)
-		if err != nil {
-			return err
-		}
-		err = os.Remove(srcName)
-		if err != nil {
-			return err
-		}
-		return nil
 	}
+
+	// Rename 失败时（例如 Windows 上跨卷移动）回退到 copy + remove。
+	// 注意：不能用 defer 延迟关闭，否则在 Windows 上 os.Remove(srcName) 会因为
+	// 源文件仍被当前进程打开而失败："The process cannot access the file because
+	// it is being used by another process."。必须在 Remove 之前显式 Close。
+	inputFile, err := os.Open(srcName)
+	if err != nil {
+		return err
+	}
+
+	outputFile, err := os.Create(destName)
+	if err != nil {
+		inputFile.Close()
+		return err
+	}
+
+	if _, err = io.Copy(outputFile, inputFile); err != nil {
+		inputFile.Close()
+		outputFile.Close()
+		// 拷贝失败时清理可能已生成的目标文件，避免残留半成品
+		_ = os.Remove(destName)
+		return err
+	}
+
+	// 显式关闭源/目标文件，确保后续 Remove 在 Windows 上不会被自身句柄占用
+	if err = inputFile.Close(); err != nil {
+		outputFile.Close()
+		return err
+	}
+	if err = outputFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Remove(srcName)
 }
 
 // RemoveObjects 删除cos对象

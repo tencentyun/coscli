@@ -3,11 +3,13 @@ package util
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
+	. "github.com/agiledragon/gomonkey/v2"
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
@@ -154,6 +156,94 @@ func TestMoveFileToPathCrossDevice(t *testing.T) {
 		err := moveFileToPath(srcFile.Name(), "/nonexistent-dir-move-test/dest.txt")
 		if err == nil {
 			t.Error("期望返回错误（目标目录不存在），但得到 nil")
+		}
+	})
+
+	t.Run("Rename 失败时走 copy+remove 分支并成功", func(t *testing.T) {
+		// 构造源文件
+		srcFile, _ := os.CreateTemp("", "coscli-move-fallback-src-*.txt")
+		expectedContent := "hello-cross-device"
+		srcFile.WriteString(expectedContent)
+		srcFile.Close()
+		srcName := srcFile.Name()
+
+		destDir, _ := os.MkdirTemp("", "coscli-move-fallback-dest-*")
+		defer os.RemoveAll(destDir)
+		destName := filepath.Join(destDir, "moved.txt")
+
+		// 强制 os.Rename 返回错误，模拟 Windows 跨卷场景
+		patches := ApplyFunc(os.Rename, func(oldpath, newpath string) error {
+			return fmt.Errorf("mock cross-device link error")
+		})
+		defer patches.Reset()
+
+		err := moveFileToPath(srcName, destName)
+		if err != nil {
+			t.Fatalf("期望 fallback 分支执行成功，但得到错误: %v", err)
+		}
+
+		// 验证源文件已被删除（即修复后 os.Remove 能在 Windows 上成功）
+		if _, statErr := os.Stat(srcName); !os.IsNotExist(statErr) {
+			t.Errorf("期望源文件已被删除，但仍存在: statErr=%v", statErr)
+			os.Remove(srcName) // 清理
+		}
+		// 验证目标文件存在且内容一致
+		content, readErr := os.ReadFile(destName)
+		if readErr != nil {
+			t.Fatalf("读取目标文件失败: %v", readErr)
+		}
+		if string(content) != expectedContent {
+			t.Errorf("目标文件内容不一致，期望 %q 实际 %q", expectedContent, string(content))
+		}
+	})
+
+	t.Run("Rename 失败且源文件打不开时返回错误", func(t *testing.T) {
+		destDir, _ := os.MkdirTemp("", "coscli-move-openerr-dest-*")
+		defer os.RemoveAll(destDir)
+		destName := filepath.Join(destDir, "dest.txt")
+
+		patches := ApplyFunc(os.Rename, func(oldpath, newpath string) error {
+			return fmt.Errorf("mock rename error")
+		})
+		defer patches.Reset()
+
+		// 源文件不存在 → os.Open 会失败
+		err := moveFileToPath("/nonexistent-src-file-for-move-test.txt", destName)
+		if err == nil {
+			t.Error("期望返回错误（源文件无法打开），但得到 nil")
+		}
+	})
+
+	t.Run("Rename 失败且 io.Copy 出错时清理目标文件", func(t *testing.T) {
+		srcFile, _ := os.CreateTemp("", "coscli-move-copyerr-src-*.txt")
+		srcFile.WriteString("content")
+		srcFile.Close()
+		srcName := srcFile.Name()
+		defer os.Remove(srcName)
+
+		destDir, _ := os.MkdirTemp("", "coscli-move-copyerr-dest-*")
+		defer os.RemoveAll(destDir)
+		destName := filepath.Join(destDir, "dest.txt")
+
+		patches := ApplyFunc(os.Rename, func(oldpath, newpath string) error {
+			return fmt.Errorf("mock rename error")
+		})
+		patches.ApplyFunc(io.Copy, func(dst io.Writer, src io.Reader) (int64, error) {
+			return 0, fmt.Errorf("mock copy error")
+		})
+		defer patches.Reset()
+
+		err := moveFileToPath(srcName, destName)
+		if err == nil {
+			t.Error("期望返回错误（io.Copy 失败），但得到 nil")
+		}
+		// 验证目标文件已被清理（无残留半成品）
+		if _, statErr := os.Stat(destName); !os.IsNotExist(statErr) {
+			t.Errorf("期望目标文件已被清理，但仍存在: statErr=%v", statErr)
+		}
+		// 验证源文件仍然存在（因为 copy 失败，不应删除源文件）
+		if _, statErr := os.Stat(srcName); os.IsNotExist(statErr) {
+			t.Error("期望源文件仍存在（copy 失败不应删除源），但已不存在")
 		}
 	})
 }
