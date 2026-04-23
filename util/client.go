@@ -164,18 +164,21 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 	}
 
 	// 服务端错误重试
-	// - 未传入 FileOperations（简单操作，如 ls/mb/rb 等）：使用默认 10 次，间隔 1s
-	// - 传入 FileOperations：完全尊重用户配置，ErrRetryNum=0 表示不重试，>0 表示按配置次数重试
+	// - 未传入 FileOperations（简单操作，如 ls 等）：使用默认 10 次，间隔 1s
+	// - 传入 FileOperations：完全尊重用户配置
+	//   · ErrRetryNum=0 表示不重试，>0 表示按配置次数重试 5xx 错误
+	//   · ErrRetryInterval 单位为秒，未指定（<=0）时默认 1s
+	// 注意：time.Duration(n) 本身是纳秒，必须显式乘以 time.Second。
 	if len(options) > 0 && options[0] != nil {
 		client.Conf.RetryOpt.Count = options[0].Operation.ErrRetryNum
 		if options[0].Operation.ErrRetryInterval > 0 {
-			client.Conf.RetryOpt.Interval = time.Duration(options[0].Operation.ErrRetryInterval)
+			client.Conf.RetryOpt.Interval = time.Duration(options[0].Operation.ErrRetryInterval) * time.Second
 		} else {
-			client.Conf.RetryOpt.Interval = time.Duration(1)
+			client.Conf.RetryOpt.Interval = 1 * time.Second
 		}
 	} else {
 		client.Conf.RetryOpt.Count = 10
-		client.Conf.RetryOpt.Interval = time.Duration(1)
+		client.Conf.RetryOpt.Interval = 1 * time.Second
 	}
 
 	// 修改 UserAgent
@@ -251,9 +254,9 @@ func CreateClient(config *Config, param *Param, bucketIDName string) (client *co
 		client.Conf.RetryOpt.AutoSwitchHost = true
 	}
 
-	// 错误重试
+	// 错误重试（默认 10 次，每次间隔 2 秒）
 	client.Conf.RetryOpt.Count = 10
-	client.Conf.RetryOpt.Interval = 2
+	client.Conf.RetryOpt.Interval = 2 * time.Second
 
 	// 修改 UserAgent
 	client.UserAgent = Package + "-" + Version

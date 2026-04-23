@@ -3,6 +3,7 @@ package util
 import (
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestNewClient(t *testing.T) {
@@ -265,6 +266,10 @@ func TestNewClient(t *testing.T) {
 		if c.Conf.RetryOpt.Count != 3 {
 			t.Errorf("期望 RetryOpt.Count=3，实际: %d", c.Conf.RetryOpt.Count)
 		}
+		// Interval 应为 2 秒而非 2 纳秒
+		if c.Conf.RetryOpt.Interval != 2*time.Second {
+			t.Errorf("期望 RetryOpt.Interval=2s，实际: %v", c.Conf.RetryOpt.Interval)
+		}
 	})
 
 	t.Run("传入 FileOperations 且 ErrRetryNum=0 时不进行重试", func(t *testing.T) {
@@ -283,6 +288,23 @@ func TestNewClient(t *testing.T) {
 		}
 	})
 
+	t.Run("传入 FileOperations 且 ErrRetryInterval 未指定时使用默认 1 秒", func(t *testing.T) {
+		p := &Param{}
+		fo := &FileOperations{
+			Operation: Operation{
+				ErrRetryNum: 5,
+				// ErrRetryInterval 使用零值
+			},
+		}
+		c, err := NewClient(cfg, p, "test-alias", fo)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if c.Conf.RetryOpt.Interval != 1*time.Second {
+			t.Errorf("期望 RetryOpt.Interval=1s，实际: %v", c.Conf.RetryOpt.Interval)
+		}
+	})
+
 	t.Run("未传入 FileOperations 时使用默认重试次数 10", func(t *testing.T) {
 		p := &Param{}
 		c, err := NewClient(cfg, p, "test-alias")
@@ -291,6 +313,9 @@ func TestNewClient(t *testing.T) {
 		}
 		if c.Conf.RetryOpt.Count != 10 {
 			t.Errorf("期望 RetryOpt.Count=10（默认），实际: %d", c.Conf.RetryOpt.Count)
+		}
+		if c.Conf.RetryOpt.Interval != 1*time.Second {
+			t.Errorf("期望 RetryOpt.Interval=1s（默认），实际: %v", c.Conf.RetryOpt.Interval)
 		}
 	})
 
