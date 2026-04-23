@@ -267,6 +267,33 @@ func TestNewClient(t *testing.T) {
 		}
 	})
 
+	t.Run("传入 FileOperations 且 ErrRetryNum=0 时不进行重试", func(t *testing.T) {
+		p := &Param{}
+		fo := &FileOperations{
+			Operation: Operation{
+				ErrRetryNum: 0,
+			},
+		}
+		c, err := NewClient(cfg, p, "test-alias", fo)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if c.Conf.RetryOpt.Count != 0 {
+			t.Errorf("期望 RetryOpt.Count=0（不重试），实际: %d", c.Conf.RetryOpt.Count)
+		}
+	})
+
+	t.Run("未传入 FileOperations 时使用默认重试次数 10", func(t *testing.T) {
+		p := &Param{}
+		c, err := NewClient(cfg, p, "test-alias")
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if c.Conf.RetryOpt.Count != 10 {
+			t.Errorf("期望 RetryOpt.Count=10（默认），实际: %d", c.Conf.RetryOpt.Count)
+		}
+	})
+
 	t.Run("UserAgent 被正确设置", func(t *testing.T) {
 		p := &Param{}
 		c, err := NewClient(cfg, p, "test-alias")

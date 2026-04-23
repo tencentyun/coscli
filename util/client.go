@@ -163,8 +163,10 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		client.Conf.RetryOpt.AutoSwitchHost = true
 	}
 
-	// 服务端错误重试（默认10次，每次间隔1s）
-	if len(options) > 0 && options[0] != nil && options[0].Operation.ErrRetryNum > 0 {
+	// 服务端错误重试
+	// - 未传入 FileOperations（简单操作，如 ls/mb/rb 等）：使用默认 10 次，间隔 1s
+	// - 传入 FileOperations：完全尊重用户配置，ErrRetryNum=0 表示不重试，>0 表示按配置次数重试
+	if len(options) > 0 && options[0] != nil {
 		client.Conf.RetryOpt.Count = options[0].Operation.ErrRetryNum
 		if options[0].Operation.ErrRetryInterval > 0 {
 			client.Conf.RetryOpt.Interval = time.Duration(options[0].Operation.ErrRetryInterval)
