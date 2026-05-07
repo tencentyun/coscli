@@ -134,6 +134,14 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 		}
 	}
 
+	// sync 语义：本地目录只要在 COS 端有任意文件以其为前缀，就视为"一致"，不应被列为待删。
+	// 由于 COS list 不会返回隐式目录条目，这里需要根据 srcKeys 中每个文件 key 的所有
+	// 父目录前缀，再次从 delKeys 中剔除对应的本地目录条目（destKeys 中目录 key 以分隔符结尾）。
+	// 仅对目的端为本地的场景（download/copy 到本地）有意义。
+	if destUrl.IsFileUrl() {
+		pruneParentDirsFromDelKeys(srcKeys, delKeys, fo.CpType, isLinux)
+	}
+
 	// 根据操作系统和操作类型筛选出需要传输的对象或文件
 	if fo.Operation.IgnoreExisting || fo.Operation.Update {
 		for k, v := range destKeys {
@@ -172,6 +180,38 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 	}
 
 	return srcKeys, delKeys, transferKeys, nil
+}
+
+// pruneParentDirsFromDelKeys 根据 srcKeys 中每个文件 key 的所有父目录前缀，
+// 从 delKeys 中删除对应的目录条目。
+// 用于 sync --delete 下载/拷贝到本地的场景：本地的目录条目只要在 COS 端有任意
+// 对象以其为前缀，就视为目录"一致"，不应被列为待删（避免每次 sync 都误报本地目录待删）。
+//
+// destSep 选取规则：
+//   - Linux 或 COS 之间拷贝（CpTypeCopy）：本地/目的端 key 使用 '/'
+//   - Windows 下 CpTypeDownload：本地 key 使用 '\\'，需将 srcKeys 中的 '/' 转为 '\\'
+func pruneParentDirsFromDelKeys(srcKeys, delKeys map[string]commonInfoType, cpType CpType, isLinux bool) {
+	var destSep string
+	useNativeSep := !isLinux && cpType != CpTypeCopy
+	if useNativeSep {
+		destSep = "\\"
+	} else {
+		destSep = "/"
+	}
+
+	for k := range srcKeys {
+		localKey := k
+		if useNativeSep {
+			localKey = strings.Replace(k, "/", destSep, -1)
+		}
+		// 逐级剥离父目录前缀（保留末尾分隔符），从 delKeys 中删除
+		idx := strings.LastIndex(localKey, destSep)
+		for idx > 0 {
+			dirKey := localKey[:idx+1]
+			delete(delKeys, dirKey)
+			idx = strings.LastIndex(localKey[:idx], destSep)
+		}
+	}
 }
 
 func deleteKeys(c *cos.Client, keysToDelete map[string]commonInfoType, destUrl StorageUrl, fo *FileOperations) error {
