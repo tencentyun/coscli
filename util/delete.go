@@ -463,7 +463,22 @@ func DeleteLocalFiles(keysToDelete map[string]commonInfoType, fileUrl StorageUrl
 				// 获取备份路径
 				f, err := os.Stat(fo.Operation.BackupDir + dirName)
 				if err != nil {
-					movePath(absDirName+dirName, fo.Operation.BackupDir+dirName)
+					// 嵌套目录场景下，BackupDir 中对应的父目录可能尚未创建，
+					// 直接 os.Rename 会失败（"no such file or directory"），
+					// 因此先确保父目录存在再 move。
+					backupParent := fo.Operation.BackupDir + dirName
+					if idx := strings.LastIndex(dirName, string(os.PathSeparator)); idx >= 0 {
+						backupParent = fo.Operation.BackupDir + dirName[:idx]
+					} else {
+						// dirName 没有分隔符（顶层目录），父目录就是 BackupDir 本身
+						backupParent = strings.TrimRight(fo.Operation.BackupDir, string(os.PathSeparator))
+					}
+					if mkErr := os.MkdirAll(backupParent, 0755); mkErr != nil {
+						return fmt.Errorf("create backup parent dir %s error: %s", backupParent, mkErr.Error())
+					}
+					if mvErr := movePath(absDirName+dirName, fo.Operation.BackupDir+dirName); mvErr != nil {
+						return mvErr
+					}
 				} else {
 					if !f.IsDir() {
 						return fmt.Errorf("backup %s is already exist,but is file", fo.Operation.BackupDir+dirName)

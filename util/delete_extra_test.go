@@ -176,6 +176,126 @@ func TestDeleteLocalFiles(t *testing.T) {
 		DeleteLocalFiles(keysToDelete, fileUrl, fo)
 		// 此用例不强制断言，主要是为了触发 getAbsPath 错误路径
 	})
+
+	t.Run("嵌套孤立空目录树应被整体搬到 backup（修复前会因父目录不存在静默失败）", func(t *testing.T) {
+		root, err := os.MkdirTemp("", "coscli-delete-nested-empty-")
+		if err != nil {
+			t.Fatalf("创建临时目录失败: %v", err)
+		}
+		defer os.RemoveAll(root)
+
+		destDir := filepath.Join(root, "dest")
+		backupDir := filepath.Join(root, "backup") + string(os.PathSeparator)
+		_ = os.MkdirAll(destDir, 0755)
+		_ = os.MkdirAll(backupDir, 0755)
+
+		// 构造本地嵌套空目录树：dest/empty_a/empty_b/empty_c/
+		_ = os.MkdirAll(filepath.Join(destDir, "empty_a", "empty_b", "empty_c"), 0755)
+
+		sep := string(os.PathSeparator)
+		// 模拟 sync --delete 计算出的 delKeys（按 reverse 排序后会先处理最深的）
+		keysToDelete := map[string]commonInfoType{
+			"empty_a" + sep:                                     {key: "empty_a" + sep, isDir: true},
+			"empty_a" + sep + "empty_b" + sep:                   {key: "empty_a" + sep + "empty_b" + sep, isDir: true},
+			"empty_a" + sep + "empty_b" + sep + "empty_c" + sep: {key: "empty_a" + sep + "empty_b" + sep + "empty_c" + sep, isDir: true},
+		}
+
+		fileUrl := &FileUrl{urlStr: destDir + sep}
+		fo := &FileOperations{
+			Operation: Operation{BackupDir: backupDir, Force: true},
+			CpType:    CpTypeDownload,
+		}
+		if err := DeleteLocalFiles(keysToDelete, fileUrl, fo); err != nil {
+			t.Fatalf("DeleteLocalFiles 失败: %v", err)
+		}
+
+		// 断言：dest 下的空目录树应已不存在
+		if _, err := os.Stat(filepath.Join(destDir, "empty_a")); !os.IsNotExist(err) {
+			t.Errorf("期望 dest/empty_a 已被搬走，但 stat err=%v", err)
+		}
+		// backup 下应出现完整的目录路径
+		if _, err := os.Stat(filepath.Join(backupDir, "empty_a", "empty_b", "empty_c")); err != nil {
+			t.Errorf("期望 backup/empty_a/empty_b/empty_c 已存在，但 stat err=%v", err)
+		}
+	})
+
+	t.Run("顶层孤立空目录搬到 backup", func(t *testing.T) {
+		root, err := os.MkdirTemp("", "coscli-delete-top-empty-")
+		if err != nil {
+			t.Fatalf("创建临时目录失败: %v", err)
+		}
+		defer os.RemoveAll(root)
+
+		destDir := filepath.Join(root, "dest")
+		backupDir := filepath.Join(root, "backup") + string(os.PathSeparator)
+		_ = os.MkdirAll(destDir, 0755)
+		_ = os.MkdirAll(backupDir, 0755)
+
+		_ = os.MkdirAll(filepath.Join(destDir, "orphan_top"), 0755)
+
+		sep := string(os.PathSeparator)
+		keysToDelete := map[string]commonInfoType{
+			"orphan_top" + sep: {key: "orphan_top" + sep, isDir: true},
+		}
+
+		fileUrl := &FileUrl{urlStr: destDir + sep}
+		fo := &FileOperations{
+			Operation: Operation{BackupDir: backupDir, Force: true},
+			CpType:    CpTypeDownload,
+		}
+		if err := DeleteLocalFiles(keysToDelete, fileUrl, fo); err != nil {
+			t.Fatalf("DeleteLocalFiles 失败: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(destDir, "orphan_top")); !os.IsNotExist(err) {
+			t.Errorf("期望 orphan_top 已被搬走")
+		}
+		if _, err := os.Stat(filepath.Join(backupDir, "orphan_top")); err != nil {
+			t.Errorf("期望 backup/orphan_top 已存在: %v", err)
+		}
+	})
+
+	t.Run("嵌套到正常目录里的孤立空目录搬到 backup", func(t *testing.T) {
+		root, err := os.MkdirTemp("", "coscli-delete-nested-mixed-")
+		if err != nil {
+			t.Fatalf("创建临时目录失败: %v", err)
+		}
+		defer os.RemoveAll(root)
+
+		destDir := filepath.Join(root, "dest")
+		backupDir := filepath.Join(root, "backup") + string(os.PathSeparator)
+		_ = os.MkdirAll(destDir, 0755)
+		_ = os.MkdirAll(backupDir, 0755)
+
+		// dest/g2/sub1/f.txt 是正常文件（保留）；dest/g2/orphan_empty_dir/ 是要搬的孤立空目录
+		_ = os.MkdirAll(filepath.Join(destDir, "g2", "sub1"), 0755)
+		_ = os.WriteFile(filepath.Join(destDir, "g2", "sub1", "f.txt"), []byte("ok"), 0644)
+		_ = os.MkdirAll(filepath.Join(destDir, "g2", "orphan_empty_dir"), 0755)
+
+		sep := string(os.PathSeparator)
+		keysToDelete := map[string]commonInfoType{
+			"g2" + sep + "orphan_empty_dir" + sep: {key: "g2" + sep + "orphan_empty_dir" + sep, isDir: true},
+		}
+
+		fileUrl := &FileUrl{urlStr: destDir + sep}
+		fo := &FileOperations{
+			Operation: Operation{BackupDir: backupDir, Force: true},
+			CpType:    CpTypeDownload,
+		}
+		if err := DeleteLocalFiles(keysToDelete, fileUrl, fo); err != nil {
+			t.Fatalf("DeleteLocalFiles 失败: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(destDir, "g2", "orphan_empty_dir")); !os.IsNotExist(err) {
+			t.Errorf("期望 g2/orphan_empty_dir 已被搬走，stat err=%v", err)
+		}
+		// 正常文件应保留
+		if _, err := os.Stat(filepath.Join(destDir, "g2", "sub1", "f.txt")); err != nil {
+			t.Errorf("期望 g2/sub1/f.txt 保留: %v", err)
+		}
+		// backup 下应出现 g2/orphan_empty_dir
+		if _, err := os.Stat(filepath.Join(backupDir, "g2", "orphan_empty_dir")); err != nil {
+			t.Errorf("期望 backup/g2/orphan_empty_dir 已存在: %v", err)
+		}
+	})
 }
 
 func TestMovePath(t *testing.T) {
