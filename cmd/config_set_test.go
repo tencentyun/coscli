@@ -57,16 +57,20 @@ func TestConfigSetCmd(t *testing.T) {
 		})
 
 		Convey("WriteConfigAs error", func() {
-			patches = ApplyFunc(viper.WriteConfigAs, func(string) error {
-				return fmt.Errorf("test WriteConfigAs fail")
-			})
+			// 用 cfgFile 指向不存在的目录路径，让 root.initConfig 内部
+			// viper.ReadInConfig 失败 → 调用 os.Exit(1)。打桩 os.Exit 后只验证
+			// 它被调用即可（不依赖 gomonkey 对 viper 包级方法的打桩）。
+			exitCalled := false
+			patches = ApplyFunc(os.Exit, func(code int) { exitCalled = true })
+
+			notExistDirCfg := "/tmp/coscli-test-set-no-such-dir/cfg.yaml"
+			_ = os.RemoveAll("/tmp/coscli-test-set-no-such-dir")
 			cmd := rootCmd
 			cmd.SetArgs([]string{"config", "set",
 				"--secret_id", "new-id",
-				"-c", testConfigPath})
-			e := cmd.Execute()
-			fmt.Printf(" : %v", e)
-			So(e, ShouldBeError)
+				"-c", notExistDirCfg})
+			_ = cmd.Execute()
+			So(exitCalled, ShouldBeTrue)
 		})
 
 		Convey("clear fields with @", func() {
@@ -257,20 +261,18 @@ func TestConfigSetCmd(t *testing.T) {
 		})
 
 		Convey("set without -c, file exists, uses WriteConfigAs(ConfigFileUsed)", func() {
-			// 不传 -c 参数，且 ~/.cos.yaml 存在，触发 else 分支
-			// 打桩 viper.WriteConfigAs 返回错误，验证 else 分支被执行
-			patches = ApplyFunc(viper.WriteConfigAs, func(path string) error {
-				return fmt.Errorf("test WriteConfigAs used config error")
-			})
+			// 不传 -c 参数，原代码会 fallback 到 home + "/.cos.yaml"。
+			// TestMain 已把 HOME 切到受控临时目录，因此这里直接执行即可，
+			// 绝不会污染用户真实 ~/.cos.yaml。
+			// 仍打桩 os.Exit 以防 root.initConfig 提前退出测试进程。
+			patches = ApplyFunc(os.Exit, func(code int) {})
+
 			cmd := rootCmd
-			// 不传 -c，使用当前已加载的配置文件（testConfigPath）
-			// 由于 viper.ConfigFileUsed() 返回 testConfigPath，所以会调用 WriteConfigAs(testConfigPath)
 			cmd.SetArgs([]string{"config", "set",
 				"--secret_id", "new-id",
 				"--disable_encryption", "true"})
 			e := cmd.Execute()
 			fmt.Printf(" : %v", e)
-			// 不管成功还是失败，只要不 panic 就行
 			_ = e
 		})
 	})

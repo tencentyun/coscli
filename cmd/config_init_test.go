@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	. "github.com/agiledragon/gomonkey/v2"
+	"github.com/mitchellh/go-homedir"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/spf13/viper"
 )
@@ -237,13 +238,10 @@ func TestInitConfigFileTildePath(t *testing.T) {
 
 	viper.Reset()
 
-	// 使用 ~ 开头的路径，触发 configFile[0] == '~' 分支
-	// 使用一个实际存在的路径（~/.cos-test-init.yaml）
+	// TestMain 已把 HOME 切到受控临时目录，~ 会被解析到该临时目录下，不会污染用户。
+	home, _ := homedir.Dir()
 	configPath := "~/.cos-test-init.yaml"
-	defer func() {
-		home, _ := os.UserHomeDir()
-		os.Remove(home + "/.cos-test-init.yaml")
-	}()
+	defer os.Remove(home + "/.cos-test-init.yaml")
 
 	inputs := []string{
 		configPath,
@@ -348,9 +346,10 @@ func TestInitConfigFileEmptyAlias(t *testing.T) {
 func TestInitConfigFileTildePathPatched(t *testing.T) {
 	// 通过打桩 fmt.Scanf 来模拟用户输入 ~ 路径
 	// 这样可以覆盖 config_init.go:48 的 configFile[0] == '~' 分支
+	// TestMain 已把 HOME 切到受控临时目录，~ 解析后位于该目录下，不污染用户家目录。
 	viper.Reset()
 
-	home, _ := os.UserHomeDir()
+	home, _ := homedir.Dir()
 	tildeConfigPath := "~/.cos-test-init-patched.yaml"
 	realConfigPath := home + "/.cos-test-init-patched.yaml"
 	defer os.Remove(realConfigPath)

@@ -482,4 +482,45 @@ func TestGetProxyFunc(t *testing.T) {
 			t.Errorf("expected nil proxy func for invalid url, got non-nil")
 		}
 	})
+
+	// 以下用例覆盖"url.Parse 不报错但代理 URL 实质非法"的场景：
+	// Go 的 url.Parse 非常宽松，许多畸形输入会得到一个 host 为空 / scheme 为空的
+	// URL 而不是 error。早期实现只判断 err，会把这种 URL 交给 http.ProxyURL，
+	// 导致请求时反复报 "proxyconnect tcp: dial tcp :0: ..."。
+	t.Run("string without scheme falls back to nil", func(t *testing.T) {
+		cfg := &Config{}
+		p := &Param{Proxy: "not_a_valid_url"}
+		fn := getProxyFunc(cfg, p)
+		if fn != nil {
+			t.Errorf("expected nil proxy func for url without scheme")
+		}
+	})
+
+	t.Run("scheme without host falls back to nil", func(t *testing.T) {
+		cfg := &Config{}
+		p := &Param{Proxy: "http://"}
+		fn := getProxyFunc(cfg, p)
+		if fn != nil {
+			t.Errorf("expected nil proxy func for url without host")
+		}
+	})
+
+	t.Run("only host without scheme falls back to nil", func(t *testing.T) {
+		cfg := &Config{}
+		p := &Param{Proxy: "127.0.0.1:8080"}
+		fn := getProxyFunc(cfg, p)
+		if fn != nil {
+			t.Errorf("expected nil proxy func for url without scheme")
+		}
+	})
+
+	t.Run("config invalid proxy also falls back to nil", func(t *testing.T) {
+		cfg := &Config{}
+		cfg.Base.Proxy = "garbage"
+		p := &Param{}
+		fn := getProxyFunc(cfg, p)
+		if fn != nil {
+			t.Errorf("expected nil proxy func for invalid config proxy")
+		}
+	})
 }

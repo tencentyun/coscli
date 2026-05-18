@@ -2,10 +2,12 @@ package util
 
 import (
 	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/http"
 	"net/url"
 	"time"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 var secretID, secretKey, secretToken string
@@ -13,6 +15,14 @@ var secretID, secretKey, secretToken string
 // getProxyFunc 根据配置和参数返回 Transport 所需的 Proxy 函数，优先级：
 // 命令行参数 > 配置文件 base 级别。若均为空或解析失败则返回 nil（不使用代理）。
 // 支持 http/https/socks5 等 URL 格式，如：http://user:pass@127.0.0.1:8080 、 socks5://127.0.0.1:1080。
+//
+// 注意：Go 的 url.Parse 对畸形输入相当宽容（例如 "not_a_url" 不会返回 err，
+// 而是被当作 path 解析得到 host 为空的 URL）。这种情况下若直接交给
+// http.ProxyURL 使用，运行时会反复报 "proxyconnect tcp: dial tcp :0:
+// connect: can't assign requested address"。因此这里额外校验 scheme 与 host：
+//   - 必须包含合法 scheme（http / https / socks5 等非空值）
+//   - 必须包含非空 host
+// 任一缺失视为非法配置，回退为不使用代理（同时记录 warning）。
 func getProxyFunc(config *Config, param *Param) func(*http.Request) (*url.URL, error) {
 	proxyStr := param.Proxy
 	if proxyStr == "" {
@@ -22,7 +32,8 @@ func getProxyFunc(config *Config, param *Param) func(*http.Request) (*url.URL, e
 		return nil
 	}
 	proxyURL, err := url.Parse(proxyStr)
-	if err != nil {
+	if err != nil || proxyURL == nil || proxyURL.Scheme == "" || proxyURL.Host == "" {
+		logger.Warningf("invalid proxy url %q (need scheme://host[:port]), falling back to no proxy", proxyStr)
 		return nil
 	}
 	return http.ProxyURL(proxyURL)
