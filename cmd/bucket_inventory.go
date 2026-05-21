@@ -43,14 +43,29 @@ Example:
 		}
 
 		if method == "put" {
+			if taskId == "" {
+				return fmt.Errorf("--task-id is required when --method is 'put'")
+			}
 			err = util.PutBucketInventory(c, taskId, configuration)
 		} else if method == "get" {
+			// 显式要求用户传 --task-id；如需查看清单列表请使用 --method list。
+			// 否则 SDK 会把空 id 拼成 ?inventory 列表请求，但客户端按
+			// <InventoryConfiguration> 解析 → 报 XML schema 不匹配。
+			if taskId == "" {
+				return fmt.Errorf("--task-id is required when --method is 'get'; use '--method list' to list all inventory configurations")
+			}
 			err = util.GetBucketInventory(c, taskId)
 		} else if method == "list" {
 			err = util.ListBucketInventory(c)
 		} else if method == "delete" {
+			if taskId == "" {
+				return fmt.Errorf("--task-id is required when --method is 'delete'")
+			}
 			err = util.DeleteBucketInventory(c, taskId)
 		} else if method == "post" {
+			if taskId == "" {
+				return fmt.Errorf("--task-id is required when --method is 'post'")
+			}
 			err = util.PostBucketInventory(c, taskId, configuration)
 		} else {
 			err = fmt.Errorf("method '%s' is not supported, valid methods are 'put', 'get', 'list', 'delete', and 'post'", method)

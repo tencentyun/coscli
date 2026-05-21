@@ -83,6 +83,42 @@ func TestBucketInventoryCmd(t *testing.T) {
 			So(e, ShouldBeNil)
 		})
 
+		// 回归：method=get 且未传 --task-id 时，应直接报错（不再静默走 list）。
+		// 防止 SDK 把空 id 当作 GetInventory 调用导致 XML schema 不匹配。
+		Convey("get without task-id returns error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "get", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+			So(e.Error(), ShouldContainSubstring, "task-id is required")
+		})
+
+		Convey("put without task-id returns error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "put", "cos://test-alias",
+				"--configuration", "<InventoryConfiguration/>", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+			So(e.Error(), ShouldContainSubstring, "task-id is required")
+		})
+
+		Convey("delete without task-id returns error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "delete", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+			So(e.Error(), ShouldContainSubstring, "task-id is required")
+		})
+
+		Convey("post without task-id returns error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"inventory", "--method", "post", "cos://test-alias",
+				"--configuration", "<InventoryConfiguration/>", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+			So(e.Error(), ShouldContainSubstring, "task-id is required")
+		})
+
 		Convey("delete success", func() {
 			var b *cos.BucketService
 			patches = ApplyMethodFunc(reflect.TypeOf(b), "DeleteInventory",
@@ -90,7 +126,7 @@ func TestBucketInventoryCmd(t *testing.T) {
 					return &cos.Response{}, nil
 				})
 			cmd := rootCmd
-			cmd.SetArgs([]string{"inventory", "--method", "delete", "cos://test-alias", "-c", testConfigPath})
+			cmd.SetArgs([]string{"inventory", "--method", "delete", "cos://test-alias", "--task-id", "list4", "-c", testConfigPath})
 			e := cmd.Execute()
 			So(e, ShouldBeNil)
 		})
@@ -151,7 +187,7 @@ func TestBucketInventoryCmd(t *testing.T) {
 					return nil, fmt.Errorf("test delete inventory error")
 				})
 			cmd := rootCmd
-			cmd.SetArgs([]string{"inventory", "--method", "delete", "cos://test-alias", "-c", testConfigPath})
+			cmd.SetArgs([]string{"inventory", "--method", "delete", "cos://test-alias", "--task-id", "list4", "-c", testConfigPath})
 			e := cmd.Execute()
 			So(e, ShouldBeError)
 		})
