@@ -15,14 +15,17 @@ func writeProcessLog(errString string, fo *FileOperations) {
 	if !fo.Operation.ProcessLog {
 		return
 	}
+	// 使用 processLogMu 串行化 init+write，避免多个 goroutine 在首次写入时
+	// 同时进入 "Path 为空 -> MkdirAll -> OpenFile" 阶段产生竞态。
+	processLogMu.Lock()
+	defer processLogMu.Unlock()
+
 	var err error
 	if fo.ProcessLogger.Path == "" {
 		fo.ProcessLogger.Path = filepath.Join(fo.Operation.ProcessLogPath, fo.OutPutDirName)
-		_, err := os.Stat(fo.ProcessLogger.Path)
-		if os.IsNotExist(err) {
-			err := os.MkdirAll(fo.ProcessLogger.Path, 0755)
-			if err != nil {
-				logger.Errorf("Failed to create process log dir: %v", err)
+		if _, statErr := os.Stat(fo.ProcessLogger.Path); os.IsNotExist(statErr) {
+			if mkErr := os.MkdirAll(fo.ProcessLogger.Path, 0755); mkErr != nil {
+				logger.Errorf("Failed to create process log dir: %v", mkErr)
 				return
 			}
 		}
@@ -38,14 +41,9 @@ func writeProcessLog(errString string, fo *FileOperations) {
 		}
 	}
 
-	processLogMu.Lock()
-
-	_, writeErr := fo.ProcessLogger.logFile.WriteString(errString)
-
-	if writeErr != nil {
+	if _, writeErr := fo.ProcessLogger.logFile.WriteString(errString); writeErr != nil {
 		logger.Errorf("Failed to write process log  file : %v\n", writeErr)
 	}
-	processLogMu.Unlock()
 }
 
 // CloseProcessLoggerFile closes the process log file if it is not nil.

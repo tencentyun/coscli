@@ -16,18 +16,34 @@ import (
 
 var once sync.Once
 
-// recordSkipSymlink 记录因 stat 失败（悬空 / 权限不足等）而被跳过的 symlink：
-//   1. 终端 warning 日志
-//   2. 写入 error.report（始终写入，体例与 download/delete 等保持一致）
-//   3. 写入 process.log（受 --process-log 开关控制）
-func recordSkipSymlink(fpath string, cause error, fo *FileOperations) {
+// 扫描阶段被跳过的条目类型，用于在日志/error.report 中明确指出原因
+const (
+	// 在 filepath.Walk 列目录时收到 FileInfo==nil 的 entry（目录读取失败、文件被并发删等）
+	skipOpListDir = "list-dir"
+	// 在判断 symlink 文件/目录的真实目标时 os.Stat 失败（悬空 symlink、权限不足等）
+	skipOpStatSymlink = "stat-symlink"
+)
+
+// recordSkipPath 记录扫描阶段被跳过的路径条目：
+//  1. 终端 warning 日志（始终输出）
+//  2. 写入 error.report（受 --fail-output 开关控制，与 upload/download 等保持一致）
+//  3. 写入 process.log（受 --process-log 开关控制，writeProcessLog 内部已判断）
+//
+// op 用于在日志/报告中明确指出错误来源（list-dir / stat-symlink），便于排查。
+func recordSkipPath(op, fpath string, cause error, fo *FileOperations) {
+	if cause == nil {
+		return
+	}
 	ts := time.Now().Format("2006-01-02 15:04:05")
-	msg := fmt.Sprintf("[%s] skip symlink %s , errMsg:%s\n", ts, fpath, cause.Error())
-	logger.Warningf("skip symlink %s: %s", fpath, cause.Error())
-	if fo != nil && fo.ErrOutput != nil {
+	msg := fmt.Sprintf("[%s] skip path [op=%s] %s , errMsg:%s\n", ts, op, fpath, cause.Error())
+	logger.Warningf("skip path [op=%s] %s: %s", op, fpath, cause.Error())
+	if fo == nil {
+		return
+	}
+	if fo.Operation.FailOutput && fo.ErrOutput != nil {
 		writeError(msg, fo)
 	}
-	if fo != nil && fo.ProcessLogger != nil {
+	if fo.ProcessLogger != nil {
 		writeProcessLog(msg, fo)
 	}
 }
@@ -64,8 +80,25 @@ func getFileListStatistic(dpath string, fo *FileOperations) error {
 	name := dpath
 	symlinkDiretorys := []string{dpath}
 	walkFunc := func(fpath string, f os.FileInfo, err error) error {
+		// 单个 entry 的 stat 错误（悬空 symlink、文件被并发删除、权限不足等）
+		// 降级为 warning + 跳过当前条目，不中断整个遍历，避免出现部分目录漏扫的现象。
+		// 但根目录本身打不开（用户传错路径）仍应返回错误。
 		if f == nil {
-			return err
+			if filepath.Clean(fpath) == filepath.Clean(dpath) {
+				return err
+			}
+			recordSkipPath(skipOpListDir, fpath, err, fo)
+			return nil
+		}
+		// f != nil 且 err != nil：filepath.Walk 在 readdir 失败时会用此组合回调，
+		// 表示当前目录无法列出子项（如权限 0000）。这里返回 SkipDir 跳过该子树，
+		// 同时记录到 error.report，但不影响兄弟目录的遍历。
+		if err != nil {
+			recordSkipPath(skipOpListDir, fpath, err, fo)
+			if f.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		realFileSize := f.Size()
@@ -96,7 +129,7 @@ func getFileListStatistic(dpath string, fo *FileOperations) error {
 			if err != nil {
 				// 悬空 symlink 或权限问题：降级为 warning + 跳过，不中断整个遍历；
 				// 同时写入 error.report / process.log，便于排查
-				recordSkipSymlink(fpath, err, fo)
+				recordSkipPath(skipOpStatSymlink, fpath, err, fo)
 				return nil
 			}
 
@@ -161,7 +194,7 @@ func getCurrentDirFilesStatistic(dpath string, fo *FileOperations) error {
 			if errF != nil {
 				// 悬空 symlink 或其他 stat 错误：降级为 warning + 跳过
 				if (fileInfo.Mode() & os.ModeSymlink) != 0 {
-					recordSkipSymlink(fullPath, errF, fo)
+					recordSkipPath(skipOpStatSymlink, fullPath, errF, fo)
 					continue
 				}
 				// 非 symlink 的 stat 错误仍沿用原有行为（被下方统计覆盖）
@@ -216,8 +249,25 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 	name := dpath
 	symlinkDiretorys := []string{dpath}
 	walkFunc := func(fpath string, f os.FileInfo, err error) error {
+		// 单个 entry 的 stat 错误（悬空 symlink、文件被并发删除、权限不足等）
+		// 降级为 warning + 跳过当前条目，不中断整个遍历，避免出现部分目录漏扫的现象。
+		// 但根目录本身打不开（用户传错路径）仍应返回错误。
 		if f == nil {
-			return err
+			if filepath.Clean(fpath) == filepath.Clean(dpath) {
+				return err
+			}
+			recordSkipPath(skipOpListDir, fpath, err, fo)
+			return nil
+		}
+		// f != nil 且 err != nil：filepath.Walk 在 readdir 失败时会用此组合回调，
+		// 表示当前目录无法列出子项（如权限 0000）。这里返回 SkipDir 跳过该子树，
+		// 同时记录到 error.report，但不影响兄弟目录的遍历。
+		if err != nil {
+			recordSkipPath(skipOpListDir, fpath, err, fo)
+			if f.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		realFileSize := f.Size()
@@ -251,7 +301,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 			if err != nil {
 				// 悬空 symlink 或权限问题：降级为 warning + 跳过，不中断整个遍历；
 				// 同时写入 error.report / process.log，便于排查
-				recordSkipSymlink(fpath, err, fo)
+				recordSkipPath(skipOpStatSymlink, fpath, err, fo)
 				return nil
 			}
 
@@ -317,7 +367,7 @@ func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOp
 			if errF != nil {
 				// P5 修复：悬空 symlink 降级为 warning + 跳过
 				if (fileInfo.Mode() & os.ModeSymlink) != 0 {
-					recordSkipSymlink(fullPath, errF, fo)
+					recordSkipPath(skipOpStatSymlink, fullPath, errF, fo)
 					continue
 				}
 			} else if realInfo.IsDir() {
