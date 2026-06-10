@@ -217,6 +217,21 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	localFilePath := DownloadPathFixed(objectInfo.relativeKey, fileUrl.ToString())
 	msg = fmt.Sprintf("Download %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
 
+	// 安全校验：防止对象名中的路径穿越片段（如 "../"）导致文件被写入到下载目标目录之外（越界写入）。
+	// 对象名由 COS 服务端列举返回并经 url.QueryUnescape 解码，属于不可信输入，必须在写盘前做边界检查。
+	downloadRoot := fileUrl.ToString()
+	if !strings.HasSuffix(downloadRoot, "/") && !strings.HasSuffix(downloadRoot, "\\") {
+		// 单文件下载场景，下载目标是具体文件，边界取其所在目录
+		downloadRoot = filepath.Dir(downloadRoot)
+	}
+	if within, cErr := IsLocalPathWithinDir(downloadRoot, localFilePath); cErr != nil {
+		rErr = fmt.Errorf("check download path failed: %v", cErr)
+		return
+	} else if !within {
+		rErr = fmt.Errorf("illegal object key %q: resolved local path %q escapes download directory %q", object, localFilePath, downloadRoot)
+		return
+	}
+
 	// 标记文件夹
 	if size == 0 && strings.HasSuffix(object, "/") {
 		isDir = true

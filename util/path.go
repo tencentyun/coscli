@@ -143,6 +143,31 @@ func CheckPath(fileUrl StorageUrl, fo *FileOperations, pathType string) error {
 	return nil
 }
 
+// IsLocalPathWithinDir 判断目标文件路径 targetPath 解析后是否仍位于下载目标目录 baseDir 之内。
+// 用于防御对象名中携带 "../" 等路径穿越片段，导致下载内容被写入到用户指定目录之外（越界写入）。
+// 返回 true 表示安全（在目录内或等于目录本身），false 表示发生了路径穿越。
+func IsLocalPathWithinDir(baseDir, targetPath string) (bool, error) {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return false, err
+	}
+	absTarget, err := filepath.Abs(targetPath)
+	if err != nil {
+		return false, err
+	}
+
+	rel, err := filepath.Rel(absBase, absTarget)
+	if err != nil {
+		return false, err
+	}
+
+	// rel 为 ".." 或以 "../"（Windows 下为 "..\\"）开头，说明目标路径逃逸到了 baseDir 之外
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return false, nil
+	}
+	return true, nil
+}
+
 func createParentDirectory(localFilePath string) error {
 	dir, err := filepath.Abs(filepath.Dir(localFilePath))
 	if err != nil {
