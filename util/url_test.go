@@ -119,6 +119,52 @@ func TestGenBaseURL(t *testing.T) {
 		if result.ServiceURL.Host != CosServiceDomain {
 			t.Errorf("期望 ServiceURL.Host=%s，实际: %s", CosServiceDomain, result.ServiceURL.Host)
 		}
+		// endpoint 为空（ls 列桶最典型场景）时也必须使用安全的 https，
+		// 不能返回 nil 让 SDK 回退到 http://service.cos.myqcloud.com 默认域名。
+		if result.ServiceURL.Scheme != "https" {
+			t.Errorf("期望默认 scheme=https，实际: %s", result.ServiceURL.Scheme)
+		}
+	})
+
+	t.Run("endpoint 为空时 config.Base.Protocol=https 生效", func(t *testing.T) {
+		// 回归用例：修复前 endpoint 为空时 GenBaseURL 返回 nil，SDK 回退到
+		// 写死的 http://service.cos.myqcloud.com，导致 ls 列桶忽略用户配置的 HTTPS。
+		cfg := &Config{Base: BaseCfg{Protocol: "https"}}
+		p := &Param{Endpoint: ""}
+		result := GenBaseURL(cfg, p)
+		if result == nil || result.ServiceURL == nil {
+			t.Fatal("期望 ServiceURL 不为 nil")
+		}
+		if result.ServiceURL.Scheme != "https" {
+			t.Errorf("期望 scheme=https，实际: %s", result.ServiceURL.Scheme)
+		}
+		if result.ServiceURL.Host != CosServiceDomain {
+			t.Errorf("期望 Host=%s，实际: %s", CosServiceDomain, result.ServiceURL.Host)
+		}
+	})
+
+	t.Run("endpoint 为空时 config.Base.Protocol=http 生效", func(t *testing.T) {
+		cfg := &Config{Base: BaseCfg{Protocol: "http"}}
+		p := &Param{Endpoint: ""}
+		result := GenBaseURL(cfg, p)
+		if result == nil || result.ServiceURL == nil {
+			t.Fatal("期望 ServiceURL 不为 nil")
+		}
+		if result.ServiceURL.Scheme != "http" {
+			t.Errorf("期望 scheme=http，实际: %s", result.ServiceURL.Scheme)
+		}
+	})
+
+	t.Run("endpoint 为空时 param.Protocol 优先于 config.Base.Protocol", func(t *testing.T) {
+		cfg := &Config{Base: BaseCfg{Protocol: "http"}}
+		p := &Param{Endpoint: "", Protocol: "https"}
+		result := GenBaseURL(cfg, p)
+		if result == nil || result.ServiceURL == nil {
+			t.Fatal("期望 ServiceURL 不为 nil")
+		}
+		if result.ServiceURL.Scheme != "https" {
+			t.Errorf("期望 scheme=https，实际: %s", result.ServiceURL.Scheme)
+		}
 	})
 
 	t.Run("使用 param.Endpoint 生成 ServiceURL", func(t *testing.T) {
