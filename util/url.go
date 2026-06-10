@@ -68,14 +68,15 @@ func GenBaseURL(config *Config, param *Param) *cos.BaseURL {
 		protocol = param.Protocol
 	}
 
-	if param.Endpoint == "" {
-		serviceURL, _ := url.Parse(fmt.Sprintf("%s://%s", protocol, CosServiceDomain))
-		return &cos.BaseURL{
-			ServiceURL: serviceURL,
-		}
+	// service 域名优先级：命令行 --endpoint > 配置文件 base.servicedomain > 默认 service 域名。
+	// 任意情况下都显式构造 ServiceURL，不返回 nil，避免 SDK 回退到写死的 http://service.cos.myqcloud.com。
+	endpoint := CosServiceDomain
+	if config.Base.ServiceDomain != "" {
+		endpoint = config.Base.ServiceDomain
 	}
-
-	endpoint := param.Endpoint
+	if param.Endpoint != "" {
+		endpoint = param.Endpoint
+	}
 
 	return CreateBaseURL(protocol, endpoint)
 }

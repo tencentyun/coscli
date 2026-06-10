@@ -19,6 +19,7 @@ type BaseCfg struct {
 	SecretKey                  string `yaml:"secretkey"`
 	SessionToken               string `yaml:"sessiontoken"`
 	Protocol                   string `yaml:"protocol"`
+	ServiceDomain              string `yaml:"servicedomain"`
 	Mode                       string `yaml:"mode"`
 	CvmRoleName                string `yaml:"cvmrolename"`
 	CloseAutoSwitchHost        string `yaml:"closeautoswitchhost"`

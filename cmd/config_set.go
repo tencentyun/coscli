@@ -35,6 +35,7 @@ func init() {
 	configSetCmd.Flags().StringP("secret_key", "", "", "Set secret key")
 	configSetCmd.Flags().StringP("session_token", "t", "", "Set session token")
 	configSetCmd.Flags().StringP("mode", "", "", "Set mode")
+	configSetCmd.Flags().StringP("service_domain", "", "", "Set the default service domain used for listing buckets, e.g. service.cos.myqcloud.com")
 	configSetCmd.Flags().StringP("cvm_role_name", "", "", "Set cvm role name")
 	configSetCmd.Flags().StringP("close_auto_switch_host", "", "", "Close Auto Switch Host")
 	configSetCmd.Flags().StringP("disable_encryption", "", "", "Disable Encryption")
@@ -48,6 +49,7 @@ func setConfigItem(cmd *cobra.Command) error {
 	secretKey, _ := cmd.Flags().GetString("secret_key")
 	sessionToken, _ := cmd.Flags().GetString("session_token")
 	mode, _ := cmd.Flags().GetString("mode")
+	serviceDomain, _ := cmd.Flags().GetString("service_domain")
 	cvmRoleName, _ := cmd.Flags().GetString("cvm_role_name")
 	closeAutoSwitchHost, _ := cmd.Flags().GetString("close_auto_switch_host")
 	disableEncryption, _ := cmd.Flags().GetString("disable_encryption")
@@ -83,6 +85,14 @@ func setConfigItem(cmd *cobra.Command) error {
 			return fmt.Errorf("Please Enter Mode As SecretKey Or CvmRole!")
 		} else {
 			config.Base.Mode = mode
+		}
+	}
+	if serviceDomain != "" {
+		flag = true
+		if serviceDomain == "@" {
+			config.Base.ServiceDomain = ""
+		} else {
+			config.Base.ServiceDomain = serviceDomain
 		}
 	}
 	if cvmRoleName != "" {

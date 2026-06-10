@@ -202,6 +202,35 @@ func TestGenBaseURL(t *testing.T) {
 			t.Errorf("期望 scheme=https，实际: %s", result.ServiceURL.Scheme)
 		}
 	})
+
+	t.Run("config.Base.ServiceDomain 作为 service 域名生效", func(t *testing.T) {
+		// 配置文件 base.servicedomain 可持久化指定 service 域名（列桶用）。
+		cfg := &Config{Base: BaseCfg{ServiceDomain: "service.cos.tencentcos.cn"}}
+		p := &Param{Endpoint: ""}
+		result := GenBaseURL(cfg, p)
+		if result == nil || result.ServiceURL == nil {
+			t.Fatal("期望 ServiceURL 不为 nil")
+		}
+		if result.ServiceURL.Host != "service.cos.tencentcos.cn" {
+			t.Errorf("期望 Host=service.cos.tencentcos.cn，实际: %s", result.ServiceURL.Host)
+		}
+		// 未显式指定协议时仍应为安全的 https
+		if result.ServiceURL.Scheme != "https" {
+			t.Errorf("期望 scheme=https，实际: %s", result.ServiceURL.Scheme)
+		}
+	})
+
+	t.Run("param.Endpoint 优先于 config.Base.ServiceDomain", func(t *testing.T) {
+		cfg := &Config{Base: BaseCfg{ServiceDomain: "service.cos.tencentcos.cn"}}
+		p := &Param{Endpoint: "service.cos.myqcloud.com"}
+		result := GenBaseURL(cfg, p)
+		if result == nil || result.ServiceURL == nil {
+			t.Fatal("期望 ServiceURL 不为 nil")
+		}
+		if result.ServiceURL.Host != "service.cos.myqcloud.com" {
+			t.Errorf("期望 Host=service.cos.myqcloud.com，实际: %s", result.ServiceURL.Host)
+		}
+	})
 }
 
 func TestGenURL(t *testing.T) {
