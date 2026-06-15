@@ -348,7 +348,7 @@ Example:
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 
-		if fo.Monitor.ErrNum > 0 {
+		if fo.Monitor.ErrNum > 0 || fo.Monitor.ListErrNum > 0 {
 			logger.Warningf("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
 			os.Exit(2)
 		} else {
