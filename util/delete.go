@@ -913,6 +913,12 @@ func RemoveObject(args []string, fo *FileOperations) error {
 		}
 
 		if fo.Operation.VersionId != "" {
+			// 获取桶类型：OFS 桶不接受 versionId，需据此决定后续请求是否携带
+			fo.BucketType, err = GetBucketType(c, fo.Param, fo.Config, bucketName)
+			if err != nil {
+				return err
+			}
+
 			res, _, err := GetBucketVersioning(c)
 			if err != nil {
 				return err
@@ -923,7 +929,12 @@ func RemoveObject(args []string, fo *FileOperations) error {
 		}
 
 		// 查询对象是否存在
-		fileExist, err := CheckCosObjectExist(c, cosPath, fo.Operation.VersionId)
+		var fileExist bool
+		if needCarryVersionId(fo.BucketType, fo.Operation.VersionId) {
+			fileExist, err = CheckCosObjectExist(c, cosPath, fo.Operation.VersionId)
+		} else {
+			fileExist, err = CheckCosObjectExist(c, cosPath)
+		}
 		if err != nil {
 			return err
 		}
@@ -964,7 +975,10 @@ func RemoveObjectOrVersion(c *cos.Client, cosUrl StorageUrl, fo *FileOperations)
 		XCosSSECustomerKey:    "",
 		XCosSSECustomerKeyMD5: "",
 		XOptionHeader:         nil,
-		VersionId:             fo.Operation.VersionId,
+	}
+	// OFS 桶不接受 versionId，仅在桶类型允许且显式指定时才携带
+	if needCarryVersionId(fo.BucketType, fo.Operation.VersionId) {
+		opt.VersionId = fo.Operation.VersionId
 	}
 
 	if !fo.Operation.Force {

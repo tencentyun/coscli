@@ -24,7 +24,7 @@ func TestStatObject(t *testing.T) {
 		mockHeadFunc = func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
 			return nil, fmt.Errorf("mock head error")
 		}
-		info, err := StatObject(newTestClient(), "test.txt", "")
+		info, err := StatObject(newTestClient(), "test.txt", "", BucketTypeCos)
 		if err == nil {
 			t.Errorf("期望返回错误，但得到 nil")
 		}
@@ -37,7 +37,7 @@ func TestStatObject(t *testing.T) {
 		mockHeadFunc = func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
 			return nil, fmt.Errorf("mock head with version error")
 		}
-		info, err := StatObject(newTestClient(), "test.txt", "v-001")
+		info, err := StatObject(newTestClient(), "test.txt", "v-001", BucketTypeCos)
 		if err == nil {
 			t.Errorf("期望返回错误，但得到 nil")
 		}
@@ -66,7 +66,7 @@ func TestStatObject(t *testing.T) {
 			h.Set("x-cos-meta-project", "coscli")
 			return &cos.Response{Response: &http.Response{StatusCode: 200, Header: h}}, nil
 		}
-		info, err := StatObject(newTestClient(), "test.txt", "")
+		info, err := StatObject(newTestClient(), "test.txt", "", BucketTypeCos)
 		if err != nil {
 			t.Fatalf("期望无错误，但得到: %v", err)
 		}
@@ -101,7 +101,7 @@ func TestStatObject(t *testing.T) {
 			h.Set("x-cos-storage-class", "STANDARD_IA")
 			return &cos.Response{Response: &http.Response{StatusCode: 200, Header: h}}, nil
 		}
-		info, err := StatObject(newTestClient(), "test.json", "v-001")
+		info, err := StatObject(newTestClient(), "test.json", "v-001", BucketTypeCos)
 		if err != nil {
 			t.Fatalf("期望无错误，但得到: %v", err)
 		}
@@ -121,7 +121,7 @@ func TestStatObject(t *testing.T) {
 			h.Set("Content-Type", "image/png")
 			return &cos.Response{Response: &http.Response{StatusCode: 200, Header: h}}, nil
 		}
-		info, err := StatObject(newTestClient(), "image.png", "")
+		info, err := StatObject(newTestClient(), "image.png", "", BucketTypeCos)
 		if err != nil {
 			t.Fatalf("期望无错误，但得到: %v", err)
 		}
@@ -133,6 +133,36 @@ func TestStatObject(t *testing.T) {
 		}
 		if len(info.CustomMeta) != 0 {
 			t.Errorf("期望 CustomMeta 为空，但得到 %v", info.CustomMeta)
+		}
+	})
+
+	t.Run("OFS 桶指定 versionId 时不携带 versionId", func(t *testing.T) {
+		var capturedIds []string
+		mockHeadFunc = func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+			capturedIds = id
+			return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+		}
+		_, err := StatObject(newTestClient(), "file.txt", "v-001", BucketTypeOfs)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if len(capturedIds) != 0 {
+			t.Errorf("OFS 桶不应携带 versionId，但捕获到: %v", capturedIds)
+		}
+	})
+
+	t.Run("COS 桶指定 versionId 时携带 versionId", func(t *testing.T) {
+		var capturedIds []string
+		mockHeadFunc = func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+			capturedIds = id
+			return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+		}
+		_, err := StatObject(newTestClient(), "file.txt", "v-001", BucketTypeCos)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if len(capturedIds) != 1 || capturedIds[0] != "v-001" {
+			t.Errorf("COS 桶应携带 versionId [v-001]，但捕获到: %v", capturedIds)
 		}
 	})
 }

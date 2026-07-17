@@ -11,6 +11,17 @@ import (
 	"time"
 )
 
+// needCarryVersionId 判断向指定类型的桶发起请求时是否应携带 versionId。
+// 规则：OFS 桶不接受 versionId（会导致请求异常）；且仅当用户显式指定了 versionId 时才携带。
+// 统一用于所有向桶传递 versionId 的请求判定，包括：
+//   - copy：源侧 HEAD/IsExist（按源桶类型）、目标侧 MultiCopy（按目标桶类型）
+//   - download：源侧 IsExist/HEAD（按源桶类型）
+//   - stat：HEAD Object（按桶类型）
+//   - rm：IsExist、Delete（按桶类型）
+func needCarryVersionId(bucketType, versionId string) bool {
+	return bucketType != BucketTypeOfs && versionId != ""
+}
+
 // CosCopy copies a file from srcClient to destClient using the provided URLs and FileOperations.
 // srcClient and destClient are *cos.Client instances.
 // srcUrl and destUrl are StorageUrl instances.
@@ -32,7 +43,14 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 			relativeKey = srcUrl.(*CosUrl).Object[index+1:]
 		}
 		// 获取文件信息
-		resp, err := GetHead(srcClient, srcUrl.(*CosUrl).Object, fo.Operation.VersionId)
+		// HEAD 请求发往源桶（srcClient）。是否携带 versionId 由源桶类型与是否显式指定决定。
+		var resp *cos.Response
+		var err error
+		if needCarryVersionId(fo.BucketType, fo.Operation.VersionId) {
+			resp, err = GetHead(srcClient, srcUrl.(*CosUrl).Object, fo.Operation.VersionId)
+		} else {
+			resp, err = GetHead(srcClient, srcUrl.(*CosUrl).Object)
+		}
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				// 源文件不在cos上
@@ -42,7 +60,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 		}
 
 		// copy文件
-		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified"), false}, srcUrl, destUrl, fo.Operation.VersionId)
+		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified"), false}, srcUrl, destUrl)
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
@@ -185,7 +203,7 @@ func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo
 }
 
 // singleCopy todo
-func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInfo objectInfoType, srcUrl, destUrl StorageUrl, VersionId ...string) (skip bool, rErr error, isDir bool, size int64, msg string) {
+func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInfo objectInfoType, srcUrl, destUrl StorageUrl) (skip bool, rErr error, isDir bool, size int64, msg string) {
 	skip = false
 	rErr = nil
 	isDir = false
@@ -279,10 +297,12 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		opt.OptCopy.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
 	}
 
-	if fo.BucketType == BucketTypeOfs {
-		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
+	// MultiCopy 请求发往目标桶（destClient），versionId 会被拼到 x-cos-copy-source。
+	// 是否携带 versionId 由目标桶类型与是否显式指定决定。
+	if needCarryVersionId(fo.DstBucketType, fo.Operation.VersionId) {
+		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt, fo.Operation.VersionId)
 	} else {
-		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt, VersionId...)
+		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
 	}
 
 	if err != nil {

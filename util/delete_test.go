@@ -151,6 +151,50 @@ func TestRemoveObjectOrVersion(t *testing.T) {
 			t.Error("期望返回错误，但得到 nil")
 		}
 	})
+
+	t.Run("OFS 桶指定 versionId 时删除请求不携带 versionId", func(t *testing.T) {
+		var capturedVersionId string
+		mockObjectDeleteFunc = func(ctx context.Context, name string, opt ...*cos.ObjectDeleteOptions) (*cos.Response, error) {
+			if len(opt) > 0 && opt[0] != nil {
+				capturedVersionId = opt[0].VersionId
+			}
+			return &cos.Response{Response: &http.Response{StatusCode: 204}}, nil
+		}
+		defer func() { mockObjectDeleteFunc = nil }()
+		fo := &FileOperations{
+			Operation:  Operation{Force: true, VersionId: "v-001"},
+			BucketType: BucketTypeOfs,
+		}
+		err := RemoveObjectOrVersion(newTestClient(), cosUrl, fo)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if capturedVersionId != "" {
+			t.Errorf("OFS 桶删除不应携带 versionId，但得到: %q", capturedVersionId)
+		}
+	})
+
+	t.Run("COS 桶指定 versionId 时删除请求携带 versionId", func(t *testing.T) {
+		var capturedVersionId string
+		mockObjectDeleteFunc = func(ctx context.Context, name string, opt ...*cos.ObjectDeleteOptions) (*cos.Response, error) {
+			if len(opt) > 0 && opt[0] != nil {
+				capturedVersionId = opt[0].VersionId
+			}
+			return &cos.Response{Response: &http.Response{StatusCode: 204}}, nil
+		}
+		defer func() { mockObjectDeleteFunc = nil }()
+		fo := &FileOperations{
+			Operation:  Operation{Force: true, VersionId: "v-001"},
+			BucketType: BucketTypeCos,
+		}
+		err := RemoveObjectOrVersion(newTestClient(), cosUrl, fo)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if capturedVersionId != "v-001" {
+			t.Errorf("COS 桶删除应携带 versionId v-001，但得到: %q", capturedVersionId)
+		}
+	})
 }
 
 func TestCheckBackupDir(t *testing.T) {

@@ -103,6 +103,7 @@ type FileOperations struct {
 	DeleteCount          int
 	SyncDeleteObjectInfo SyncDeleteObjectInfo
 	BucketType           string
+	DstBucketType        string
 	OutPutDirName        string
 }
 

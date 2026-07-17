@@ -349,6 +349,24 @@ func TestFormatDownloadPath(t *testing.T) {
 		}
 		mockBucketGetFunc = nil
 	})
+
+	t.Run("源桶为 OFS 时非 recursive 源对象存在则成功", func(t *testing.T) {
+		// 源桶为 OFS 时不应携带 versionId 调用 IsExist/HEAD，此处仅验证走 needCarryVersionId 分支后流程正常
+		foOfs := &FileOperations{
+			Operation:  Operation{Recursive: false, VersionId: "v-001"},
+			BucketType: BucketTypeOfs,
+		}
+		mockHeadFunc = func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+			return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+		}
+		defer func() { mockHeadFunc = nil }()
+		fileUrl := &FileUrl{urlStr: "/tmp/output.txt"}
+		cosUrl := &CosUrl{Bucket: "my-ofs-bucket", Object: "file.txt"}
+		err := FormatDownloadPath(cosUrl, fileUrl, foOfs, newTestClient())
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+	})
 }
 
 func TestFormatCopyPath(t *testing.T) {
@@ -418,6 +436,26 @@ func TestFormatCopyPath(t *testing.T) {
 		// destPath 应该变成 dest-prefix/src-file.txt
 		if destUrl.Object != "dest-prefix/src-file.txt" {
 			t.Errorf("期望 destPath=dest-prefix/src-file.txt，实际: %s", destUrl.Object)
+		}
+	})
+
+	// 源桶为 OFS 时（needCarryVersionId=false 分支），源对象存在性检查不携带 versionId，
+	// 仍应正常校验并成功。此处仅冒烟验证 OFS 源桶分支的接入，不断言实际携带的 versionId
+	// （判定正确性由 util/copy_test.go 中的 TestNeedCarryVersionId 保证）。
+	t.Run("源桶为 OFS 时非 recursive 源对象存在则成功", func(t *testing.T) {
+		foOfs := &FileOperations{
+			Operation:  Operation{Recursive: false},
+			BucketType: BucketTypeOfs,
+		}
+		mockHeadFunc = func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+			return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+		}
+		defer func() { mockHeadFunc = nil }()
+		srcUrl := &CosUrl{Bucket: "src-bucket", Object: "src-file.txt"}
+		destUrl := &CosUrl{Bucket: "dest-bucket", Object: "dest-file.txt"}
+		err := FormatCopyPath(srcUrl, destUrl, foOfs, newTestClient())
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
 		}
 	})
 }

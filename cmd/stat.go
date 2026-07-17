@@ -42,7 +42,13 @@ Example:
 			return err
 		}
 
-		info, err := util.StatObject(c, objectKey, versionId)
+		// 获取桶类型：OFS 桶不接受 versionId
+		bucketType, err := util.GetBucketType(c, &param, &config, bucketName)
+		if err != nil {
+			return err
+		}
+
+		info, err := util.StatObject(c, objectKey, versionId, bucketType)
 		if err != nil {
 			return err
 		}

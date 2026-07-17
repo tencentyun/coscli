@@ -27,14 +27,15 @@ type ObjectStatInfo struct {
 }
 
 // StatObject 查询对象元数据，通过 HEAD Object 接口获取
-func StatObject(c *cos.Client, objectKey string, versionId string) (*ObjectStatInfo, error) {
+// bucketType 用于判断是否携带 versionId：OFS 桶不接受 versionId。
+func StatObject(c *cos.Client, objectKey string, versionId string, bucketType string) (*ObjectStatInfo, error) {
 	opt := &cos.ObjectHeadOptions{
 		XOptionHeader: &http.Header{},
 	}
 
 	var resp *cos.Response
 	var err error
-	if versionId != "" {
+	if needCarryVersionId(bucketType, versionId) {
 		resp, err = c.Object.Head(context.Background(), objectKey, opt, versionId)
 	} else {
 		resp, err = c.Object.Head(context.Background(), objectKey, opt)

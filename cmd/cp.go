@@ -321,6 +321,12 @@ Example:
 				return err
 			}
 
+			// 获取目标桶类型（copy 请求发往目标桶，是否可带 versionId 由目标桶决定）
+			fo.DstBucketType, err = util.GetBucketType(destClient, fo.Param, fo.Config, destBucketName)
+			if err != nil {
+				return err
+			}
+
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				destClient.Conf.EnableCRC = false
