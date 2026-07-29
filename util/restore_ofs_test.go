@@ -3,14 +3,15 @@ package util
 import (
 	"context"
 	"net/http"
+	"sync"
 	"testing"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 func TestRestoreObjectsCos(t *testing.T) {
-	// RestoreObjects (bucketType=Cos) 内部调用 restoreCosObjects → getCosObjectListForLs → Bucket.Get（已全局打桩）
-	// 对归档对象调用 TryRestoreObject → Object.PostRestore（已全局打桩）
+	// RestoreObjects (bucketType=Cos) 内部调用 produceCosRestoreTasks → getCosObjectListForLs → Bucket.Get（已全局打桩）
+	// 对归档对象通过 worker 池调用 TryRestoreObject → Object.PostRestore（已全局打桩）
 	cosUrl := &CosUrl{Bucket: "test-bucket", Object: "prefix/"}
 
 	t.Run("无对象时成功返回", func(t *testing.T) {
@@ -24,8 +25,6 @@ func TestRestoreObjectsCos(t *testing.T) {
 			Operation: Operation{},
 			ErrOutput: &ErrOutput{Path: "/tmp"},
 		}
-		// 重置全局计数器
-		succeedNum, failedNum, errTypeNum = 0, 0, 0
 		err := RestoreObjects(newTestClient(), cosUrl, fo, BucketTypeCos)
 		if err != nil {
 			t.Errorf("期望无错误，但得到: %v", err)
@@ -38,12 +37,17 @@ func TestRestoreObjectsCos(t *testing.T) {
 			return &cos.BucketGetResult{
 				Contents: []cos.Object{
 					{Key: "prefix/archive-file.txt", StorageClass: Archive},
-					{Key: "prefix/standard-file.txt", StorageClass: Standard}, // 非归档，errTypeNum++
+					{Key: "prefix/standard-file.txt", StorageClass: Standard}, // 非归档，计入 errType
 				},
 				IsTruncated: false,
 			}, &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
 		}
+		var mu sync.Mutex
+		var restoredKeys []string
 		mockObjectPostRestoreFunc = func(ctx context.Context, name string, opt *cos.ObjectRestoreOptions, id ...string) (*cos.Response, error) {
+			mu.Lock()
+			restoredKeys = append(restoredKeys, name)
+			mu.Unlock()
 			return &cos.Response{Response: &http.Response{StatusCode: 202}}, nil
 		}
 		fo := &FileOperations{
@@ -53,18 +57,13 @@ func TestRestoreObjectsCos(t *testing.T) {
 			},
 			ErrOutput: &ErrOutput{Path: "/tmp"},
 		}
-		succeedNum, failedNum, errTypeNum = 0, 0, 0
 		err := RestoreObjects(newTestClient(), cosUrl, fo, BucketTypeCos)
 		if err != nil {
 			t.Errorf("期望无错误，但得到: %v", err)
 		}
-		// 归档对象应成功恢复
-		if succeedNum != 1 {
-			t.Errorf("期望 succeedNum=1，实际 %d", succeedNum)
-		}
-		// 非归档对象计入 errTypeNum
-		if errTypeNum != 1 {
-			t.Errorf("期望 errTypeNum=1，实际 %d", errTypeNum)
+		// 仅归档对象应发起恢复请求，非归档对象被 isRestoreType 过滤
+		if len(restoredKeys) != 1 || restoredKeys[0] != "prefix/archive-file.txt" {
+			t.Errorf("期望仅恢复 prefix/archive-file.txt，实际 %v", restoredKeys)
 		}
 		mockBucketGetFunc = nil
 		mockObjectPostRestoreFunc = nil
@@ -79,6 +78,11 @@ func TestRestoreObjectsCos(t *testing.T) {
 				IsTruncated: false,
 			}, &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
 		}
+		restoreCalled := false
+		mockObjectPostRestoreFunc = func(ctx context.Context, name string, opt *cos.ObjectRestoreOptions, id ...string) (*cos.Response, error) {
+			restoreCalled = true
+			return &cos.Response{Response: &http.Response{StatusCode: 202}}, nil
+		}
 		fo := &FileOperations{
 			Operation: Operation{
 				Days:        1,
@@ -86,16 +90,16 @@ func TestRestoreObjectsCos(t *testing.T) {
 			},
 			ErrOutput: &ErrOutput{Path: "/tmp"},
 		}
-		succeedNum, failedNum, errTypeNum = 0, 0, 0
 		err := RestoreObjects(newTestClient(), cosUrl, fo, BucketTypeCos)
 		if err != nil {
 			t.Errorf("期望无错误，但得到: %v", err)
 		}
-		// ONGOING 状态的对象直接计入成功
-		if succeedNum != 1 {
-			t.Errorf("期望 succeedNum=1，实际 %d", succeedNum)
+		// ONGOING 状态的对象不应再发起 PostRestore 请求
+		if restoreCalled {
+			t.Errorf("ONGOING 状态对象不应再次发起恢复请求")
 		}
 		mockBucketGetFunc = nil
+		mockObjectPostRestoreFunc = nil
 	})
 }
 
@@ -128,7 +132,6 @@ func TestRestoreObjectsOfs(t *testing.T) {
 			},
 			ErrOutput: &ErrOutput{Path: "/tmp"},
 		}
-		succeedNum, failedNum, errTypeNum = 0, 0, 0
 		err := RestoreObjects(newTestClient(), cosUrl, fo, BucketTypeOfs)
 		if err != nil {
 			t.Errorf("期望无错误，但得到: %v", err)

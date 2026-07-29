@@ -67,8 +67,13 @@ func TestStatCmd(t *testing.T) {
 		})
 
 		Convey("成功查询对象元数据", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
 			var o *cos.ObjectService
-			patches = ApplyMethodFunc(reflect.TypeOf(o), "Head",
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "Head",
 				func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
 					h := http.Header{}
 					h.Set("ETag", `"abc123"`)
@@ -87,8 +92,13 @@ func TestStatCmd(t *testing.T) {
 		})
 
 		Convey("带 --version-id 参数成功查询", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
 			var o *cos.ObjectService
-			patches = ApplyMethodFunc(reflect.TypeOf(o), "Head",
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "Head",
 				func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
 					h := http.Header{}
 					h.Set("ETag", `"def456"`)
