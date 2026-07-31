@@ -19,20 +19,23 @@ type BaseCfg struct {
 	SecretKey                  string `yaml:"secretkey"`
 	SessionToken               string `yaml:"sessiontoken"`
 	Protocol                   string `yaml:"protocol"`
+	ServiceDomain              string `yaml:"servicedomain"`
 	Mode                       string `yaml:"mode"`
 	CvmRoleName                string `yaml:"cvmrolename"`
 	CloseAutoSwitchHost        string `yaml:"closeautoswitchhost"`
 	DisableEncryption          string `yaml:"disableencryption"`
 	DisableAutoFetchBucketType string `yaml:"disableautofetchbuckettype"`
+	Proxy                      string `yaml:"proxy"`
 }
 
 // Bucket 桶信息
 type Bucket struct {
-	Name     string `yaml:"name"`
-	Alias    string `yaml:"alias"`
-	Region   string `yaml:"region"`
-	Endpoint string `yaml:"endpoint"`
-	Ofs      bool   `yaml:"ofs"`
+	Name       string `yaml:"name"`
+	Alias      string `yaml:"alias"`
+	Region     string `yaml:"region"`
+	Endpoint   string `yaml:"endpoint"`
+	Ofs        bool   `yaml:"ofs"`
+	Customized bool   `yaml:"customized"`
 }
 
 // Param 命令传入参数
@@ -45,6 +48,7 @@ type Param struct {
 	Protocol            string
 	CloseAutoSwitchHost string
 	BucketType          string
+	Proxy               string
 }
 
 // UploadInfo 上传文件信息
@@ -99,6 +103,7 @@ type FileOperations struct {
 	DeleteCount          int
 	SyncDeleteObjectInfo SyncDeleteObjectInfo
 	BucketType           string
+	DstBucketType        string
 	OutPutDirName        string
 }
 
@@ -111,6 +116,7 @@ type Operation struct {
 	PartSize             int64
 	CheckPoint           bool
 	ThreadNum            int
+	MaxThreadNum         int
 	Routines             int
 	FailOutput           bool
 	FailOutputPath       string

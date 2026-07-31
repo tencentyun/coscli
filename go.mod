@@ -12,17 +12,11 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.10.0
-	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.70-0.20250909083833-a714b40b9ec5
 )
 
-require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-)
+require golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
 
 require (
 	github.com/clbanning/mxj v1.8.4 // indirect

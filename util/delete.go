@@ -134,6 +134,14 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 		}
 	}
 
+	// sync 语义：本地目录只要在 COS 端有任意文件以其为前缀，就视为"一致"，不应被列为待删。
+	// 由于 COS list 不会返回隐式目录条目，这里需要根据 srcKeys 中每个文件 key 的所有
+	// 父目录前缀，再次从 delKeys 中剔除对应的本地目录条目（destKeys 中目录 key 以分隔符结尾）。
+	// 仅对目的端为本地的场景（download/copy 到本地）有意义。
+	if destUrl.IsFileUrl() {
+		pruneParentDirsFromDelKeys(srcKeys, delKeys, fo.CpType, isLinux)
+	}
+
 	// 根据操作系统和操作类型筛选出需要传输的对象或文件
 	if fo.Operation.IgnoreExisting || fo.Operation.Update {
 		for k, v := range destKeys {
@@ -172,6 +180,38 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 	}
 
 	return srcKeys, delKeys, transferKeys, nil
+}
+
+// pruneParentDirsFromDelKeys 根据 srcKeys 中每个文件 key 的所有父目录前缀，
+// 从 delKeys 中删除对应的目录条目。
+// 用于 sync --delete 下载/拷贝到本地的场景：本地的目录条目只要在 COS 端有任意
+// 对象以其为前缀，就视为目录"一致"，不应被列为待删（避免每次 sync 都误报本地目录待删）。
+//
+// destSep 选取规则：
+//   - Linux 或 COS 之间拷贝（CpTypeCopy）：本地/目的端 key 使用 '/'
+//   - Windows 下 CpTypeDownload：本地 key 使用 '\\'，需将 srcKeys 中的 '/' 转为 '\\'
+func pruneParentDirsFromDelKeys(srcKeys, delKeys map[string]commonInfoType, cpType CpType, isLinux bool) {
+	var destSep string
+	useNativeSep := !isLinux && cpType != CpTypeCopy
+	if useNativeSep {
+		destSep = "\\"
+	} else {
+		destSep = "/"
+	}
+
+	for k := range srcKeys {
+		localKey := k
+		if useNativeSep {
+			localKey = strings.Replace(k, "/", destSep, -1)
+		}
+		// 逐级剥离父目录前缀（保留末尾分隔符），从 delKeys 中删除
+		idx := strings.LastIndex(localKey, destSep)
+		for idx > 0 {
+			dirKey := localKey[:idx+1]
+			delete(delKeys, dirKey)
+			idx = strings.LastIndex(localKey[:idx], destSep)
+		}
+	}
 }
 
 func deleteKeys(c *cos.Client, keysToDelete map[string]commonInfoType, destUrl StorageUrl, fo *FileOperations) error {
@@ -423,7 +463,22 @@ func DeleteLocalFiles(keysToDelete map[string]commonInfoType, fileUrl StorageUrl
 				// 获取备份路径
 				f, err := os.Stat(fo.Operation.BackupDir + dirName)
 				if err != nil {
-					movePath(absDirName+dirName, fo.Operation.BackupDir+dirName)
+					// 嵌套目录场景下，BackupDir 中对应的父目录可能尚未创建，
+					// 直接 os.Rename 会失败（"no such file or directory"），
+					// 因此先确保父目录存在再 move。
+					backupParent := fo.Operation.BackupDir + dirName
+					if idx := strings.LastIndex(dirName, string(os.PathSeparator)); idx >= 0 {
+						backupParent = fo.Operation.BackupDir + dirName[:idx]
+					} else {
+						// dirName 没有分隔符（顶层目录），父目录就是 BackupDir 本身
+						backupParent = strings.TrimRight(fo.Operation.BackupDir, string(os.PathSeparator))
+					}
+					if mkErr := os.MkdirAll(backupParent, 0755); mkErr != nil {
+						return fmt.Errorf("create backup parent dir %s error: %s", backupParent, mkErr.Error())
+					}
+					if mvErr := movePath(absDirName+dirName, fo.Operation.BackupDir+dirName); mvErr != nil {
+						return mvErr
+					}
 				} else {
 					if !f.IsDir() {
 						return fmt.Errorf("backup %s is already exist,but is file", fo.Operation.BackupDir+dirName)
@@ -533,27 +588,41 @@ func moveFileToPath(srcName, destName string) error {
 	err := os.Rename(srcName, destName)
 	if err == nil {
 		return nil
-	} else {
-		inputFile, err := os.Open(srcName)
-		defer inputFile.Close()
-		if err != nil {
-			return err
-		}
-		outputFile, err := os.Create(destName)
-		defer outputFile.Close()
-		if err != nil {
-			return err
-		}
-		_, err = io.Copy(outputFile, inputFile)
-		if err != nil {
-			return err
-		}
-		err = os.Remove(srcName)
-		if err != nil {
-			return err
-		}
-		return nil
 	}
+
+	// Rename 失败时（例如 Windows 上跨卷移动）回退到 copy + remove。
+	// 注意：不能用 defer 延迟关闭，否则在 Windows 上 os.Remove(srcName) 会因为
+	// 源文件仍被当前进程打开而失败："The process cannot access the file because
+	// it is being used by another process."。必须在 Remove 之前显式 Close。
+	inputFile, err := os.Open(srcName)
+	if err != nil {
+		return err
+	}
+
+	outputFile, err := os.Create(destName)
+	if err != nil {
+		inputFile.Close()
+		return err
+	}
+
+	if _, err = io.Copy(outputFile, inputFile); err != nil {
+		inputFile.Close()
+		outputFile.Close()
+		// 拷贝失败时清理可能已生成的目标文件，避免残留半成品
+		_ = os.Remove(destName)
+		return err
+	}
+
+	// 显式关闭源/目标文件，确保后续 Remove 在 Windows 上不会被自身句柄占用
+	if err = inputFile.Close(); err != nil {
+		outputFile.Close()
+		return err
+	}
+	if err = outputFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Remove(srcName)
 }
 
 // RemoveObjects 删除cos对象
@@ -844,6 +913,12 @@ func RemoveObject(args []string, fo *FileOperations) error {
 		}
 
 		if fo.Operation.VersionId != "" {
+			// 获取桶类型：OFS 桶不接受 versionId，需据此决定后续请求是否携带
+			fo.BucketType, err = GetBucketType(c, fo.Param, fo.Config, bucketName)
+			if err != nil {
+				return err
+			}
+
 			res, _, err := GetBucketVersioning(c)
 			if err != nil {
 				return err
@@ -854,7 +929,12 @@ func RemoveObject(args []string, fo *FileOperations) error {
 		}
 
 		// 查询对象是否存在
-		fileExist, err := CheckCosObjectExist(c, cosPath, fo.Operation.VersionId)
+		var fileExist bool
+		if needCarryVersionId(fo.BucketType, fo.Operation.VersionId) {
+			fileExist, err = CheckCosObjectExist(c, cosPath, fo.Operation.VersionId)
+		} else {
+			fileExist, err = CheckCosObjectExist(c, cosPath)
+		}
 		if err != nil {
 			return err
 		}
@@ -895,7 +975,10 @@ func RemoveObjectOrVersion(c *cos.Client, cosUrl StorageUrl, fo *FileOperations)
 		XCosSSECustomerKey:    "",
 		XCosSSECustomerKeyMD5: "",
 		XOptionHeader:         nil,
-		VersionId:             fo.Operation.VersionId,
+	}
+	// OFS 桶不接受 versionId，仅在桶类型允许且显式指定时才携带
+	if needCarryVersionId(fo.BucketType, fo.Operation.VersionId) {
+		opt.VersionId = fo.Operation.VersionId
 	}
 
 	if !fo.Operation.Force {

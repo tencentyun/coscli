@@ -32,7 +32,7 @@ const (
 )
 
 const (
-	Version             string = "v1.0.8"
+	Version             string = "v1.0.9"
 	Package             string = "coscli"
 	SchemePrefix        string = "cos://"
 	CosSeparator        string = "/"
@@ -43,6 +43,7 @@ const (
 	MaxDeleteBatchCount int    = 1000
 	SnapshotConnector          = "==>"
 	OfsMaxRenderNum     int    = 100
+	CosServiceDomain    string = "service.cos.myqcloud.com"
 )
 
 const (

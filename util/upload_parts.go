@@ -229,7 +229,7 @@ func AbortUploads(args []string, fo *FileOperations) error {
 					logger.Infof("Abort fail! UploadID: %s,Key: %s", upload.UploadID, upload.Key)
 					// 记录错误日志
 					if fo.Operation.FailOutput {
-						writeError(fmt.Sprintln("Abort fail! UploadID: %s,Key: %s,err: %v", upload.UploadID, upload.Key, err), fo)
+						writeError(fmt.Sprintf("Abort fail! UploadID: %s,Key: %s,err: %v", upload.UploadID, upload.Key, err), fo)
 					}
 					failCnt++
 				} else {

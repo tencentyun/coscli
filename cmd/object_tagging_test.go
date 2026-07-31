@@ -2,387 +2,192 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
+	"net/http"
+	"reflect"
+	"testing"
+
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"reflect"
-	"testing"
-	"time"
+
+	"coscli/util"
 )
 
 func TestObjectTaggingCmd(t *testing.T) {
-	fmt.Println("TestObjectTaggingCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	genDir(testDir, 3)
-	defer delDir(testDir)
-	localFileName := fmt.Sprintf("%s/small-file/0", testDir)
-	// 上传cos文件
-	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
-	errorCosFileName := fmt.Sprintf("cos:/%s/%s", testAlias, "multi-small")
-	args := []string{"cp", localFileName, cosFileName, "-r"}
-	cmd.SetArgs(args)
-	cmd.Execute()
+	setupTestConfig()
+	defer teardownTestConfig()
 
 	Convey("test coscli object_tagging", t, func() {
-		Convey("success", func() {
-			Convey("cos", func() {
-				Convey("put", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "put",
-						cosFileName, "testkey#testval"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeNil)
-				})
-				Convey("add", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "add",
-						cosFileName, "testkey2#testval2"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeNil)
-				})
-				Convey("get", func() {
-					time.Sleep(time.Second)
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "get",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeNil)
-				})
-				Convey("deleteDes", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "delete",
-						cosFileName, "testkey2#testval2"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeNil)
-				})
-				Convey("delete", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "delete",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeNil)
-				})
-			})
-			//Convey("ofs", func() {
-			//	Convey("put", func() {
-			//		clearCmd()
-			//		cmd := rootCmd
-			//		args := []string{"object-tagging", "--method", "put",
-			//			ofsFileName, "testkey#testval"}
-			//		cmd.SetArgs(args)
-			//		e := cmd.Execute()
-			//		So(e, ShouldBeNil)
-			//	})
-			//	Convey("add", func() {
-			//		clearCmd()
-			//		cmd := rootCmd
-			//		args := []string{"object-tagging", "--method", "add",
-			//			ofsFileName, "testkey2#testval2"}
-			//		cmd.SetArgs(args)
-			//		e := cmd.Execute()
-			//		So(e, ShouldBeNil)
-			//	})
-			//	Convey("get", func() {
-			//		time.Sleep(time.Second)
-			//		clearCmd()
-			//		cmd := rootCmd
-			//		args := []string{"object-tagging", "--method", "get",
-			//			ofsFileName}
-			//		cmd.SetArgs(args)
-			//		e := cmd.Execute()
-			//		So(e, ShouldBeNil)
-			//	})
-			//	Convey("deleteDes", func() {
-			//		clearCmd()
-			//		cmd := rootCmd
-			//		args := []string{"object-tagging", "--method", "delete",
-			//			ofsFileName, "testkey2#testval2"}
-			//		cmd.SetArgs(args)
-			//		e := cmd.Execute()
-			//		So(e, ShouldBeNil)
-			//	})
-			//	Convey("delete", func() {
-			//		clearCmd()
-			//		cmd := rootCmd
-			//		args := []string{"object-tagging", "--method", "delete",
-			//			ofsFileName}
-			//		cmd.SetArgs(args)
-			//		e := cmd.Execute()
-			//		So(e, ShouldBeNil)
-			//	})
-			//})
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
 		})
-		Convey("fail", func() {
-			Convey("cos path error", func() {
-				clearCmd()
-				cmd := rootCmd
 
-				args := []string{"object-tagging", "--method", "get",
-					errorCosFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("not supported method", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"object-tagging", "--method", "get2",
-					cosFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
-			})
+		Convey("cos path error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "get", "cos:/test-alias/obj", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
 
-			Convey("get bucket type error", func() {
-				patches := ApplyFunc(util.GetBucketType, func(c *cos.Client, param *util.Param, config *util.Config, bucketName string) (string, error) {
-					return "", fmt.Errorf("get bucket type error")
+		Convey("ofs not support", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					h := http.Header{}
+					h.Set("X-Cos-Bucket-Arch", "OFS")
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: h}}, nil
 				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"object-tagging", "--method", "get",
-					cosFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "get", "cos://test-alias/obj", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("invalid method", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "invalid", "cos://test-alias/obj", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("put without tags", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "put", "cos://test-alias/obj", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("put success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "PutTagging",
+				func(ctx context.Context, name string, opt *cos.ObjectPutTaggingOptions, id ...string) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "put", "cos://test-alias/obj", "tag1#test1", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("add success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "GetTagging",
+				func(ctx context.Context, name string, opt ...interface{}) (*cos.ObjectGetTaggingResult, *cos.Response, error) {
+					return &cos.ObjectGetTaggingResult{}, &cos.Response{}, nil
+				})
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "PutTagging",
+				func(ctx context.Context, name string, opt *cos.ObjectPutTaggingOptions, id ...string) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "add", "cos://test-alias/obj", "tag3#test3", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("get success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "GetTagging",
+				func(ctx context.Context, name string, opt ...interface{}) (*cos.ObjectGetTaggingResult, *cos.Response, error) {
+					return &cos.ObjectGetTaggingResult{}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "get", "cos://test-alias/obj", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("delete all success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "DeleteTagging",
+				func(ctx context.Context, name string, opt ...interface{}) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "delete", "cos://test-alias/obj", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("delete specific tags success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "GetTagging",
+				func(ctx context.Context, name string, opt ...interface{}) (*cos.ObjectGetTaggingResult, *cos.Response, error) {
+					return &cos.ObjectGetTaggingResult{
+						TagSet: []cos.ObjectTaggingTag{{Key: "tag1", Value: "test1"}},
+					}, &cos.Response{}, nil
+				})
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "PutTagging",
+				func(ctx context.Context, name string, opt *cos.ObjectPutTaggingOptions, id ...string) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "delete", "cos://test-alias/obj", "tag1#test1", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("GetBucketType error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("test head error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "get", "cos://test-alias/obj", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("NewClient error", func() {
+			patches = ApplyFunc(util.NewClient, func(cfg *util.Config, param *util.Param, bucketName string) (*cos.Client, error) {
+				return nil, fmt.Errorf("test NewClient error")
 			})
-			Convey("put", func() {
-				Convey("not enough arguments", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "put",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("clinet err", func() {
-					clearCmd()
-					cmd := rootCmd
-					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-						return nil, fmt.Errorf("test put client error")
-					})
-					defer patches.Reset()
-					args := []string{"object-tagging", "--method", "put",
-						cosFileName, "testval"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("invalid tag", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "put",
-						cosFileName, "testval"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("PutTagging failed", func() {
-					clearCmd()
-					var c *cos.ObjectService
-					patches := ApplyMethodFunc(reflect.TypeOf(c), "PutTagging", func(ctx context.Context, name string, opt *cos.ObjectPutTaggingOptions, id ...string) (*cos.Response, error) {
-						return nil, fmt.Errorf("PutTagging failed")
-					})
-					defer patches.Reset()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "put",
-						cosFileName, "qcs:1#testval"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-			})
-			Convey("add", func() {
-				Convey("not enough arguments", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "add",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("clinet err", func() {
-					clearCmd()
-					cmd := rootCmd
-					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-						return nil, fmt.Errorf("test add client error")
-					})
-					defer patches.Reset()
-					args := []string{"object-tagging", "--method", "add",
-						cosFileName, "testval"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("invalid tag", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "add",
-						cosFileName, "testval"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("AddTagging failed", func() {
-					clearCmd()
-					var c *cos.ObjectService
-					patches := ApplyMethodFunc(reflect.TypeOf(c), "PutTagging", func(ctx context.Context, name string, opt *cos.ObjectPutTaggingOptions, id ...string) (*cos.Response, error) {
-						return nil, fmt.Errorf("PutTagging failed")
-					})
-					defer patches.Reset()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "add",
-						cosFileName, "qcs:1#testval"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-			})
-			Convey("get", func() {
-				Convey("not enough arguments", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "get"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("clinet err", func() {
-					clearCmd()
-					cmd := rootCmd
-					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-						return nil, fmt.Errorf("test get client error")
-					})
-					defer patches.Reset()
-					args := []string{"object-tagging", "--method", "get",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("get tag error", func() {
-					clearCmd()
-					var c *cos.ObjectService
-					patches := ApplyMethodFunc(reflect.TypeOf(c), "GetTagging", func(ctx context.Context, name string, opt ...interface{}) (*cos.ObjectGetTaggingResult, *cos.Response, error) {
-						return nil, nil, fmt.Errorf("GetTagging failed")
-					})
-					defer patches.Reset()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "get",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-			})
-			Convey("delete", func() {
-				Convey("not enough arguments", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "delete"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("delete bucket not exist", func() {
-					clearCmd()
-					var c *cos.ObjectService
-					patches := ApplyMethodFunc(reflect.TypeOf(c), "DeleteTagging", func(ctx context.Context, name string, opt ...interface{}) (*cos.Response, error) {
-						return nil, fmt.Errorf("test delete tagging error")
-					})
-					defer patches.Reset()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "delete",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("clinet err", func() {
-					clearCmd()
-					cmd := rootCmd
-					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-						return nil, fmt.Errorf("test delete client error")
-					})
-					defer patches.Reset()
-					args := []string{"object-tagging", "--method", "delete",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("DeleteTagging", func() {
-					clearCmd()
-					cmd := rootCmd
-					var c *cos.ObjectService
-					patches := ApplyMethodFunc(reflect.TypeOf(c), "DeleteTagging", func(ctx context.Context, name string, opt ...interface{}) (*cos.Response, error) {
-						return nil, fmt.Errorf("test delete tagging error")
-					})
-					defer patches.Reset()
-					args := []string{"object-tagging", "--method", "delete",
-						cosFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-			})
-			Convey("deleteDes", func() {
-				Convey("invalid tag format", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "delete",
-						cosFileName, "testkey2"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeError)
-				})
-				Convey("ObjectTagging not exist", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-tagging", "--method", "delete",
-						cosFileName, "testkey101#11"}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeError)
-				})
-			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"object-tagging", "--method", "get", "cos://test-alias/obj", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
 	})
 }

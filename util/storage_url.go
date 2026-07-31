@@ -250,7 +250,14 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 	}
 
 	if !isDir {
-		fileExist, err := CheckCosObjectExist(c, cosPath, fo.Operation.VersionId)
+		// IsExist/HEAD 请求发往下载源桶（c）。是否携带 versionId 由桶类型与是否显式指定决定。
+		// OFS 桶不接受 versionId，需与后续 Download 的处理保持一致。
+		var fileExist bool
+		if needCarryVersionId(fo.BucketType, fo.Operation.VersionId) {
+			fileExist, err = CheckCosObjectExist(c, cosPath, fo.Operation.VersionId)
+		} else {
+			fileExist, err = CheckCosObjectExist(c, cosPath)
+		}
 		if err != nil {
 			return err
 		}
@@ -321,7 +328,14 @@ func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, s
 	}
 
 	if !isDir {
-		fileExist, err := CheckCosObjectExist(srcClient, srcPath, fo.Operation.VersionId)
+		// IsExist/HEAD 请求发往源桶（srcClient）。是否携带 versionId 由源桶类型与是否显式指定决定。
+		var fileExist bool
+		var err error
+		if needCarryVersionId(fo.BucketType, fo.Operation.VersionId) {
+			fileExist, err = CheckCosObjectExist(srcClient, srcPath, fo.Operation.VersionId)
+		} else {
+			fileExist, err = CheckCosObjectExist(srcClient, srcPath)
+		}
 		if err != nil {
 			return err
 		}

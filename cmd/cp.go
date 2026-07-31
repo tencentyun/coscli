@@ -40,6 +40,7 @@ Example:
 		rateLimiting, _ := cmd.Flags().GetFloat32("rate-limiting")
 		partSize, _ := cmd.Flags().GetInt64("part-size")
 		threadNum, _ := cmd.Flags().GetInt("thread-num")
+		maxThreadNum, _ := cmd.Flags().GetInt("max-thread-num")
 		routines, _ := cmd.Flags().GetInt("routines")
 		failOutput, _ := cmd.Flags().GetBool("fail-output")
 		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
@@ -146,6 +147,7 @@ Example:
 				RateLimiting:      rateLimiting,
 				PartSize:          partSize,
 				ThreadNum:         threadNum,
+				MaxThreadNum:      maxThreadNum,
 				Routines:          routines,
 				FailOutput:        failOutput,
 				FailOutputPath:    failOutputPath,
@@ -319,6 +321,12 @@ Example:
 				return err
 			}
 
+			// 获取目标桶类型（copy 请求发往目标桶，是否可带 versionId 由目标桶决定）
+			fo.DstBucketType, err = util.GetBucketType(destClient, fo.Param, fo.Config, destBucketName)
+			if err != nil {
+				return err
+			}
+
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				destClient.Conf.EnableCRC = false
@@ -367,7 +375,8 @@ func init() {
 	cpCmd.Flags().String("storage-class", "", "Specifying a storage class")
 	cpCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
 	cpCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
-	cpCmd.Flags().Int("thread-num", 0, "Specifies the number of partition concurrent upload or download threads")
+	cpCmd.Flags().Int("thread-num", 0, "Specifies the number of partition concurrent upload or download threads. When set (>0), it overrides auto-derivation by file size and ignores --max-thread-num.")
+	cpCmd.Flags().Int("max-thread-num", 32, "Upper bound for auto-derived partition concurrency when --thread-num is 0. Has no effect if --thread-num is explicitly set.")
 	cpCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
 	cpCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
 	cpCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")

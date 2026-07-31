@@ -11,61 +11,61 @@ import (
 )
 
 func TestConfigDeleteCmd(t *testing.T) {
-	fmt.Println("TestConfigDeleteCmd")
-	// 恢复原来的 Buckets
-	clearCmd()
-	cmd := rootCmd
-	buckets := config.Buckets
-	defer func() {
-		viper.Set("cos.buckets", buckets)
-		viper.WriteConfigAs(viper.ConfigFileUsed())
-	}()
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	Convey("Test coscil config delete", t, func() {
-		Convey("fail", func() {
-			Convey("FindBucket", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.FindBucket, func(config *util.Config, bucketName string) (util.Bucket, int, error) {
-					return util.Bucket{}, 0, fmt.Errorf("test findbucket fail")
-				})
-				defer patches.Reset()
-				args := []string{"config", "delete", "-a", "testAlias"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
+	setupTestConfig()
+	defer teardownTestConfig()
+
+	Convey("Test coscli config delete", t, func() {
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
+			setupTestConfig()
+		})
+
+		Convey("delete existing bucket", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"config", "delete", "-a", "test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("FindBucket error", func() {
+			patches = ApplyFunc(util.FindBucket, func(config *util.Config, bucketName string) (util.Bucket, int, error) {
+				return util.Bucket{}, 0, fmt.Errorf("test findbucket fail")
 			})
-			Convey("FindBucket i<0", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.FindBucket, func(config *util.Config, bucketName string) (util.Bucket, int, error) {
-					return util.Bucket{}, -1, nil
-				})
-				defer patches.Reset()
-				args := []string{"config", "delete", "-a", "testAlias"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
+			cmd := rootCmd
+			cmd.SetArgs([]string{"config", "delete", "-a", "testAlias", "-c", testConfigPath})
+			e := cmd.Execute()
+			fmt.Printf(" : %v", e)
+			So(e, ShouldBeError)
+		})
+
+		Convey("FindBucket index < 0", func() {
+			patches = ApplyFunc(util.FindBucket, func(config *util.Config, bucketName string) (util.Bucket, int, error) {
+				return util.Bucket{}, -1, nil
 			})
-			Convey("viper.WriteConfigAs", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(viper.WriteConfigAs, func(string) error {
-					return fmt.Errorf("test WriteConfigAs fail")
-				})
-				defer patches.Reset()
-				patches.ApplyFunc(util.FindBucket, func(config *util.Config, bucketName string) (util.Bucket, int, error) {
-					return util.Bucket{}, 0, nil
-				})
-				args := []string{"config", "delete", "-a", "testAlias"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
+			cmd := rootCmd
+			cmd.SetArgs([]string{"config", "delete", "-a", "testAlias", "-c", testConfigPath})
+			e := cmd.Execute()
+			fmt.Printf(" : %v", e)
+			So(e, ShouldBeError)
+		})
+
+		Convey("WriteConfigAs error", func() {
+			patches = ApplyFunc(viper.WriteConfigAs, func(string) error {
+				return fmt.Errorf("test WriteConfigAs fail")
 			})
+			patches.ApplyFunc(util.FindBucket, func(config *util.Config, bucketName string) (util.Bucket, int, error) {
+				return util.Bucket{}, 0, nil
+			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"config", "delete", "-a", "testAlias", "-c", testConfigPath})
+			e := cmd.Execute()
+			fmt.Printf(" : %v", e)
+			So(e, ShouldBeError)
 		})
 	})
 }

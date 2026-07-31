@@ -2,12 +2,42 @@ package util
 
 import (
 	"fmt"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/http"
+	"net/url"
 	"time"
+
+	logger "github.com/sirupsen/logrus"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 var secretID, secretKey, secretToken string
+
+// getProxyFunc 根据配置和参数返回 Transport 所需的 Proxy 函数，优先级：
+// 命令行参数 > 配置文件 base 级别。若均为空或解析失败则返回 nil（不使用代理）。
+// 支持 http/https/socks5 等 URL 格式，如：http://user:pass@127.0.0.1:8080 、 socks5://127.0.0.1:1080。
+//
+// 注意：Go 的 url.Parse 对畸形输入相当宽容（例如 "not_a_url" 不会返回 err，
+// 而是被当作 path 解析得到 host 为空的 URL）。这种情况下若直接交给
+// http.ProxyURL 使用，运行时会反复报 "proxyconnect tcp: dial tcp :0:
+// connect: can't assign requested address"。因此这里额外校验 scheme 与 host：
+//   - 必须包含合法 scheme（http / https / socks5 等非空值）
+//   - 必须包含非空 host
+// 任一缺失视为非法配置，回退为不使用代理（同时记录 warning）。
+func getProxyFunc(config *Config, param *Param) func(*http.Request) (*url.URL, error) {
+	proxyStr := param.Proxy
+	if proxyStr == "" {
+		proxyStr = config.Base.Proxy
+	}
+	if proxyStr == "" {
+		return nil
+	}
+	proxyURL, err := url.Parse(proxyStr)
+	if err != nil || proxyURL == nil || proxyURL.Scheme == "" || proxyURL.Host == "" {
+		logger.Warningf("invalid proxy url %q (need scheme://host[:port]), falling back to no proxy", proxyStr)
+		return nil
+	}
+	return http.ProxyURL(proxyURL)
+}
 
 // NewClient 创建一个新的客户端实例，根据配置文件加载信息。
 // 参数:
@@ -56,12 +86,16 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 	}
 
 	if bucketName == "" { // 不指定 bucket，则创建用于发送 Service 请求的客户端
+		authTransport := &cos.AuthorizationTransport{
+			SecretID:     secretID,
+			SecretKey:    secretKey,
+			SessionToken: secretToken,
+		}
+		if proxyFn := getProxyFunc(config, param); proxyFn != nil {
+			authTransport.Transport = &http.Transport{Proxy: proxyFn}
+		}
 		client = cos.NewClient(GenBaseURL(config, param), &http.Client{
-			Transport: &cos.AuthorizationTransport{
-				SecretID:     secretID,
-				SecretKey:    secretKey,
-				SessionToken: secretToken,
-			},
+			Transport: authTransport,
 		})
 	} else {
 		url, err := GenURL(config, param, bucketName)
@@ -69,34 +103,60 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 			return client, err
 		}
 
+		proxyFn := getProxyFunc(config, param)
 		var httpClient *http.Client
 		// 如果使用长链接则调整连接池大小至并发数
 		if len(options) > 0 && options[0] != nil && !options[0].Operation.DisableLongLinks {
 			longLinksNums := 0
 			if options[0].Operation.LongLinksNums > 0 {
+				// 用户显式指定，完全尊重用户配置
 				longLinksNums = options[0].Operation.LongLinksNums
 			} else {
-				longLinksNums = options[0].Operation.Routines
+				// 真实并发度 ≈ Routines（文件级并发） × ThreadNum（单文件分块并发）
+				// 仅按 Routines 设置会导致分块上传时连接频繁重建
+				routines := options[0].Operation.Routines
+				if routines <= 0 {
+					routines = 1
+				}
+				threadNum := options[0].Operation.ThreadNum
+				if threadNum <= 0 {
+					// ThreadNum=0 时由 getThreadNumByPartSize 按文件大小自动推导，
+					// 上限由 --max-thread-num 控制（默认 32），这里按该上限预留连接池，
+					// 避免运行期连接不足导致长连接退化为短连接。
+					threadNum = options[0].Operation.MaxThreadNum
+					if threadNum <= 0 {
+						threadNum = defaultMaxThreadNum
+					}
+				}
+				longLinksNums = routines * threadNum
+			}
+			innerTransport := &http.Transport{
+				MaxIdleConnsPerHost: longLinksNums,
+				MaxIdleConns:        longLinksNums,
+			}
+			if proxyFn != nil {
+				innerTransport.Proxy = proxyFn
 			}
 			httpClient = &http.Client{
 				Transport: &cos.AuthorizationTransport{
 					SecretID:     secretID,
 					SecretKey:    secretKey,
 					SessionToken: secretToken,
-					Transport: &http.Transport{
-						MaxIdleConnsPerHost: longLinksNums,
-						MaxIdleConns:        longLinksNums,
-					},
+					Transport:    innerTransport,
 				},
 			}
 		} else {
 			// 若没有传递 options 或者没有设置 DisableLongLinks
+			authTransport := &cos.AuthorizationTransport{
+				SecretID:     secretID,
+				SecretKey:    secretKey,
+				SessionToken: secretToken,
+			}
+			if proxyFn != nil {
+				authTransport.Transport = &http.Transport{Proxy: proxyFn}
+			}
 			httpClient = &http.Client{
-				Transport: &cos.AuthorizationTransport{
-					SecretID:     secretID,
-					SecretKey:    secretKey,
-					SessionToken: secretToken,
-				},
+				Transport: authTransport,
 			}
 		}
 
@@ -114,17 +174,22 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		client.Conf.RetryOpt.AutoSwitchHost = true
 	}
 
-	// 服务端错误重试（默认10次，每次间隔1s）
-	if len(options) > 0 && options[0] != nil && options[0].Operation.ErrRetryNum > 0 {
+	// 服务端错误重试
+	// - 未传入 FileOperations（简单操作，如 ls 等）：使用默认 10 次，间隔 1s
+	// - 传入 FileOperations：完全尊重用户配置
+	//   · ErrRetryNum=0 表示不重试，>0 表示按配置次数重试 5xx 错误
+	//   · ErrRetryInterval 单位为秒，未指定（<=0）时默认 1s
+	// 注意：time.Duration(n) 本身是纳秒，必须显式乘以 time.Second。
+	if len(options) > 0 && options[0] != nil {
 		client.Conf.RetryOpt.Count = options[0].Operation.ErrRetryNum
 		if options[0].Operation.ErrRetryInterval > 0 {
-			client.Conf.RetryOpt.Interval = time.Duration(options[0].Operation.ErrRetryInterval)
+			client.Conf.RetryOpt.Interval = time.Duration(options[0].Operation.ErrRetryInterval) * time.Second
 		} else {
-			client.Conf.RetryOpt.Interval = time.Duration(1)
+			client.Conf.RetryOpt.Interval = 1 * time.Second
 		}
 	} else {
 		client.Conf.RetryOpt.Count = 10
-		client.Conf.RetryOpt.Interval = time.Duration(1)
+		client.Conf.RetryOpt.Interval = 1 * time.Second
 	}
 
 	// 修改 UserAgent
@@ -177,12 +242,16 @@ func CreateClient(config *Config, param *Param, bucketIDName string) (client *co
 		protocol = param.Protocol
 	}
 
+	authTransport := &cos.AuthorizationTransport{
+		SecretID:     secretID,
+		SecretKey:    secretKey,
+		SessionToken: secretToken,
+	}
+	if proxyFn := getProxyFunc(config, param); proxyFn != nil {
+		authTransport.Transport = &http.Transport{Proxy: proxyFn}
+	}
 	client = cos.NewClient(CreateURL(bucketIDName, protocol, param.Endpoint, false), &http.Client{
-		Transport: &cos.AuthorizationTransport{
-			SecretID:     secretID,
-			SecretKey:    secretKey,
-			SessionToken: secretToken,
-		},
+		Transport: authTransport,
 	})
 
 	// 切换域名开关，优先使用参数中的开关，若为空再使用配置文件中的开关
@@ -196,9 +265,9 @@ func CreateClient(config *Config, param *Param, bucketIDName string) (client *co
 		client.Conf.RetryOpt.AutoSwitchHost = true
 	}
 
-	// 错误重试
+	// 错误重试（默认 10 次，每次间隔 2 秒）
 	client.Conf.RetryOpt.Count = 10
-	client.Conf.RetryOpt.Interval = 2
+	client.Conf.RetryOpt.Interval = 2 * time.Second
 
 	// 修改 UserAgent
 	client.UserAgent = Package + "-" + Version

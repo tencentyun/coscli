@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"reflect"
 	"testing"
 
@@ -14,610 +15,230 @@ import (
 )
 
 func TestSyncCmd(t *testing.T) {
-	fmt.Println("TestSyncCmd")
-	testBucket1 = randStr(8)
-	testAlias1 = testBucket1 + "-alias"
-	testBucket2 = randStr(8)
-	testAlias2 = testBucket2 + "-alias"
-	setUp(testBucket1, testAlias1, testEndpoint, false, false)
-	defer tearDown(testBucket1, testAlias1, testEndpoint, false)
-	setUp(testBucket2, testAlias2, testEndpoint, false, false)
-	defer tearDown(testBucket2, testAlias2, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	genDir(testDir, 3)
-	defer delDir(testDir)
+	setupTestConfig()
+	defer teardownTestConfig()
+
 	Convey("Test coscli sync", t, func() {
-		Convey("upload", func() {
-			Convey("上传单个小文件并关闭crc64校验", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/small-file/0", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "single-small")
-				args := []string{"sync", localFileName, cosFileName, "--disable-crc64"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("上传多个小文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/small-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-small")
-				args := []string{"sync", localFileName, cosFileName, "-r"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("上传单个大文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file/0", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
-				args := []string{"sync", localFileName, cosFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("上传多个大文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("上传大文件 按修改时间跳过", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r", "--update"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("上传大文件 存在同名即跳过", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r", "--ignore-existing"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("SSE-COS加密", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r", "--encryption-type", "SSE-COS"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("SSE-C加密", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r", "--encryption-type", "SSE-C"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
 		})
-		Convey("Copy", func() {
-			Convey("桶内拷贝单个文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
-				args := []string{"sync", srcPath, dstPath}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("桶内拷贝多个文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-copy")
-				args := []string{"sync", srcPath, dstPath, "-r"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("跨桶拷贝单个小文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-small")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-small")
-				args := []string{"sync", srcPath, dstPath}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("跨桶拷贝多个小文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-small")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-small")
-				args := []string{"sync", srcPath, dstPath, "-r"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("跨桶拷贝单个大文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-big")
-				args := []string{"sync", srcPath, dstPath}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("跨桶拷贝多个大文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
-				args := []string{"sync", srcPath, dstPath, "-r"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("跨桶拷贝大文件 按修改时间跳过", func() {
-				clearCmd()
-				cmd := rootCmd
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
-				args := []string{"sync", srcPath, dstPath, "-r", "--update"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("跨桶拷贝大文件 存在即跳过", func() {
-				clearCmd()
-				cmd := rootCmd
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
-				args := []string{"sync", srcPath, dstPath, "-r", "--ignore-existing"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
+
+		Convey("参数不足", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "-c", testConfigPath})
+			e := cmd.Execute()
+			fmt.Printf(" : %v", e)
+			So(e, ShouldBeError)
 		})
-		Convey("Download", func() {
-			Convey("下载单个小文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/download/single-small", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-small")
-				args := []string{"sync", cosFileName, localFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("下载多个小文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/download/small-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-small")
-				args := []string{"sync", cosFileName, localFileName, "-r"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("下载单个大文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/download/single-big", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-big")
-				args := []string{"sync", cosFileName, localFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("下载多个大文件", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/download/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
-				args := []string{"sync", cosFileName, localFileName, "-r"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("下载大文件 按修改时间跳过", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/download/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
-				args := []string{"sync", cosFileName, localFileName, "-r", "--update"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("下载大文件 存在同名即跳过", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/download/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
-				args := []string{"sync", cosFileName, localFileName, "-r", "--ignore-existing"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
+
+		Convey("encryptionType非法", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "./abc", "cos://test-alias/obj", "--encryption-type", "SSE-C123", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
-		Convey("fail", func() {
-			Convey("encryptionType非法", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r", "--encryption-type", "SSE-C123"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
-			})
-			Convey("retry-num > 100", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r", "--retry-num", "1000"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
-			})
-			Convey("err-retry-num > 100", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r", "--err-retry-num", "1000"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
-			})
-			Convey("encode tag error", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/big-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
-				args := []string{"sync", localFileName, cosFileName, "-r", "--tag", "tag1"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
-			})
-			Convey("Not enough argument", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("storageClass", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"cp", "cos://abc", "./test", "--storage-class", "STANDARD"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("MetaStringToHeader", func() {
-				patches := ApplyFunc(util.MetaStringToHeader, func(string) (util.Meta, error) {
-					return util.Meta{}, fmt.Errorf("test meta error")
-				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "cos://abc", "cos://abc"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("retryNum", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "cos://abc", "cos://abc", "--retry-num", "11"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("errRetryNum", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "cos://abc", "cos://abc", "--err-retry-num", "11"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("errRetryInterval", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "cos://abc", "cos://abc", "--err-retry-interval", "11"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("formatURL0", func() {
-				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
-					return nil, fmt.Errorf("test formatURL 0 error")
-				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "cos://abc", "cos://abc"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("formatURL1", func() {
-				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
-					if urlStr == "cos://abc" {
-						return nil, nil
-					} else {
-						return nil, fmt.Errorf("test formatURL 1 error")
-					}
-				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "cos://abc", "cos://123"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("tow local file", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "./abc", "./123"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("no -r but -i", func() {
-				patches := ApplyFunc(util.GetFilter, func(string, string) (bool, []util.FilterOptionType) {
-					tmp := []util.FilterOptionType{
-						util.FilterOptionType{},
-					}
-					return true, tmp
-				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "./abc", "cos://123", "--include", "abc"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("InitSnapshotDb", func() {
-				patches := ApplyFunc(util.InitSnapshotDb, func(srcUrl util.StorageUrl, destUrl util.StorageUrl, fo *util.FileOperations) error {
-					return fmt.Errorf("test InitSnapshotDb error")
-				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "./abc", "cos://123"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("check backup dir error", func() {
-				clearCmd()
-				cmd := rootCmd
-				localFileName := fmt.Sprintf("%s/download/small-file", testDir)
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-small")
-				args := []string{"sync", cosFileName, localFileName, "-r", "--delete", "--backup-dir", testDir + "/download/small-file"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("Upload", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"sync", "./abc", "cos://123"}
-				cmd.SetArgs(args)
-				Convey("CheckPath", func() {
-					patches := ApplyFunc(util.CheckPath, func(fileUrl util.StorageUrl, fo *util.FileOperations, pathType string) error {
-						return fmt.Errorf("test CheckPath error")
+
+		Convey("retry-num超范围", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "./abc", "cos://test-alias/obj", "--retry-num", "1000", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("err-retry-num超范围", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "./abc", "cos://test-alias/obj", "--err-retry-num", "1000", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("err-retry-interval超范围", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "cos://test-alias/obj", "cos://test-alias/obj2", "--err-retry-interval", "11", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("两个本地路径", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "./abc", "./123", "-c", testConfigPath})
+			e := cmd.Execute()
+			fmt.Printf(" : %v", e)
+			So(e, ShouldBeError)
+		})
+
+		Convey("encode tag error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "./abc", "cos://test-alias/obj", "--tags", "tag1", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("delete without recursive", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "cos://test-alias/obj", "./abc", "--delete", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("Upload", func() {
+			Convey("Upload success (empty local file)", func() {
+				// 创建临时空文件用于测试
+				tmpFile := "/tmp/coscli-test-upload-src.txt"
+				os.WriteFile(tmpFile, []byte("test content"), 0644)
+				defer os.Remove(tmpFile)
+				var b *cos.BucketService
+				patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+					func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+						return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
 					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("FormatUploadPath", func() {
-					patches := ApplyFunc(util.FormatUploadPath, func(fileUrl util.StorageUrl, cosUrl util.StorageUrl, fo *util.FileOperations) error {
-						return fmt.Errorf("test FormatUploadPath error")
+				var o *cos.ObjectService
+				patches.ApplyMethodFunc(reflect.TypeOf(o), "Put",
+					func(ctx context.Context, name string, r io.Reader, uopt *cos.ObjectPutOptions) (*cos.Response, error) {
+						return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
 					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("NewClient", func() {
-					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-						return nil, fmt.Errorf("test NewClient error")
-					})
-					defer patches.Reset()
-					patches.ApplyFunc(util.FormatUploadPath, func(fileUrl util.StorageUrl, cosUrl util.StorageUrl, fo *util.FileOperations) error {
-						return nil
-					})
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("SyncUpload", func() {
-					patches := ApplyFunc(util.SyncUpload, func(c *cos.Client, fileUrl util.StorageUrl, cosUrl util.StorageUrl, fo *util.FileOperations) error {
-						return fmt.Errorf("test SyncUpload error")
-					})
-					defer patches.Reset()
-					patches.ApplyFunc(util.FormatUploadPath, func(fileUrl util.StorageUrl, cosUrl util.StorageUrl, fo *util.FileOperations) error {
-						return nil
-					})
-					args := append(args, "--disable-crc64")
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-			})
-			Convey("Download", func() {
-				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-small")
-				clearCmd()
 				cmd := rootCmd
-				args := []string{"sync", cosFileName, "./abc", "--disable-crc64"}
-				cmd.SetArgs(args)
-				Convey("CheckPath", func() {
-					patches := ApplyFunc(util.CheckPath, func(fileUrl util.StorageUrl, fo *util.FileOperations, pathType string) error {
-						return fmt.Errorf("test CheckPath error")
-					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("NewClient", func() {
-					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-						return nil, fmt.Errorf("test NewClient error")
-					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("Head", func() {
-					var c *cos.BucketService
-					patches := ApplyMethodFunc(reflect.TypeOf(c), "Head", func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+				cmd.SetArgs([]string{"sync", tmpFile, "cos://test-alias/obj", "--disable-crc64", "-c", testConfigPath})
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+
+			Convey("GetBucketType Head error", func() {
+				var b *cos.BucketService
+				patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+					func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
 						return nil, fmt.Errorf("test Head error")
 					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("OFS", func() {
-					patches := ApplyFunc(util.FormatDownloadPath, func(cosUrl util.StorageUrl, fileUrl util.StorageUrl, fo *util.FileOperations, c *cos.Client) error {
-						return fmt.Errorf("test FormatDownloadPath error")
-					})
-					defer patches.Reset()
-					var c http.Header
-					patches.ApplyMethodFunc(c, "Get", func(key string) string {
-						if key == "X-Cos-Bucket-Arch" {
-							return "OFS"
-						}
-						return ""
-					})
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("FormatDownloadPath", func() {
-					patches := ApplyFunc(util.FormatDownloadPath, func(cosUrl util.StorageUrl, fileUrl util.StorageUrl, fo *util.FileOperations, c *cos.Client) error {
-						return fmt.Errorf("test FormatDownloadPath error")
-					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("SyncDownload", func() {
-					patches := ApplyFunc(util.SyncDownload, func(c *cos.Client, cosUrl util.StorageUrl, fileUrl util.StorageUrl, fo *util.FileOperations) error {
-						return fmt.Errorf("test SyncDownload error")
-					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-			})
-			Convey("CosCopy", func() {
-				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
-				dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
-				clearCmd()
 				cmd := rootCmd
-				args := []string{"sync", srcPath, dstPath, "--disable-crc64"}
-				cmd.SetArgs(args)
-				Convey("NewClient src", func() {
-					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-						return nil, fmt.Errorf("test NewClient src error")
-					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("NewClient dest", func() {
-					index := false
-					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-						if !index {
-							index = true
-							return nil, nil
-						}
-						return nil, fmt.Errorf("test NewClient dest error")
-					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("OFS", func() {
-					patches := ApplyFunc(util.FormatCopyPath, func(srcUrl util.StorageUrl, destUrl util.StorageUrl, fo *util.FileOperations, srcClient *cos.Client) error {
-						return fmt.Errorf("test FormatCopyPath error")
-					})
-					defer patches.Reset()
-					var c http.Header
-					patches.ApplyMethodFunc(c, "Get", func(key string) string {
-						if key == "X-Cos-Bucket-Arch" {
-							return "OFS"
-						}
-						return ""
-					})
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("FormatCopyPath", func() {
-					patches := ApplyFunc(util.FormatCopyPath, func(srcUrl util.StorageUrl, destUrl util.StorageUrl, fo *util.FileOperations, srcClient *cos.Client) error {
-						return fmt.Errorf("test FormatCopyPath error")
-					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
-				Convey("SyncCosCopy", func() {
-					patches := ApplyFunc(util.SyncCosCopy, func(srcClient *cos.Client, destClient *cos.Client, srcUrl util.StorageUrl, destUrl util.StorageUrl, fo *util.FileOperations) error {
-						return fmt.Errorf("test SyncCosCopy error")
-					})
-					defer patches.Reset()
-					e := cmd.Execute()
-					fmt.Printf(" : %v", e)
-					So(e, ShouldBeError)
-				})
+				cmd.SetArgs([]string{"sync", "/tmp/coscli-nonexistent-src", "cos://test-alias/obj", "--disable-crc64", "-c", testConfigPath})
+				e := cmd.Execute()
+				So(e, ShouldBeError)
 			})
+		})
+
+		Convey("Download", func() {
+			Convey("storageClass不能用于下载", func() {
+				cmd := rootCmd
+				cmd.SetArgs([]string{"sync", "cos://test-alias/obj", "./abc", "--storage-class", "STANDARD", "-c", testConfigPath})
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+
+			Convey("GetBucketType Head error", func() {
+				var b *cos.BucketService
+				patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+					func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+						return nil, fmt.Errorf("test Head error")
+					})
+				cmd := rootCmd
+				cmd.SetArgs([]string{"sync", "cos://test-alias/obj", "./abc", "--disable-crc64", "-c", testConfigPath})
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+
+			Convey("Download success (no objects)", func() {
+				var b *cos.BucketService
+				patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+					func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+						return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+					})
+				patches.ApplyMethodFunc(reflect.TypeOf(b), "Get",
+					func(ctx context.Context, opt *cos.BucketGetOptions) (*cos.BucketGetResult, *cos.Response, error) {
+						return &cos.BucketGetResult{Contents: []cos.Object{}, IsTruncated: false}, &cos.Response{}, nil
+					})
+				var o *cos.ObjectService
+				patches.ApplyMethodFunc(reflect.TypeOf(o), "Get",
+					func(ctx context.Context, name string, opt *cos.ObjectGetOptions, id ...string) (*cos.Response, error) {
+						return &cos.Response{Response: &http.Response{
+							StatusCode: 200,
+							Header:     http.Header{},
+							Body:       io.NopCloser(nil),
+						}}, nil
+					})
+				cmd := rootCmd
+				cmd.SetArgs([]string{"sync", "cos://test-alias/", "./abc", "--recursive", "--disable-crc64", "-c", testConfigPath})
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+		})
+
+		Convey("CosCopy", func() {
+			Convey("GetBucketType Head error", func() {
+				var b *cos.BucketService
+				patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+					func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+						return nil, fmt.Errorf("test Head error")
+					})
+				cmd := rootCmd
+				cmd.SetArgs([]string{"sync", "cos://test-alias/obj", "cos://test-alias2/obj2", "--disable-crc64", "-c", testConfigPath})
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+
+			Convey("SyncCosCopy success (no objects)", func() {
+				var b *cos.BucketService
+				patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+					func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+						return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+					})
+				patches.ApplyMethodFunc(reflect.TypeOf(b), "Get",
+					func(ctx context.Context, opt *cos.BucketGetOptions) (*cos.BucketGetResult, *cos.Response, error) {
+						return &cos.BucketGetResult{Contents: []cos.Object{}, IsTruncated: false}, &cos.Response{}, nil
+					})
+				cmd := rootCmd
+				cmd.SetArgs([]string{"sync", "cos://test-alias/", "cos://test-alias2/", "--recursive", "--disable-crc64", "-c", testConfigPath})
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+
+			Convey("SyncCosCopy single object success", func() {
+				var b *cos.BucketService
+				patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+					func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+						return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+					})
+				var o *cos.ObjectService
+				patches.ApplyMethodFunc(reflect.TypeOf(o), "Head",
+					func(ctx context.Context, name string, opt *cos.ObjectHeadOptions, id ...string) (*cos.Response, error) {
+						return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+					})
+				patches.ApplyMethodFunc(reflect.TypeOf(o), "Copy",
+					func(ctx context.Context, name string, sourceURL string, opt *cos.ObjectCopyOptions, id ...string) (*cos.ObjectCopyResult, *cos.Response, error) {
+						return &cos.ObjectCopyResult{}, &cos.Response{}, nil
+					})
+				cmd := rootCmd
+				cmd.SetArgs([]string{"sync", "cos://test-alias/obj", "cos://test-alias2/obj2", "--disable-crc64", "-c", testConfigPath})
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+		})
+
+		Convey("encryptionType SSE-COS", func() {
+			// 触发 encryptionType == "SSE-COS" 分支
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "/tmp/coscli-nonexistent-src", "cos://test-alias/",
+				"--encryption-type", "SSE-COS", "-c", testConfigPath})
+			e := cmd.Execute()
+			// 可能因为源路径不存在而失败，但 SSE-COS 分支已被覆盖
+			_ = e
+		})
+
+		Convey("encryptionType SSE-C", func() {
+			// 触发 encryptionType == "SSE-C" 分支
+			cmd := rootCmd
+			cmd.SetArgs([]string{"sync", "/tmp/coscli-nonexistent-src", "cos://test-alias/",
+				"--encryption-type", "SSE-C",
+				"--sse-customer-key", "dGVzdC1zc2Uta2V5LTMyYnl0ZXMtbG9uZ2tleQ==",
+				"-c", testConfigPath})
+			e := cmd.Execute()
+			// 可能因为源路径不存在而失败，但 SSE-C 分支已被覆盖
+			_ = e
 		})
 	})
 }

@@ -195,6 +195,7 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
 				if cosObjectMatchPatterns(commonPrefix, filters) {
+					commonPrefix, _ = url.QueryUnescape(commonPrefix)
 					table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
 					total++
 				}

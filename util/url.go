@@ -60,17 +60,22 @@ func CreateURL(idName string, protocol string, endpoint string, customized bool)
 
 // GenBaseURL 根据配置文件生成ServiceURL
 func GenBaseURL(config *Config, param *Param) *cos.BaseURL {
-	if param.Endpoint == "" {
-		return nil
-	}
-	endpoint := param.Endpoint
-
 	protocol := "https"
 	if config.Base.Protocol != "" {
 		protocol = config.Base.Protocol
 	}
 	if param.Protocol != "" {
 		protocol = param.Protocol
+	}
+
+	// service 域名优先级：命令行 --endpoint > 配置文件 base.servicedomain > 默认 service 域名。
+	// 任意情况下都显式构造 ServiceURL，不返回 nil，避免 SDK 回退到写死的 http://service.cos.myqcloud.com。
+	endpoint := CosServiceDomain
+	if config.Base.ServiceDomain != "" {
+		endpoint = config.Base.ServiceDomain
+	}
+	if param.Endpoint != "" {
+		endpoint = param.Endpoint
 	}
 
 	return CreateBaseURL(protocol, endpoint)
@@ -114,7 +119,11 @@ func GenURL(config *Config, param *Param, bucketName string) (url *cos.BaseURL, 
 		protocol = param.Protocol
 	}
 
+	// 优先使用命令行参数 --customized，若未指定则回退到配置文件中桶的 customized 字段
 	customized := param.Customized
+	if !customized {
+		customized = bucket.Customized
+	}
 
 	return CreateURL(idName, protocol, endpoint, customized), nil
 }

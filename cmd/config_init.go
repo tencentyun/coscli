@@ -81,6 +81,9 @@ func initConfigFile(cfgFlag bool) error {
 	}
 	config.Base.Protocol = "https"
 
+	fmt.Println("Input the default service domain for listing buckets (ServiceDomain)? (Input nothing will use the default service.cos.myqcloud.com):")
+	_, _ = fmt.Scanf("%s\n", &config.Base.ServiceDomain)
+
 	fmt.Println("Input Your Bucket's Name:")
 	fmt.Println("Format: <bucketname>-<appid>，Example: example-1234567890")
 	_, _ = fmt.Scanf("%s\n", &bucket.Name)
@@ -92,6 +95,10 @@ func initConfigFile(cfgFlag bool) error {
 	if bucket.Alias == "" {
 		bucket.Alias = bucket.Name
 	}
+	var customizedStr string
+	fmt.Println("Use customized endpoint for this bucket? (true/false, default: false):")
+	_, _ = fmt.Scanf("%s\n", &customizedStr)
+	bucket.Customized = customizedStr == "true"
 
 	config.Buckets = append(config.Buckets, bucket)
 	fmt.Println("You have configured the bucket:")

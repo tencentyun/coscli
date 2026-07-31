@@ -26,9 +26,13 @@ Example:
 		mode, _ := cmd.Flags().GetString("mode")
 		failOutput, _ := cmd.Flags().GetBool("fail-output")
 		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+		routines, _ := cmd.Flags().GetInt("routines")
 
 		if days < 1 || days > 365 {
 			return fmt.Errorf("Flag --days should in range 1~365")
+		}
+		if routines < 1 || routines > 10000 {
+			return fmt.Errorf("Flag --routines should in range 1~10000")
 		}
 
 		_, filters := util.GetFilter(include, exclude)
@@ -41,6 +45,7 @@ Example:
 				FailOutputPath: failOutputPath,
 				Days:           days,
 				RestoreMode:    mode,
+				Routines:       routines,
 			},
 			Config:    &config,
 			Param:     &param,
@@ -75,7 +80,14 @@ Example:
 			}
 			err = util.RestoreObjects(c, cosUrl, fo, bucketType)
 		} else {
-			_, err = util.TryRestoreObject(c, bucketName, cosUrl.(*util.CosUrl).Object, days, mode)
+			object := cosUrl.(*util.CosUrl).Object
+			resp, restoreErr := util.TryRestoreObject(c, bucketName, object, days, mode)
+			if restoreErr != nil && !(resp != nil && resp.StatusCode == 409) {
+				err = restoreErr
+			} else {
+				// 409 表示对象已在回热中，视为提交成功
+				fmt.Printf("Restore cos://%s/%s submitted.\n", bucketName, object)
+			}
 		}
 		return err
 	},
@@ -91,4 +103,5 @@ func init() {
 	restoreCmd.Flags().StringP("mode", "m", "Standard", "Specifies the mode for fetching temporary files")
 	restoreCmd.Flags().Bool("fail-output", true, "This option determines whether error output for failed file restore is enabled. If enabled, any error messages for failed file reheats will be recorded in a file within the specified directory (if not specified, the default directory is coscli_output). If disabled, only the number of error files will be output to the console.")
 	restoreCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the error output folder where error messages for file restore failures will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
+	restoreCmd.Flags().Int("routines", 3, "Specifies the number of concurrent restore tasks, range 1~10000")
 }

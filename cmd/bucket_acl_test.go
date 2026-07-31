@@ -2,91 +2,110 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
+	"reflect"
+	"testing"
+
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"reflect"
-	"testing"
+
+	"coscli/util"
 )
 
 func TestBucketAclCmd(t *testing.T) {
-	fmt.Println("TestBucketAclCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	genDir(testDir, 3)
-	defer delDir(testDir)
+	setupTestConfig()
+	defer teardownTestConfig()
 
 	Convey("test coscli bucket_acl", t, func() {
-		Convey("success", func() {
-			Convey("put", func() {
-				clearCmd()
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "PutTagging", func(ctx context.Context, opt *cos.BucketPutACLOptions) (*cos.Response, error) {
-					return nil, nil
-				})
-				defer patches.Reset()
-				cmd := rootCmd
-				args := []string{"bucket-acl", "--method", "put",
-					fmt.Sprintf("cos://%s", testAlias), "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("get", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-acl", "--method", "get",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
 		})
-		Convey("fail", func() {
-			Convey("clinet err", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test put client error")
+
+		Convey("cos path error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-acl", "--method", "put",
+				"cos:/test-alias", "--grant-read", `id="100000000003",id="100000000002"`, "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("put success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PutACL",
+				func(ctx context.Context, opt *cos.BucketPutACLOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
 				})
-				defer patches.Reset()
-				args := []string{"bucket-acl", "--method", "put",
-					fmt.Sprintf("cos://%s", testAlias), "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("cos path error", func() {
-				clearCmd()
-				cmd := rootCmd
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-acl", "--method", "put",
+				"cos://test-alias", "--grant-read", `id="100000000003",id="100000000002"`, "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
 
-				args := []string{"bucket-acl", "--method", "put",
-					fmt.Sprintf("cos:/%s", testAlias), "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("invalid method", func() {
-				clearCmd()
-				cmd := rootCmd
+		Convey("get success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetACL",
+				func(ctx context.Context) (*cos.BucketGetACLResult, *cos.Response, error) {
+					return &cos.BucketGetACLResult{}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-acl", "--method", "get", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
 
-				args := []string{"bucket-acl", "--method", "add",
-					fmt.Sprintf("cos://%s", testAlias), "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
+		Convey("invalid method", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PutACL",
+				func(ctx context.Context, opt *cos.BucketPutACLOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-acl", "--method", "add",
+				"cos://test-alias", "--grant-read", `id="100000000003",id="100000000002"`, "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("put acl error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "PutACL",
+				func(ctx context.Context, opt *cos.BucketPutACLOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("test put acl error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-acl", "--method", "put",
+				"cos://test-alias", "--grant-read", `id="100000000003"`, "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("get acl error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetACL",
+				func(ctx context.Context) (*cos.BucketGetACLResult, *cos.Response, error) {
+					return nil, nil, fmt.Errorf("test get acl error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-acl", "--method", "get", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("NewClient error", func() {
+			patches = ApplyFunc(util.NewClient, func(cfg *util.Config, param *util.Param, bucketName string) (*cos.Client, error) {
+				return nil, fmt.Errorf("test NewClient error")
 			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"bucket-acl", "--method", "get", "cos://test-alias", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
 	})
 }

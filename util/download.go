@@ -86,7 +86,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 
 func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
-	chError := make(chan error, fo.Operation.Routines)
+	chError := make(chan error, fo.Operation.Routines*10)
 	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
@@ -175,6 +175,13 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 			if err == nil {
 				break // Download succeeded, break the loop
 			} else {
+				// SDK 已对 5xx 错误做过 HTTP 级重试（默认 10 次），
+				// 此处应用层不再叠加重试，直接放弃并在日志中标注。
+				if isSDKHandledError(err) {
+					processMsg += fmt.Sprintf("[%s] %s skip coscli-retry (SDK already retried for 5xx error)\n", time.Now().Format("2006-01-02 15:04:05"), msg)
+					break
+				}
+
 				if fo.Operation.ErrRetryInterval == 0 {
 					// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
 					sleepTime = time.Duration(rand.Intn(10)+1) * time.Second
@@ -310,7 +317,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	threadNum := fo.Operation.ThreadNum
 	if threadNum == 0 {
 		// 若未设置文件分块并发数,需要根据文件大小和分块大小计算默认分块并发数
-		threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize)
+		threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize, fo.Operation.RateLimiting, fo.Operation.MaxThreadNum)
 		if err != nil {
 			rErr = err
 			return
@@ -411,7 +418,7 @@ func DownloadWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonIn
 
 func batchDownloadFilesWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonInfoType, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
-	chError := make(chan error, fo.Operation.Routines)
+	chError := make(chan error, fo.Operation.Routines*10)
 	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
