@@ -136,6 +136,67 @@ func TestTryGetObjectVersions(t *testing.T) {
 	})
 }
 
+func TestTryGetObjects(t *testing.T) {
+	// Bucket.Get 已在 TestMain 中全局打桩，通过 mockBucketGetFunc 控制行为
+
+	t.Run("5xx 错误不叠加应用层重试，仅调用一次即返回错误", func(t *testing.T) {
+		// 复现 bug：list 阶段遇到 5xx 时，SDK 层已重试过，
+		// 应用层 tryGetObjects 不应再叠加重试，否则会长时间/无限重试导致进程 hang。
+		callCount := 0
+		mockBucketGetFunc = func(ctx context.Context, opt *cos.BucketGetOptions) (*cos.BucketGetResult, *cos.Response, error) {
+			callCount++
+			return nil, &cos.Response{Response: &http.Response{StatusCode: 500}},
+				&cos.ErrorResponse{Response: &http.Response{StatusCode: 500}, Code: "InternalError"}
+		}
+		opt := &cos.BucketGetOptions{Prefix: "test/"}
+		_, err := tryGetObjects(newTestClient(), opt)
+		if err == nil {
+			t.Error("期望返回错误，但得到 nil")
+		}
+		if callCount != 1 {
+			t.Errorf("期望 5xx 时只调用一次 Bucket.Get（不叠加重试），实际调用 %d 次", callCount)
+		}
+		mockBucketGetFunc = nil
+	})
+
+	t.Run("503 错误同样不叠加应用层重试", func(t *testing.T) {
+		callCount := 0
+		mockBucketGetFunc = func(ctx context.Context, opt *cos.BucketGetOptions) (*cos.BucketGetResult, *cos.Response, error) {
+			callCount++
+			return nil, &cos.Response{Response: &http.Response{StatusCode: 503}},
+				&cos.ErrorResponse{Response: &http.Response{StatusCode: 503}}
+		}
+		opt := &cos.BucketGetOptions{Prefix: "test/"}
+		_, err := tryGetObjects(newTestClient(), opt)
+		if err == nil {
+			t.Error("期望返回错误，但得到 nil")
+		}
+		if callCount != 1 {
+			t.Errorf("期望 503 时只调用一次 Bucket.Get，实际调用 %d 次", callCount)
+		}
+		mockBucketGetFunc = nil
+	})
+
+	t.Run("成功返回对象列表", func(t *testing.T) {
+		mockBucketGetFunc = func(ctx context.Context, opt *cos.BucketGetOptions) (*cos.BucketGetResult, *cos.Response, error) {
+			return &cos.BucketGetResult{
+				Contents: []cos.Object{
+					{Key: "test/file.txt"},
+				},
+			}, &cos.Response{Response: &http.Response{StatusCode: 200}}, nil
+		}
+		opt := &cos.BucketGetOptions{Prefix: "test/"}
+		res, err := tryGetObjects(newTestClient(), opt)
+		if err != nil {
+			t.Fatalf("期望无错误，但得到: %v", err)
+		}
+		if len(res.Contents) != 1 {
+			t.Errorf("期望 1 个对象，实际 %d", len(res.Contents))
+		}
+		mockBucketGetFunc = nil
+	})
+}
+
 func TestGetBucketsList(t *testing.T) {
 	// Service.Get 已在 TestMain 中全局打桩，通过 mockServiceGetFunc 控制行为
 
