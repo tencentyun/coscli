@@ -64,24 +64,29 @@ func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []Up
 	return res
 }
 
-// get objects限频重试(最多重试10次，每次重试间隔1-10s随机)
+// tryGetObjects 拉取对象列表。
+// 5xx 错误在 SDK 层（RetryOpt）已做过 HTTP 级重试，这里不再叠加应用层重试，
+// 直接返回错误交由上层收尾退出，避免 list 阶段陷入长时间/无限重试导致进程 hang。
+// 仅对非 5xx 的瞬时错误（如网络抖动）做有限次数（最多 10 次，间隔 1~10s 随机）的应用层重试。
 func tryGetObjects(c *cos.Client, opt *cos.BucketGetOptions) (*cos.BucketGetResult, error) {
+	var res *cos.BucketGetResult
+	var err error
 	for i := 0; i <= 10; i++ {
-		res, _, err := c.Bucket.Get(context.Background(), opt)
-		if err != nil {
-			if i == 10 {
-				return res, err
-			} else {
-				//fmt.Println("Error 503: Service Unavailable. Retrying...")
-				waitTime := time.Duration(rand.Intn(10)+1) * time.Second
-				time.Sleep(waitTime)
-				continue
-			}
-		} else {
+		res, _, err = c.Bucket.Get(context.Background(), opt)
+		if err == nil {
+			return res, nil
+		}
+		// SDK 已对 5xx 错误做过重试，应用层不再叠加重试，直接返回错误。
+		if isSDKHandledError(err) {
 			return res, err
 		}
+		if i == 10 {
+			return res, err
+		}
+		waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+		time.Sleep(waitTime)
 	}
-	return nil, fmt.Errorf("Retry limit exceeded")
+	return res, err
 }
 
 func tryGetObjectVersions(c *cos.Client, opt *cos.BucketGetObjectVersionsOptions) (*cos.BucketGetObjectVersionsResult, error) {
