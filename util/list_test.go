@@ -13,8 +13,11 @@ import (
 // （Service.Get 已在 TestMain 中全局打桩）
 var mockServiceGetFunc func(ctx context.Context, opt *cos.ServiceGetOptions) (*cos.ServiceGetResult, *cos.Response, error)
 
+// TestUrlDecodeCosPattern 验证 UrlDecodeCosPattern 对对象 Key 的 URL 解码：
+// 覆盖已编码路径、普通字符串、中文编码以及空列表等场景。
 func TestUrlDecodeCosPattern(t *testing.T) {
 	t.Run("URL 解码对象 Key", func(t *testing.T) {
+		// 混合编码路径、普通字符串与中文编码，逐项校验解码结果
 		objects := []cos.Object{
 			{Key: "path%2Fto%2Ffile.txt"},
 			{Key: "normal-key.txt"},
@@ -36,6 +39,7 @@ func TestUrlDecodeCosPattern(t *testing.T) {
 	})
 
 	t.Run("空列表返回空列表", func(t *testing.T) {
+		// 边界场景：输入为空切片时应返回空切片而非 nil 报错
 		result := UrlDecodeCosPattern([]cos.Object{})
 		if len(result) != 0 {
 			t.Errorf("期望空列表，实际 %d 个", len(result))
@@ -43,6 +47,8 @@ func TestUrlDecodeCosPattern(t *testing.T) {
 	})
 }
 
+// TestMatchCosPattern 验证 MatchCosPattern 的正则匹配：
+// include=true 时保留命中项，include=false 时保留未命中项，以及无匹配返回空列表。
 func TestMatchCosPattern(t *testing.T) {
 	objects := []cos.Object{
 		{Key: "images/photo.jpg"},
@@ -52,6 +58,7 @@ func TestMatchCosPattern(t *testing.T) {
 	}
 
 	t.Run("include=true 匹配 jpg 文件", func(t *testing.T) {
+		// include=true：仅保留正则命中的对象
 		result := MatchCosPattern(objects, `\.jpg$`, true)
 		if len(result) != 1 {
 			t.Fatalf("期望 1 个匹配，实际 %d", len(result))
@@ -62,6 +69,7 @@ func TestMatchCosPattern(t *testing.T) {
 	})
 
 	t.Run("include=false 排除 images 目录", func(t *testing.T) {
+		// include=false：反向过滤，保留未命中正则的对象
 		result := MatchCosPattern(objects, `^images/`, false)
 		if len(result) != 2 {
 			t.Fatalf("期望 2 个结果，实际 %d", len(result))
@@ -76,6 +84,8 @@ func TestMatchCosPattern(t *testing.T) {
 	})
 }
 
+// TestMatchUploadPattern 验证 MatchUploadPattern 对分块上传任务的正则匹配，
+// 同样覆盖 include 为 true / false 两种过滤语义。
 func TestMatchUploadPattern(t *testing.T) {
 	uploads := []UploadInfo{
 		{Key: "video/movie.mp4"},
@@ -84,6 +94,7 @@ func TestMatchUploadPattern(t *testing.T) {
 	}
 
 	t.Run("include=true 匹配 mp4 文件", func(t *testing.T) {
+		// 两个 .mp4 均应命中
 		result := MatchUploadPattern(uploads, `\.mp4$`, true)
 		if len(result) != 2 {
 			t.Fatalf("期望 2 个匹配，实际 %d", len(result))
@@ -91,6 +102,7 @@ func TestMatchUploadPattern(t *testing.T) {
 	})
 
 	t.Run("include=false 排除 video 目录", func(t *testing.T) {
+		// 反向过滤后仅剩 docs 目录下的 pdf
 		result := MatchUploadPattern(uploads, `^video/`, false)
 		if len(result) != 1 {
 			t.Fatalf("期望 1 个结果，实际 %d", len(result))
@@ -101,6 +113,8 @@ func TestMatchUploadPattern(t *testing.T) {
 	})
 }
 
+// TestTryGetObjectVersions 验证 tryGetObjectVersions 的错误处理：
+// 非 503 错误直接返回，正常场景返回版本列表。
 func TestTryGetObjectVersions(t *testing.T) {
 	// Bucket.GetObjectVersions 已在 TestMain 中全局打桩，通过 mockBucketGetObjectVersionsFunc 控制行为
 
@@ -136,6 +150,9 @@ func TestTryGetObjectVersions(t *testing.T) {
 	})
 }
 
+// TestTryGetObjects 验证 tryGetObjects 的重试语义：
+// 5xx（含 503）错误由 SDK 层已重试，应用层不再叠加，仅调用一次即返回错误；
+// 正常场景返回对象列表。这是 restore list 阶段 hang 死 bug 的回归测试。
 func TestTryGetObjects(t *testing.T) {
 	// Bucket.Get 已在 TestMain 中全局打桩，通过 mockBucketGetFunc 控制行为
 
@@ -197,10 +214,13 @@ func TestTryGetObjects(t *testing.T) {
 	})
 }
 
+// TestGetBucketsList 验证 GetBucketsList 对 Service.Get 结果的封装：
+// 调用失败返回错误，成功返回桶列表，以及分页（isTruncated=true）时正确透传 nextMarker。
 func TestGetBucketsList(t *testing.T) {
 	// Service.Get 已在 TestMain 中全局打桩，通过 mockServiceGetFunc 控制行为
 
 	t.Run("Service.Get 调用失败时返回错误", func(t *testing.T) {
+		// 底层 Service.Get 返回错误时，GetBucketsList 应原样向上冒泡
 		mockServiceGetFunc = func(ctx context.Context, opt *cos.ServiceGetOptions) (*cos.ServiceGetResult, *cos.Response, error) {
 			return nil, nil, fmt.Errorf("mock service get error")
 		}
@@ -212,6 +232,7 @@ func TestGetBucketsList(t *testing.T) {
 	})
 
 	t.Run("成功返回桶列表", func(t *testing.T) {
+		// 正常场景：返回两个桶且未分页
 		mockServiceGetFunc = func(ctx context.Context, opt *cos.ServiceGetOptions) (*cos.ServiceGetResult, *cos.Response, error) {
 			return &cos.ServiceGetResult{
 				Buckets: []cos.Bucket{
@@ -239,6 +260,7 @@ func TestGetBucketsList(t *testing.T) {
 	})
 
 	t.Run("返回分页结果（isTruncated=true）", func(t *testing.T) {
+		// 分页场景：isTruncated=true 且回传 nextMarker 供下一页续拉
 		mockServiceGetFunc = func(ctx context.Context, opt *cos.ServiceGetOptions) (*cos.ServiceGetResult, *cos.Response, error) {
 			return &cos.ServiceGetResult{
 				Buckets: []cos.Bucket{
