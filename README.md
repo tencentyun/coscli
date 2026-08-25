@@ -6,23 +6,23 @@
 
 ## 下载链接
 
-当前版本：v1.0.8
+当前版本：v1.0.9
 
-[Linux-386](https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-linux-386)
+[Linux-386](https://github.com/tencentyun/coscli/releases/download/v1.0.9/coscli-v1.0.9-linux-386)
 
-[Linux-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-linux-amd64)
+[Linux-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.9/coscli-v1.0.9-linux-amd64)
 
-[Linux-arm](https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-linux-arm)
+[Linux-arm](https://github.com/tencentyun/coscli/releases/download/v1.0.9/coscli-v1.0.9-linux-arm)
 
-[Linux-arm64](https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-linux-arm64)
+[Linux-arm64](https://github.com/tencentyun/coscli/releases/download/v1.0.9/coscli-v1.0.9-linux-arm64)
 
-[Mac-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-darwin-amd64)
+[Mac-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.9/coscli-v1.0.9-darwin-amd64)
 
-[Mac-arm64](https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-darwin-arm64)
+[Mac-arm64](https://github.com/tencentyun/coscli/releases/download/v1.0.9/coscli-v1.0.9-darwin-arm64)
 
-[Windows-386](https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-windows-386.exe)
+[Windows-386](https://github.com/tencentyun/coscli/releases/download/v1.0.9/coscli-v1.0.9-windows-386.exe)
 
-[Windows-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-windows-amd64.exe)
+[Windows-amd64](https://github.com/tencentyun/coscli/releases/download/v1.0.9/coscli-v1.0.9-windows-amd64.exe)
 
 ## 使用方法
 
