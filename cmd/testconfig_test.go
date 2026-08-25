@@ -1,312 +1,81 @@
 package cmd
 
 import (
-	"fmt"
-	"io"
-	"math/rand"
 	"os"
-	"time"
 
-	"github.com/mitchellh/go-homedir"
 	logger "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
-var testDir = "test-tmp-dir"
-
-var appID string
-
-var testBucket string
-var testAlias string
-var testBucket1 string
-var testAlias1 string
-var testBucket2 string
-var testAlias2 string
 var testEndpoint = "cos.ap-guangzhou.myqcloud.com"
 
-var testOfsBucket string
-var testOfsBucketAlias string
+const testConfigPath = "/tmp/coscli-test.yaml"
 
-var testVersionBucket string
-var testVersionBucketAlias string
-
-func init() {
-	// 读取配置文件
-	getConfig()
-	// 初始化 app-id
-	name := config.Buckets[0].Name
-	if len(name) > 10 {
-		appID = name[len(name)-10:]
-	} else {
-		logger.Errorln("请先配置一个桶")
+// setupTestConfig 创建临时测试配置文件，并加载到全局 config
+func setupTestConfig() {
+	content := `cos:
+  base:
+    secretid: "test-secret-id"
+    secretkey: "test-secret-key"
+    sessiontoken: ""
+    protocol: "https"
+    disableEncryption: "true"
+  buckets:
+    - name: "test-bucket-1234567890"
+      alias: "test-alias"
+      region: "ap-guangzhou"
+      endpoint: "cos.ap-guangzhou.myqcloud.com"
+      ofs: false
+      customized: false
+    - name: "test-bucket2-1234567890"
+      alias: "test-alias2"
+      region: "ap-guangzhou"
+      endpoint: "cos.ap-guangzhou.myqcloud.com"
+      ofs: false
+      customized: false
+`
+	if err := os.WriteFile(testConfigPath, []byte(content), 0644); err != nil {
+		logger.Errorln("创建测试配置文件失败:", err)
 		return
 	}
-}
-
-func getConfig() {
-	home, err := homedir.Dir()
-	if err != nil {
-		logger.Errorln(err)
-	}
-	viper.SetConfigFile(home + "/.cos.yaml")
-
-	if err = viper.ReadInConfig(); err != nil {
-		logger.Errorln(err)
-	}
-	if err = viper.UnmarshalKey("cos", &config); err != nil {
-		logger.Errorln(err)
-	}
-}
-
-func randStr(length int) string {
-	str := "0123456789abcdefghijklmnopqrstuvwxyz"
-	bytes := []byte(str)
-	result := []byte{}
-	rand.Seed(time.Now().UnixNano() + int64(rand.Intn(100)))
-	for i := 0; i < length; i++ {
-		result = append(result, bytes[rand.Intn(len(bytes))])
-	}
-	return string(result)
-}
-
-func setUp(testBucket, testAlias, testEndpoint string, ofs bool, versioning bool) {
-	// 创建测试桶
-	logger.Infoln(fmt.Sprintf("创建测试桶：%s-%s %s", testBucket, appID, testEndpoint))
-	clearCmd()
-	cmd := rootCmd
-	var args []string
-	if ofs {
-		args = []string{"mb",
-			fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "-o"}
-	} else {
-		args = []string{"mb",
-			fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-	}
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
-		logger.Errorln(err)
-	}
-
-	// 开启多版本
-	if versioning {
-		args := []string{"bucket-versioning", "--method", "put",
-			fmt.Sprintf("cos://%s-%s", testBucket, appID), "Enabled"}
-		cmd.SetArgs(args)
-		err := cmd.Execute()
-		if err != nil {
-			logger.Errorln(err)
-		}
-	}
-
-	if testAlias == "nil" {
+	// 重置 viper 状态，避免之前的 viper.Set 覆盖文件中的值
+	viper.Reset()
+	viper.SetConfigFile(testConfigPath)
+	if err := viper.ReadInConfig(); err != nil {
+		logger.Errorln("读取测试配置文件失败:", err)
 		return
 	}
-
-	// 更新配置文件
-	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testBucket))
-	if testAlias == "" {
-		args = []string{"config", "add", "-b",
-			fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint}
-	} else {
-		args = []string{"config", "add", "-b",
-			fmt.Sprintf("%s-%s", testBucket, appID), "-e", testEndpoint, "-a", testAlias}
-	}
-	if ofs {
-		args = append(args, "-o")
-	}
-	clearCmd()
-	cmd = rootCmd
-	cmd.SetArgs(args)
-	err = cmd.Execute()
-	if err != nil {
-		logger.Errorln(err)
-	}
-
-	// 更新 Config
-	getConfig()
-}
-
-func tearDown(testBucket, testAlias, testEndpoint string, versioning bool) {
-	if testAlias == "" {
-		testAlias = testBucket + "-" + appID
-	}
-	// 清空测试桶
-	logger.Infoln(fmt.Sprintf("清空测试桶文件：%s", testAlias))
-	var args []string
-
-	if versioning {
-		args = []string{"rm",
-			fmt.Sprintf("cos://%s", testAlias), "-r", "-f", "--all-versions"}
-	} else {
-		args = []string{"rm",
-			fmt.Sprintf("cos://%s", testAlias), "-r", "-f"}
-	}
-
-	clearCmd()
-	cmd := rootCmd
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
-		logger.Errorln(err)
-	}
-	logger.Infoln(fmt.Sprintf("清空测试桶碎片：%s", testAlias))
-	args = []string{"abort",
-		fmt.Sprintf("cos://%s", testAlias)}
-	clearCmd()
-	cmd = rootCmd
-	cmd.SetArgs(args)
-	err = cmd.Execute()
-	if err != nil {
-		logger.Errorln(err)
-	}
-
-	// 删除测试桶
-	logger.Infoln(fmt.Sprintf("删除测试桶：%s-%s %s", testBucket, appID, testEndpoint))
-	args = []string{"rb",
-		fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-	clearCmd()
-	cmd = rootCmd
-	cmd.SetArgs(args)
-	err = cmd.Execute()
-	if err != nil {
-		logger.Errorln(err)
-	}
-
-	// 更新配置文件
-	logger.Infoln(fmt.Sprintf("更新配置文件：%s", testAlias))
-	args = []string{"config", "delete", "-a", testAlias}
-	clearCmd()
-	cmd = rootCmd
-	cmd.SetArgs(args)
-	err = cmd.Execute()
-	if err != nil {
-		logger.Errorln(err)
+	if err := viper.UnmarshalKey("cos", &config); err != nil {
+		logger.Errorln("解析测试配置文件失败:", err)
 	}
 }
 
-func copyYaml() {
-	// 打开源文件
-	home, _ := homedir.Dir()
-	sourceFile, err := os.Open(home + "/.cos.yaml")
-	if err != nil {
-		logger.Errorln("failed to open source file: %w", err)
+// teardownTestConfig 删除临时测试配置文件及测试产生的临时目录
+func teardownTestConfig() {
+	if err := os.Remove(testConfigPath); err != nil && !os.IsNotExist(err) {
+		logger.Errorln("删除测试配置文件失败:", err)
 	}
-	defer sourceFile.Close()
-
-	// 创建目标文件
-	destinationFile, err := os.Create("test.yaml")
-	if err != nil {
-		logger.Errorln("failed to create destination file: %w", err)
+	// 清理 fail-output 产生的 coscli_output 目录
+	if err := os.RemoveAll("coscli_output"); err != nil && !os.IsNotExist(err) {
+		logger.Errorln("删除 coscli_output 目录失败:", err)
 	}
-	defer destinationFile.Close()
-
-	// 复制文件内容
-	_, err = io.Copy(destinationFile, sourceFile)
-	if err != nil {
-		logger.Errorln("failed to copy file content: %w", err)
-	}
-
-}
-
-func restoreYaml() {
-	// 打开源文件
-	sourceFile, err := os.Open("test.yaml")
-	if err != nil {
-		logger.Errorf("failed to open source file: %v", err)
-	}
-	defer sourceFile.Close()
-
-	// 创建目标文件
-	home, _ := homedir.Dir()
-	destinationFile, err := os.OpenFile(
-		home+"/.cos.yaml",
-		os.O_RDWR|os.O_CREATE|os.O_TRUNC, // 读写模式，如果文件存在，则清空
-		0644,                             // 文件权限
-	)
-	if err != nil {
-		logger.Errorf("failed to open destination file: %v", err)
-	}
-	defer destinationFile.Close()
-
-	// 复制文件内容
-	_, err = io.Copy(destinationFile, sourceFile)
-	if err != nil {
-		logger.Errorf("failed to copy file content: %v", err)
-	}
-
-	logger.Infoln("yaml restore success")
-
-	if err := os.RemoveAll("test.yaml"); err != nil {
-		logger.Errorln("delDir error: 删除文件夹失败")
-	}
-
-}
-
-func delYaml(name string) {
-	if err := os.RemoveAll(name); err != nil {
-		logger.Errorln("delDir error: 删除文件夹失败")
-	}
-}
-
-// 创建文件
-func genFile(fileName string, size int) {
-	data := make([]byte, 0)
-
-	rand.Seed(time.Now().Unix())
-	for i := 0; i < size; i++ {
-		u := uint8(rand.Intn(256))
-		data = append(data, u)
-	}
-
-	f, err := os.Create(fileName)
-	if err != nil {
-		logger.Errorln("genFile error: 创建文件失败")
-	}
-	defer f.Close()
-
-	n, err := f.Write(data)
-	if err != nil || n != size {
-		logger.Errorln("genFile error: 数据写入失败")
-	}
-}
-
-// 创建目录，有 num 个小文件和3个大文件
-func genDir(dirName string, num int) {
-	if err := os.MkdirAll(fmt.Sprintf("%s/small-file", dirName), os.ModePerm); err != nil {
-		logger.Errorln("genDir error: 创建文件夹失败")
-	}
-	if err := os.MkdirAll(fmt.Sprintf("%s/big-file", dirName), os.ModePerm); err != nil {
-		logger.Errorln("genDir error: 创建文件夹失败")
-	}
-
-	logger.Infoln(fmt.Sprintf("生成小文件：%s/small-file", dirName))
-	for i := 0; i < num; i++ {
-		genFile(fmt.Sprintf("%s/small-file/%d", dirName, i), 30*1024)
-	}
-	logger.Infoln(fmt.Sprintf("生成大文件：%s/big-file", dirName))
-	for i := 0; i < 3; i++ {
-		genFile(fmt.Sprintf("%s/big-file/%d", dirName, i), 5*1024*1024)
-	}
-}
-
-func delDir(dirName string) {
-	logger.Infoln(fmt.Sprintf("删除测试临时文件夹：%s", dirName))
-	if err := os.RemoveAll(dirName); err != nil {
-		logger.Errorln("delDir error: 删除文件夹失败")
+	// 清理 cp/sync 下载测试产生的 abc 目录
+	if err := os.RemoveAll("abc"); err != nil && !os.IsNotExist(err) {
+		logger.Errorln("删除 abc 目录失败:", err)
 	}
 }
 
 func clearCmd() {
-	rootCmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		flag.Value.Set(flag.DefValue)
-	})
-
-	// 重置子命令的状态
-	for _, subCmd := range rootCmd.Commands() {
-		subCmd.Flags().VisitAll(func(flag *pflag.Flag) {
+	var resetFlags func(cmd *cobra.Command)
+	resetFlags = func(cmd *cobra.Command) {
+		cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 			flag.Value.Set(flag.DefValue)
 		})
+		for _, subCmd := range cmd.Commands() {
+			resetFlags(subCmd)
+		}
 	}
+	resetFlags(rootCmd)
 }

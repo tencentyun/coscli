@@ -1,194 +1,124 @@
 package cmd
 
 import (
-	"coscli/util"
+	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
+
+	"coscli/util"
 )
 
 func TestLspartsCmd(t *testing.T) {
-	fmt.Println("TestLspartsCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
+	setupTestConfig()
+	defer teardownTestConfig()
+
 	Convey("Test coscli lsparts", t, func() {
-		Convey("success", func() {
-			Convey("ls uploads", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("ls parts", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.CheckUploadExist, func(c *cos.Client, cosUrl util.StorageUrl, uploadId string) (exist bool, err error) {
-					return true, nil
-				})
-				defer patches.Reset()
-
-				lsPatches := ApplyFunc(util.GetPartsListForLs, func(c *cos.Client, cosUrl util.StorageUrl, uploadId, partNumberMarker string, limit int) (err error, parts []cos.Object, isTruncated bool, nextPartNumberMarker string) {
-					return nil, []cos.Object{
-						{
-							Key:          "123",
-							PartNumber:   1,
-							LastModified: "2024-12-17T08:34:48.000Z",
-							ETag:         "58f06dd588d8ffb3beb46ada6309436b",
-							Size:         33554432,
-						},
-					}, false, ""
-				})
-				defer lsPatches.Reset()
-
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias), "--upload-id", "123"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
 		})
-		Convey("fail", func() {
-			Convey("limit invalid", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias), "--limit", "-1"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("New Client", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test formaturl error")
-				})
-				defer patches.Reset()
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("GetUploadsListForLs", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.GetUploadsListForLs, func(c *cos.Client, cosUrl util.StorageUrl, uploadIDMarker, keyMarker string, limit int, recursive bool) (err error, uploads []struct {
-					Key          string
-					UploadID     string `xml:"UploadId"`
-					StorageClass string
-					Initiator    *cos.Initiator
-					Owner        *cos.Owner
-					Initiated    string
-				}, isTruncated bool, nextUploadIDMarker, nextKeyMarker string) {
-					return fmt.Errorf("test GetUpload client error"), nil, false, "", ""
-				})
-				defer patches.Reset()
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("range uploads", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.GetUploadsListForLs, func(c *cos.Client, cosUrl util.StorageUrl, uploadIDMarker, keyMarker string, limit int, recursive bool) (err error, uploads []struct {
-					Key          string
-					UploadID     string `xml:"UploadId"`
-					StorageClass string
-					Initiator    *cos.Initiator
-					Owner        *cos.Owner
-					Initiated    string
-				}, isTruncated bool, nextUploadIDMarker, nextKeyMarker string) {
-					tmp := []struct {
-						Key          string
-						UploadID     string `xml:"UploadId"`
-						StorageClass string
-						Initiator    *cos.Initiator
-						Owner        *cos.Owner
-						Initiated    string
-					}{
-						{
-							Key:      "666",
-							UploadID: "888",
-						},
-					}
 
-					return nil, tmp, false, "", ""
-				})
-				defer patches.Reset()
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("upload not exist", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.CheckUploadExist, func(c *cos.Client, cosUrl util.StorageUrl, uploadId string) (exist bool, err error) {
-					return false, nil
-				})
-				defer patches.Reset()
+		Convey("invalid limit", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"lsparts", "cos://test-alias/", "--limit", "-1", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
 
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias), "--upload-id", "1"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("ls parts error", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.CheckUploadExist, func(c *cos.Client, cosUrl util.StorageUrl, uploadId string) (exist bool, err error) {
-					return true, nil
-				})
-				defer patches.Reset()
+		Convey("cos path error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"lsparts", "invalid-path", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
 
-				lsPatches := ApplyFunc(util.GetPartsListForLs, func(c *cos.Client, cosUrl util.StorageUrl, uploadId, partNumberMarker string, limit int) (err error, parts []cos.Object, isTruncated bool, nextPartNumberMarker string) {
-					return fmt.Errorf("test GetUpload client error"), nil, false, ""
+		Convey("list uploads success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListMultipartUploads",
+				func(ctx context.Context, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, *cos.Response, error) {
+					return &cos.ListMultipartUploadsResult{Uploads: nil, IsTruncated: false}, &cos.Response{}, nil
 				})
-				defer lsPatches.Reset()
+			cmd := rootCmd
+			cmd.SetArgs([]string{"lsparts", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
 
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias), "--upload-id", "1734424486bf8693045e9e926aa85008e3e58ddd5794fa68e0300d62d663c939e1a3b896d7"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("FormatUrl err", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
-					return nil, fmt.Errorf("test format url error")
+		Convey("list uploads error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListMultipartUploads",
+				func(ctx context.Context, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, *cos.Response, error) {
+					return nil, nil, fmt.Errorf("test list uploads error")
 				})
-				defer patches.Reset()
-				args := []string{"lsparts", fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
+			cmd := rootCmd
+			cmd.SetArgs([]string{"lsparts", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("list parts upload not exist", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListMultipartUploads",
+				func(ctx context.Context, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, *cos.Response, error) {
+					return &cos.ListMultipartUploadsResult{Uploads: nil, IsTruncated: false}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"lsparts", "cos://test-alias/obj", "--upload-id", "nonexistent-upload-id", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("list parts success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListMultipartUploads",
+				func(ctx context.Context, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, *cos.Response, error) {
+					return &cos.ListMultipartUploadsResult{
+						Uploads: []struct {
+							Key          string
+							UploadID     string `xml:"UploadId"`
+							StorageClass string
+							Initiator    *cos.Initiator
+							Owner        *cos.Owner
+							Initiated    string
+						}{{Key: "obj", UploadID: "test-upload-id"}},
+						IsTruncated: false,
+					}, &cos.Response{}, nil
+				})
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "ListParts",
+				func(ctx context.Context, name string, uploadID string, opt *cos.ObjectListPartsOptions) (*cos.ObjectListPartsResult, *cos.Response, error) {
+					return &cos.ObjectListPartsResult{Parts: []cos.Object{}, IsTruncated: false}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"lsparts", "cos://test-alias/obj", "--upload-id", "test-upload-id", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("invalid cos url format", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"lsparts", "cos:///invalid-object", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("NewClient error", func() {
+			patches = ApplyFunc(util.NewClient, func(cfg *util.Config, param *util.Param, bucketName string) (*cos.Client, error) {
+				return nil, fmt.Errorf("test NewClient error")
 			})
-			Convey("cos path error", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"lsparts", fmt.Sprintf("cos:/%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"lsparts", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
 	})
 }

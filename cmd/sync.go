@@ -41,6 +41,7 @@ Example:
 		rateLimiting, _ := cmd.Flags().GetFloat32("rate-limiting")
 		partSize, _ := cmd.Flags().GetInt64("part-size")
 		threadNum, _ := cmd.Flags().GetInt("thread-num")
+		maxThreadNum, _ := cmd.Flags().GetInt("max-thread-num")
 		metaString, _ := cmd.Flags().GetString("meta")
 		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		errRetryNum, _ := cmd.Flags().GetInt("err-retry-num")
@@ -152,6 +153,7 @@ Example:
 				RateLimiting:      rateLimiting,
 				PartSize:          partSize,
 				ThreadNum:         threadNum,
+				MaxThreadNum:      maxThreadNum,
 				Routines:          routines,
 				FailOutput:        failOutput,
 				FailOutputPath:    failOutputPath,
@@ -323,6 +325,12 @@ Example:
 				return err
 			}
 
+			// 获取目标桶类型（copy 请求发往目标桶，是否可带 versionId 由目标桶决定）
+			fo.DstBucketType, err = util.GetBucketType(destClient, fo.Param, fo.Config, destBucketName)
+			if err != nil {
+				return err
+			}
+
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				destClient.Conf.EnableCRC = false
@@ -346,7 +354,7 @@ Example:
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 
-		if fo.Monitor.ErrNum > 0 {
+		if fo.Monitor.ErrNum > 0 || fo.Monitor.ListErrNum > 0 {
 			logger.Warningf("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
 			os.Exit(2)
 		} else {
@@ -365,7 +373,8 @@ func init() {
 	syncCmd.Flags().String("storage-class", "", "Specifying a storage class")
 	syncCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
 	syncCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
-	syncCmd.Flags().Int("thread-num", 0, "Specifies the number of concurrent upload or download threads")
+	syncCmd.Flags().Int("thread-num", 0, "Specifies the number of concurrent upload or download threads. When set (>0), it overrides auto-derivation by file size and ignores --max-thread-num.")
+	syncCmd.Flags().Int("max-thread-num", 32, "Upper bound for auto-derived partition concurrency when --thread-num is 0. Has no effect if --thread-num is explicitly set.")
 	syncCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
@@ -404,7 +413,7 @@ func init() {
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
 	syncCmd.Flags().Bool("disable-checksum", true, "Disable overall CRC64 checksum, only validate fragments")
 	syncCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
-	syncCmd.Flags().Bool("long-links-nums", false, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
+	syncCmd.Flags().Int("long-links-nums", 0, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
 	syncCmd.Flags().Bool("skip-dir", false, "Skip folders during upload.")

@@ -235,7 +235,7 @@ func RenderInventoryConfigDetail(config *cos.BucketGetInventoryResult) {
 	table.Append([]string{"", "", ""})
 
 	// 添加目标信息
-	if config.Destination != nil && config.Destination != nil {
+	if config.Destination != nil {
 		dest := config.Destination
 		table.Append([]string{"Destination", "Bucket", dest.Bucket})
 		table.Append([]string{"Destination", "Format", dest.Format})

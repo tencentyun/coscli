@@ -8,13 +8,20 @@ import (
 )
 
 func TestConfigCmd(t *testing.T) {
-	fmt.Println("TestConfigCmd")
+	setupTestConfig()
+	defer teardownTestConfig()
+
 	Convey("Test coscli config", t, func() {
-		clearCmd()
-		cmd := rootCmd
-		args := []string{"config"}
-		cmd.SetArgs(args)
-		e := cmd.Execute()
-		So(e, ShouldBeNil)
+		Reset(func() {
+			clearCmd()
+		})
+
+		Convey("show help", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"config"})
+			e := cmd.Execute()
+			fmt.Printf(" : %v", e)
+			So(e, ShouldBeNil)
+		})
 	})
 }

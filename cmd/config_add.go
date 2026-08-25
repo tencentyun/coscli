@@ -36,6 +36,7 @@ func init() {
 	configAddCmd.Flags().StringP("region", "r", "", "Bucket region")
 	configAddCmd.Flags().StringP("alias", "a", "", "Bucket alias")
 	configAddCmd.Flags().BoolP("ofs", "o", false, "Bucket ofs")
+	configAddCmd.Flags().Bool("customized", false, "Use customized endpoint for this bucket")
 
 	_ = configAddCmd.MarkFlagRequired("bucket")
 	// _ = configAddCmd.MarkFlagRequired("endpoint")
@@ -47,16 +48,18 @@ func addBucketConfig(cmd *cobra.Command) error {
 	region, _ := cmd.Flags().GetString("region")
 	alias, _ := cmd.Flags().GetString("alias")
 	ofs, _ := cmd.Flags().GetBool("ofs")
+	customized, _ := cmd.Flags().GetBool("customized")
 
 	if alias == "" {
 		alias = name
 	}
 	bucket := util.Bucket{
-		Name:     name,
-		Endpoint: endpoint,
-		Region:   region,
-		Alias:    alias,
-		Ofs:      ofs,
+		Name:       name,
+		Endpoint:   endpoint,
+		Region:     region,
+		Alias:      alias,
+		Ofs:        ofs,
+		Customized: customized,
 	}
 
 	for _, b := range config.Buckets {
@@ -94,6 +97,6 @@ func addBucketConfig(cmd *cobra.Command) error {
 			return err
 		}
 	}
-	logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s\n, ofs: %t\n", name, endpoint, alias, ofs)
+	logger.Infof("Add successfully! name: %s, endpoint: %s, alias: %s, ofs: %t, customized: %t\n", name, endpoint, alias, ofs, customized)
 	return nil
 }

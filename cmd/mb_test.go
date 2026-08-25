@@ -13,115 +13,115 @@ import (
 )
 
 func TestMbCmd(t *testing.T) {
-	fmt.Println("TestMbCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	Convey("Test coscli mb", t, func() {
-		Convey("success", func() {
-			Convey("Create maz bucket", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"mb",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "--maz"}
+	setupTestConfig()
+	defer teardownTestConfig()
 
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "Put", func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
-					return nil, nil
-				})
-				defer patches.Reset()
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeNil)
-			})
+	Convey("Test coscli mb", t, func() {
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
 		})
-		Convey("fail", func() {
-			Convey("Already exist", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"mb",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("not enough arguments", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"mb"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("Invalid arguments", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"mb", "cos://"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("No Endpoint", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.CreateClient, func(config *util.Config, param *util.Param, bucketIDName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf(param.Endpoint)
+
+		Convey("invalid arguments", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "cos://test-alias/object", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("invalid tags", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Put",
+				func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
 				})
-				defer patches.Reset()
-				args := []string{"mb",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "--region", "guangzhou"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("Create Client", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.CreateClient, func(config *util.Config, param *util.Param, bucketIDName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test create client error")
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "cos://test-bucket-1234567890", "--tags", "invalid tag", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("create bucket success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Put",
+				func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
 				})
-				defer patches.Reset()
-				args := []string{"mb",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("Bucket.Put", func() {
-				clearCmd()
-				cmd := rootCmd
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "Put", func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
-					return nil, fmt.Errorf("test bucket put error")
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "cos://test-bucket-1234567890", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("create bucket with region success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Put",
+				func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
 				})
-				defer patches.Reset()
-				args := []string{"mb",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "cos://test-bucket-1234567890", "--region", "ap-guangzhou", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("create ofs bucket success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Put",
+				func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "cos://test-bucket-1234567890", "--ofs", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("create maz bucket success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Put",
+				func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "cos://test-bucket-1234567890", "--maz", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("create bucket error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Put",
+				func(ctx context.Context, opt *cos.BucketPutOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("test create bucket error")
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "cos://test-bucket-1234567890", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("create bucket NewClient error (CreateClient fails)", func() {
+			// 直接打桩 util.CreateClient 返回错误
+			patches = ApplyFunc(util.CreateClient, func(config *util.Config, param *util.Param, bucketIDName string) (*cos.Client, error) {
+				return nil, fmt.Errorf("test CreateClient error")
 			})
-			Convey("encode tag error", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"mb",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "--tag", "tag1"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
-			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "cos://test-bucket-1234567890", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("no args error", func() {
+			// 触发 cobra.ExactArgs(1) 失败分支
+			cmd := rootCmd
+			cmd.SetArgs([]string{"mb", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
 	})
 }

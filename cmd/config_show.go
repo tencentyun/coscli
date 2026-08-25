@@ -34,10 +34,12 @@ func showConfig() {
 	fmt.Printf("  Secret Key:    %s\n", config.Base.SecretKey)
 	fmt.Printf("  Session Token: %s\n", config.Base.SessionToken)
 	fmt.Printf("  Mode: %s\n", config.Base.Mode)
+	fmt.Printf("  ServiceDomain: %s\n", config.Base.ServiceDomain)
 	fmt.Printf("  CvmRoleName: %s\n", config.Base.CvmRoleName)
 	fmt.Printf("  CloseAutoSwitchHost: %s\n", config.Base.CloseAutoSwitchHost)
 	fmt.Printf("  DisableEncryption: %s\n", config.Base.DisableEncryption)
 	fmt.Printf("  DisableAutoFetchBucketType: %s\n", config.Base.DisableAutoFetchBucketType)
+	fmt.Printf("  Proxy: %s\n", config.Base.Proxy)
 	fmt.Println("====================")
 	fmt.Println("Bucket Configuration Information:")
 
@@ -47,5 +49,6 @@ func showConfig() {
 		fmt.Printf("  Endpoint:\t%s\n", b.Endpoint)
 		fmt.Printf("  Alias: \t%s\n", b.Alias)
 		fmt.Printf("  Ofs: \t%v\n", b.Ofs)
+		fmt.Printf("  Customized:\t%v\n", b.Customized)
 	}
 }

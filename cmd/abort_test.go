@@ -2,159 +2,118 @@ package cmd
 
 import (
 	"context"
-	"coscli/util"
 	"fmt"
+	"reflect"
+	"testing"
+
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"reflect"
-	"testing"
 )
 
 func TestAbortCmd(t *testing.T) {
-	fmt.Println("TestAbortCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
+	setupTestConfig()
+	defer teardownTestConfig()
+
 	Convey("Test coscli abort", t, func() {
-		Convey("success", func() {
-			Convey("0 success 0 fail", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"abort",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("1 success", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.GetUploadsListForLs, func(c *cos.Client, cosUrl util.StorageUrl, uploadIDMarker, keyMarker string, limit int, recursive bool) (err error, uploads []struct {
-					Key          string
-					UploadID     string `xml:"UploadId"`
-					StorageClass string
-					Initiator    *cos.Initiator
-					Owner        *cos.Owner
-					Initiated    string
-				}, isTruncated bool, nextUploadIDMarker, nextKeyMarker string) {
-					tmp := []struct {
-						Key          string
-						UploadID     string `xml:"UploadId"`
-						StorageClass string
-						Initiator    *cos.Initiator
-						Owner        *cos.Owner
-						Initiated    string
-					}{
-						{
-							Key:      "666",
-							UploadID: "888",
-						},
-					}
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
+		})
 
-					return nil, tmp, false, "", ""
-				})
-				defer patches.Reset()
-				var c *cos.ObjectService
-				patches.ApplyMethodFunc(reflect.TypeOf(c), "AbortMultipartUpload", func(ctx context.Context, name string, uploadID string, opt ...*cos.AbortMultipartUploadOptions) (*cos.Response, error) {
-					return nil, nil
-				})
-				args := []string{"abort",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("1 fail", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.GetUploadsListForLs, func(c *cos.Client, cosUrl util.StorageUrl, uploadIDMarker, keyMarker string, limit int, recursive bool) (err error, uploads []struct {
-					Key          string
-					UploadID     string `xml:"UploadId"`
-					StorageClass string
-					Initiator    *cos.Initiator
-					Owner        *cos.Owner
-					Initiated    string
-				}, isTruncated bool, nextUploadIDMarker, nextKeyMarker string) {
-					tmp := []struct {
-						Key          string
-						UploadID     string `xml:"UploadId"`
-						StorageClass string
-						Initiator    *cos.Initiator
-						Owner        *cos.Owner
-						Initiated    string
-					}{
-						{
-							Key:      "666",
-							UploadID: "888",
-						},
-					}
+		Convey("not enough argument", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"abort", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
 
-					return nil, tmp, false, "", ""
+		Convey("0 success 0 fail", func() {
+			// 打桩 cos SDK：ListMultipartUploads 返回空列表
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListMultipartUploads",
+				func(ctx context.Context, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, *cos.Response, error) {
+					return &cos.ListMultipartUploadsResult{Uploads: nil, IsTruncated: false}, &cos.Response{}, nil
 				})
-				defer patches.Reset()
-				var c *cos.ObjectService
-				patches.ApplyMethodFunc(reflect.TypeOf(c), "AbortMultipartUpload", func(ctx context.Context, name string, uploadID string, opt ...*cos.AbortMultipartUploadOptions) (*cos.Response, error) {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"abort", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("1 success", func() {
+			// 打桩 cos SDK：ListMultipartUploads 返回一个上传任务
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListMultipartUploads",
+				func(ctx context.Context, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, *cos.Response, error) {
+					return &cos.ListMultipartUploadsResult{
+						Uploads: []struct {
+							Key          string
+							UploadID     string `xml:"UploadId"`
+							StorageClass string
+							Initiator    *cos.Initiator
+							Owner        *cos.Owner
+							Initiated    string
+						}{{Key: "666", UploadID: "888"}},
+						IsTruncated: false,
+					}, &cos.Response{}, nil
+				})
+			// 打桩 cos SDK：AbortMultipartUpload 成功
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "AbortMultipartUpload",
+				func(ctx context.Context, name string, uploadID string, opt ...*cos.AbortMultipartUploadOptions) (*cos.Response, error) {
+					return &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"abort", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("1 fail", func() {
+			// 打桩 cos SDK：ListMultipartUploads 返回一个上传任务
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListMultipartUploads",
+				func(ctx context.Context, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, *cos.Response, error) {
+					return &cos.ListMultipartUploadsResult{
+						Uploads: []struct {
+							Key          string
+							UploadID     string `xml:"UploadId"`
+							StorageClass string
+							Initiator    *cos.Initiator
+							Owner        *cos.Owner
+							Initiated    string
+						}{{Key: "666", UploadID: "888"}},
+						IsTruncated: false,
+					}, &cos.Response{}, nil
+				})
+			// 打桩 cos SDK：AbortMultipartUpload 失败
+			var o *cos.ObjectService
+			patches.ApplyMethodFunc(reflect.TypeOf(o), "AbortMultipartUpload",
+				func(ctx context.Context, name string, uploadID string, opt ...*cos.AbortMultipartUploadOptions) (*cos.Response, error) {
 					return nil, fmt.Errorf("test abort fail")
 				})
-
-				args := []string{"abort",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"abort", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
 		})
-		Convey("failed", func() {
-			Convey("not enough argument", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"abort"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("client fail", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test abort client error")
+
+		Convey("GetUpload fail", func() {
+			// 打桩 cos SDK：ListMultipartUploads 返回错误
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "ListMultipartUploads",
+				func(ctx context.Context, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, *cos.Response, error) {
+					return nil, nil, fmt.Errorf("test GetUpload client error")
 				})
-				defer patches.Reset()
-				args := []string{"abort",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("GetUpload fail", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.GetUploadsListForLs, func(c *cos.Client, cosUrl util.StorageUrl, uploadIDMarker, keyMarker string, limit int, recursive bool) (err error, uploads []struct {
-					Key          string
-					UploadID     string `xml:"UploadId"`
-					StorageClass string
-					Initiator    *cos.Initiator
-					Owner        *cos.Owner
-					Initiated    string
-				}, isTruncated bool, nextUploadIDMarker, nextKeyMarker string) {
-					return fmt.Errorf("test GetUpload client error"), nil, false, "", ""
-				})
-				defer patches.Reset()
-				args := []string{"abort",
-					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"abort", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
 	})
 }

@@ -1,156 +1,129 @@
 package cmd
 
 import (
-	"coscli/util"
+	"context"
 	"fmt"
+	"net/http"
+	"reflect"
 	"testing"
 
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
+
+	"coscli/util"
 )
 
 func TestDuCmd(t *testing.T) {
-	fmt.Println("TestDuCmd")
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	testOfsBucket = randStr(8)
-	testOfsBucketAlias = testOfsBucket + "-alias"
-	testVersionBucket = randStr(8)
-	testVersionBucketAlias = testVersionBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	setUp(testOfsBucket, testOfsBucketAlias, testEndpoint, true, false)
-	defer tearDown(testOfsBucket, testOfsBucketAlias, testEndpoint, false)
-	setUp(testVersionBucket, testVersionBucketAlias, testEndpoint, false, true)
-	//defer tearDown(testVersionBucket, testVersionBucketAlias, testEndpoint, true)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	genDir(testDir, 3)
-	defer delDir(testDir)
-	localFileName := fmt.Sprintf("%s/small-file", testDir)
+	setupTestConfig()
+	defer teardownTestConfig()
 
-	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
-	args := []string{"cp", localFileName, cosFileName, "-r"}
-	cmd.SetArgs(args)
-	cmd.Execute()
-
-	ofsFileName := fmt.Sprintf("cos://%s/%s", testOfsBucketAlias, "multi-small")
-
-	args = []string{"cp", localFileName, ofsFileName, "-r"}
-	cmd.SetArgs(args)
-	cmd.Execute()
-
-	versioningFileName := fmt.Sprintf("cos://%s/%s", testVersionBucketAlias, "multi-small")
-	args = []string{"cp", localFileName, versioningFileName, "-r"}
-	cmd.SetArgs(args)
-	cmd.Execute()
 	Convey("Test coscli du", t, func() {
-		Convey("success", func() {
-			Convey("duBucket", func() {
-				clearCmd()
-				cmd := rootCmd
-				args = []string{"du", fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("duCosObjects", func() {
-				clearCmd()
-				cmd := rootCmd
-				args = []string{"du", cosFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("duOfsObjects", func() {
-				clearCmd()
-				cmd := rootCmd
-				args = []string{"du", ofsFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("duCosObjectVersions", func() {
-				clearCmd()
-				cmd := rootCmd
-				args = []string{"du", versioningFileName, "--all-versions"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
+		var patches *Patches
+		Reset(func() {
+			if patches != nil {
+				patches.Reset()
+				patches = nil
+			}
+			clearCmd()
 		})
-		Convey("fail", func() {
-			Convey("not enough arguments", func() {
-				clearCmd()
-				cmd := rootCmd
-				args = []string{"du"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("FormatUrl", func() {
-				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
-					return nil, fmt.Errorf("test formaturl fail")
+
+		Convey("cos path error", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"du", "invalid-path", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("du success", func() {
+			// 打桩 cos SDK：Bucket.Head（GetBucketType内部调用）
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
 				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args = []string{"du", "invalid"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("not cos url", func() {
-				clearCmd()
-				cmd := rootCmd
-				args = []string{"du", "invalid"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("NewClient", func() {
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test NewClient error")
+			// 打桩 cos SDK：Bucket.Get（列举对象内部调用）
+			patches.ApplyMethodFunc(reflect.TypeOf(b), "Get",
+				func(ctx context.Context, opt *cos.BucketGetOptions) (*cos.BucketGetResult, *cos.Response, error) {
+					return &cos.BucketGetResult{Contents: []cos.Object{}, IsTruncated: false}, &cos.Response{}, nil
 				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args = []string{"du", fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("get bucket version error", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.GetBucketVersioning, func(c *cos.Client) (res *cos.BucketGetVersionResult, resp *cos.Response, err error) {
-					return nil, nil, fmt.Errorf("get bucket version error")
+			cmd := rootCmd
+			cmd.SetArgs([]string{"du", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("GetBucketType error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return nil, fmt.Errorf("test head error")
 				})
-				defer patches.Reset()
-				args = []string{"du", versioningFileName, "--all-versions"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
-			})
-			Convey("versioning is not enabled", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(util.GetBucketVersioning, func(c *cos.Client) (res *cos.BucketGetVersionResult, resp *cos.Response, err error) {
-					return &cos.BucketGetVersionResult{Status: util.VersionStatusSuspended}, nil, nil
+			cmd := rootCmd
+			cmd.SetArgs([]string{"du", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("all-versions GetBucketVersioning error", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetVersioning",
+				func(ctx context.Context) (*cos.BucketGetVersionResult, *cos.Response, error) {
+					return nil, nil, fmt.Errorf("test get versioning error")
 				})
-				defer patches.Reset()
-				args = []string{"du", versioningFileName, "--all-versions"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeError)
+			cmd := rootCmd
+			cmd.SetArgs([]string{"du", "cos://test-alias/", "--all-versions", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("all-versions versioning not enabled", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetVersioning",
+				func(ctx context.Context) (*cos.BucketGetVersionResult, *cos.Response, error) {
+					return &cos.BucketGetVersionResult{Status: "Suspended"}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"du", "cos://test-alias/", "--all-versions", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("all-versions success", func() {
+			var b *cos.BucketService
+			patches = ApplyMethodFunc(reflect.TypeOf(b), "GetVersioning",
+				func(ctx context.Context) (*cos.BucketGetVersionResult, *cos.Response, error) {
+					return &cos.BucketGetVersionResult{Status: "Enabled"}, &cos.Response{}, nil
+				})
+			patches.ApplyMethodFunc(reflect.TypeOf(b), "Head",
+				func(ctx context.Context, opt ...*cos.BucketHeadOptions) (*cos.Response, error) {
+					return &cos.Response{Response: &http.Response{StatusCode: 200, Header: http.Header{}}}, nil
+				})
+			patches.ApplyMethodFunc(reflect.TypeOf(b), "GetObjectVersions",
+				func(ctx context.Context, opt *cos.BucketGetObjectVersionsOptions) (*cos.BucketGetObjectVersionsResult, *cos.Response, error) {
+					return &cos.BucketGetObjectVersionsResult{IsTruncated: false}, &cos.Response{}, nil
+				})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"du", "cos://test-alias/", "--all-versions", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeNil)
+		})
+
+		Convey("invalid cos url format", func() {
+			cmd := rootCmd
+			cmd.SetArgs([]string{"du", "cos:///invalid-object", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
+		})
+
+		Convey("NewClient error", func() {
+			patches = ApplyFunc(util.NewClient, func(cfg *util.Config, param *util.Param, bucketName string) (*cos.Client, error) {
+				return nil, fmt.Errorf("test NewClient error")
 			})
+			cmd := rootCmd
+			cmd.SetArgs([]string{"du", "cos://test-alias/", "-c", testConfigPath})
+			e := cmd.Execute()
+			So(e, ShouldBeError)
 		})
 	})
 }

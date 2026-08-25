@@ -64,26 +64,33 @@ func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []Up
 	return res
 }
 
-// get objects限频重试(最多重试10次，每次重试间隔1-10s随机)
+// tryGetObjects 拉取对象列表。
+// 5xx 错误在 SDK 层（RetryOpt）已做过 HTTP 级重试，这里不再叠加应用层重试，
+// 直接返回错误交由上层收尾退出，避免 list 阶段陷入长时间/无限重试导致进程 hang。
+// 仅对非 5xx 的瞬时错误（如网络抖动）做有限次数（最多 10 次，间隔 1~10s 随机）的应用层重试。
 func tryGetObjects(c *cos.Client, opt *cos.BucketGetOptions) (*cos.BucketGetResult, error) {
+	var res *cos.BucketGetResult
+	var err error
 	for i := 0; i <= 10; i++ {
-		res, _, err := c.Bucket.Get(context.Background(), opt)
-		if err != nil {
-			if i == 10 {
-				return res, err
-			} else {
-				//fmt.Println("Error 503: Service Unavailable. Retrying...")
-				waitTime := time.Duration(rand.Intn(10)+1) * time.Second
-				time.Sleep(waitTime)
-				continue
-			}
-		} else {
+		res, _, err = c.Bucket.Get(context.Background(), opt)
+		if err == nil {
+			return res, nil
+		}
+		// SDK 已对 5xx 错误做过重试，应用层不再叠加重试，直接返回错误。
+		if isSDKHandledError(err) {
 			return res, err
 		}
+		if i == 10 {
+			return res, err
+		}
+		waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+		time.Sleep(waitTime)
 	}
-	return nil, fmt.Errorf("Retry limit exceeded")
+	return res, err
 }
 
+// tryGetObjectVersions 拉取对象版本列表，遇到 503（Service Unavailable）时
+// 做有限次数（最多 10 次，间隔 1~10s 随机）的应用层重试，其余错误直接返回。
 func tryGetObjectVersions(c *cos.Client, opt *cos.BucketGetObjectVersionsOptions) (*cos.BucketGetObjectVersionsResult, error) {
 	for i := 0; i <= 10; i++ {
 		res, resp, err := c.Bucket.GetObjectVersions(context.Background(), opt)
@@ -107,6 +114,8 @@ func tryGetObjectVersions(c *cos.Client, opt *cos.BucketGetObjectVersionsOptions
 	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
+// tryGetUploads 拉取分块上传任务列表，遇到 503 时做有限次数的应用层重试，
+// 其余错误直接返回。
 func tryGetUploads(c *cos.Client, opt *cos.ListMultipartUploadsOptions) (*cos.ListMultipartUploadsResult, error) {
 	for i := 0; i <= 10; i++ {
 		res, resp, err := c.Bucket.ListMultipartUploads(context.Background(), opt)
@@ -130,6 +139,8 @@ func tryGetUploads(c *cos.Client, opt *cos.ListMultipartUploadsOptions) (*cos.Li
 	return nil, fmt.Errorf("Retry limit exceeded")
 }
 
+// tryGetParts 拉取指定 uploadId 的分块列表，遇到 503 时做有限次数的应用层重试，
+// 其余错误直接返回。
 func tryGetParts(c *cos.Client, prefix, uploadId string, opt *cos.ObjectListPartsOptions) (*cos.ObjectListPartsResult, error) {
 	for i := 0; i <= 10; i++ {
 		res, resp, err := c.Object.ListParts(context.Background(), prefix, uploadId, opt)
@@ -195,6 +206,7 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
 				if cosObjectMatchPatterns(commonPrefix, filters) {
+					commonPrefix, _ = url.QueryUnescape(commonPrefix)
 					table.Append([]string{commonPrefix, "DIR", "", "", "", ""})
 					total++
 				}
@@ -349,6 +361,9 @@ func ListOfsObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool,
 	return nil
 }
 
+// getOfsObjects 分页拉取 OFS 桶指定前缀下的对象与公共前缀（目录），
+// 按 limit 控制总数，recursive 为 true 时递归进入子目录，
+// 结果通过 lsCounter 累计并分批渲染输出。
 func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filters []FilterOptionType, marker string, lsCounter *LsCounter) error {
 	var err error
 	var objects []cos.Object
@@ -420,6 +435,8 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 	return nil
 }
 
+// tableRender 在累计待渲染行数达到 OfsMaxRenderNum 阈值时，
+// 输出当前表格并重置计数器与表格，实现大列表的分批渲染，避免一次性占用过多内存。
 func tableRender(lsCounter *LsCounter) {
 	if lsCounter.RenderNum >= OfsMaxRenderNum {
 		lsCounter.Table.Render()
@@ -472,6 +489,8 @@ func ListBuckets(c *cos.Client, limit int) error {
 	return err
 }
 
+// GetBucketsList 调用 Service.Get 拉取一页存储桶列表，
+// 返回本页桶、下一页 marker、是否被截断（还有更多）以及错误。
 func GetBucketsList(c *cos.Client, limit int, marker string) (buckets []cos.Bucket, nextMarker string, isTruncated bool, err error) {
 	opt := &cos.ServiceGetOptions{
 		Marker:  marker,
