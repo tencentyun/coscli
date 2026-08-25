@@ -54,7 +54,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&disableLog, "disable-log", "", false, "close coscli log")
 	rootCmd.PersistentFlags().StringVarP(&param.CloseAutoSwitchHost, "close_auto_switch_host", "", "", "Close Auto Switch Host")
 	rootCmd.PersistentFlags().StringVarP(&param.BucketType, "bucket-type", "", "", "Specify the bucket type as COS/OFS.")
-	rootCmd.PersistentFlags().StringVarP(&param.Proxy, "proxy", "", "", "Proxy URL used to access COS, e.g. http://user:pass@127.0.0.1:8080 or socks5://127.0.0.1:1080")
+	rootCmd.PersistentFlags().StringVarP(&param.Proxy, "proxy", "", "", "Proxy URL used to access COS, e.g. http://<username>:<password>@host:port or socks5://host:port")
 }
 
 func initConfig() {

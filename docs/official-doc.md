@@ -131,7 +131,7 @@ coscli 是腾讯云对象存储（Cloud Object Storage，COS）官方推出的�
 | `--disable-log` | 无 | Bool | `false` | 关闭日志输出。 |
 | `--close_auto_switch_host` | 无 | String | 空 | 关闭自动切换备用域名。设置为 `"true"` 表示关闭。 |
 | `--bucket-type` | 无 | String | 空 | 显式指定桶类型，可选 `COS` 或 `OFS`，避免每次请求自动探测。 |
-| `--proxy` | 无 | String | 空 | 指定代理地址，例如 `http://user:pass@127.0.0.1:8080` 或 `socks5://127.0.0.1:1080`。 |
+| `--proxy` | 无 | String | 空 | 指定代理地址，例如 `http://<username>:<password>@host:port` 或 `socks5://host:port`。 |
 | `--version` | `-v` | — | — | 输出 coscli 版本号后退出。 |
 | `--help` | `-h` | — | — | 输出帮助信息后退出。可在任意子命令后使用（如 `./coscli cp -h`）查看该子命令的所有参数。 |
 
