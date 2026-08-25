@@ -14,7 +14,7 @@ var secretID, secretKey, secretToken string
 
 // getProxyFunc 根据配置和参数返回 Transport 所需的 Proxy 函数，优先级：
 // 命令行参数 > 配置文件 base 级别。若均为空或解析失败则返回 nil（不使用代理）。
-// 支持 http/https/socks5 等 URL 格式，如：http://user:pass@127.0.0.1:8080 、 socks5://127.0.0.1:1080。
+// 支持 http/https/socks5 等 URL 格式，如：http://<username>:<password>@host:port 、 socks5://host:port。
 //
 // 注意：Go 的 url.Parse 对畸形输入相当宽容（例如 "not_a_url" 不会返回 err，
 // 而是被当作 path 解析得到 host 为空的 URL）。这种情况下若直接交给
